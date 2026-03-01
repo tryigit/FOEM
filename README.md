@@ -84,38 +84,43 @@ The application includes a built-in update checker that queries the latest relea
 
 ### Requirements
 
-- Python 3.10 or later
+- Rust 1.70 or later
 - ADB and Fastboot installed on your system
 - USB debugging enabled on your device
+- Linux: libxcb, libxkbcommon, libGL, libgtk-3 (for the GUI)
 
-### Installation
+### Build from Source
 
 ```
 git clone https://github.com/tryigit/FOEM.git
 cd FOEM
-pip install -r requirements.txt
-python -m src.main
+cargo build --release
 ```
 
-Detailed setup instructions and platform-specific guides will be added as the project matures.
+The compiled binary will be located at `target/release/foem` (Linux) or `target\release\foem.exe` (Windows).
+
+### Run
+
+```
+cargo run --release
+```
+
+Pre-built binaries for Linux and Windows are available on the releases page.
 
 ## Project Structure
 
 ```
 FOEM/
   src/
-    __init__.py
-    main.py           -- Application entry point
-    diagnostics.py    -- Device detection and health checks
-    gms_repair.py     -- GMS repair logic
-    update_manager.py -- Update checking against GitHub releases
-    ui/
-      __init__.py
-      app.py          -- Main application window
+    main.rs             -- Application entry point
+    app.rs              -- Main GUI window (egui, dark theme)
+    diagnostics.rs      -- ADB/Fastboot device detection and health checks
+    gms_repair.rs       -- GMS repair logic
+    update_manager.rs   -- Update checking against GitHub releases
+  Cargo.toml            -- Rust dependencies and build configuration
   .github/
     workflows/
-      build.yml       -- CI build for Windows and Linux
-  requirements.txt
+      build.yml         -- CI build for Windows and Linux
   README.md
 ```
 

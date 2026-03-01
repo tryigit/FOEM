@@ -1,3 +1,0 @@
-# FOEM dependencies
-# tkinter is part of the Python standard library and does not need to be installed separately.
-# Additional dependencies will be added as the project grows.

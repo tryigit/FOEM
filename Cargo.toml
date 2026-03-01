@@ -1,0 +1,19 @@
+[package]
+name = "foem"
+version = "0.1.0"
+edition = "2021"
+description = "Free Open Ecosystem for Mobile Devices"
+license = "MIT"
+repository = "https://github.com/tryigit/FOEM"
+
+[dependencies]
+eframe = "0.29.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+ureq = { version = "2.12", features = ["json"] }
+open = "5"
+
+[profile.release]
+opt-level = "s"
+lto = true
+strip = true
