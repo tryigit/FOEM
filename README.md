@@ -84,7 +84,7 @@ The application includes a built-in update checker that queries the latest relea
 
 ### Requirements
 
-- Rust 1.70 or later
+- Rust (stable toolchain, edition 2021)
 - ADB and Fastboot installed on your system
 - USB debugging enabled on your device
 - Linux: libxcb, libxkbcommon, libGL, libgtk-3 (for the GUI)
