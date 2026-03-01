@@ -281,3 +281,15 @@ pub fn get_cpu_info(serial: &str) -> String {
         Err(e) => format!("CPU info failed: {}", e),
     }
 }
+
+
+/// Start screen mirroring using scrcpy.
+pub fn start_scrcpy(serial: &str) -> String {
+    match std::process::Command::new("scrcpy")
+        .arg("-s")
+        .arg(serial)
+        .spawn() {
+        Ok(_) => format!("Launched scrcpy for device {}", serial),
+        Err(e) => format!("Failed to launch scrcpy: {}\nIs scrcpy installed on your system?", e),
+    }
+}

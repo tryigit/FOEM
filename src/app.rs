@@ -326,6 +326,13 @@ impl FOEMApp {
                     self.log = "Connect a device first.".into();
                 }
             }
+            if btn(ui, "Attempt Locked Root") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::bootloader::attempt_locked_root(s);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
         });
 
         section(ui, "Notes");
@@ -828,6 +835,10 @@ impl FOEMApp {
                 }
                 if btn(ui, "Screenshot") {
                     if let Ok(s) = self.require_device() { self.log = features::tools::take_screenshot(s, &self.local_path); }
+                    else { self.log = "Connect a device first.".into(); }
+                }
+                if btn(ui, "Screen Mirror (scrcpy)") {
+                    if let Ok(s) = self.require_device() { self.log = features::tools::start_scrcpy(s); }
                     else { self.log = "Connect a device first.".into(); }
                 }
             });
