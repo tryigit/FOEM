@@ -609,6 +609,21 @@ impl FOEMApp {
                 }
             });
 
+            // Root
+            section(ui, "Root (Magisk / KernelSU)");
+            ui.horizontal(|ui| {
+                if btn_accent(ui, "Install Magisk") {
+                    if let Ok(s) = self.require_device() {
+                        self.log = features::flash::install_magisk(s, &self.flash_path);
+                    } else { self.log = "Connect a device first.".into(); }
+                }
+                if btn_accent(ui, "Install KernelSU") {
+                    if let Ok(s) = self.require_device() {
+                        self.log = features::flash::install_kernelsu(s, &self.flash_path);
+                    } else { self.log = "Connect a device first.".into(); }
+                }
+            });
+
             // Recovery
             section(ui, "Recovery");
             ui.horizontal(|ui| {
