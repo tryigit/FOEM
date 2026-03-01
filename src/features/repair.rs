@@ -26,7 +26,7 @@ pub fn read_imei(serial: &str) -> String {
         }
     }
     // Try AT command via dialer
-    match adb_shell(serial, &["am", "start", "-a", "android.intent.action.DIAL", "-d", "tel:*%2306%23"]) {
+    match adb_shell(serial, &["am", "start", "-a", "android.intent.action.DIAL", "-d", "tel:%2A%2306%23"]) {
         Ok(_) => output.push_str("  Dialer IMEI check launched (*#06#)\n"),
         Err(_) => {}
     }

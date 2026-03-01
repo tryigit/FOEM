@@ -3,7 +3,7 @@ name = "foem"
 version = "0.1.0"
 edition = "2021"
 description = "Free Open Ecosystem for Mobile Devices"
-license = "MIT"
+license = "SEE LICENSE IN LICENSE"
 repository = "https://github.com/tryigit/FOEM"
 
 [dependencies]
