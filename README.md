@@ -1,6 +1,20 @@
 <div align="center">
+
   <h1>FOEM</h1>
-  <p><b>Empowering Freedom and Academic Research in Mobile Ecosystems</b></p>
+
+  <p><b>Free Open Ecosystem for Mobile Devices</b></p>
+
+  <a href="https://github.com/tryigit/FOEM/releases">
+    <img src="https://img.shields.io/github/v/release/tryigit/FOEM?style=for-the-badge&label=Download&color=0d1117" alt="Download Latest Release">
+  </a>
+  <a href="https://github.com/tryigit/FOEM">
+    <img src="https://img.shields.io/github/stars/tryigit/FOEM?style=for-the-badge&color=0d1117" alt="GitHub Stars">
+  </a>
+  <a href="https://github.com/tryigit/FOEM/actions">
+    <img src="https://img.shields.io/github/actions/workflow/status/tryigit/FOEM/build.yml?style=for-the-badge&label=Build&color=0d1117" alt="Build Status">
+  </a>
+
+  <br><br>
 
   <a href="https://t.me/cleverestech">
     <img src="https://img.shields.io/badge/Telegram_Channel-Cleveres_Tech-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white" alt="Telegram Channel">
@@ -11,81 +25,120 @@
   <a href="https://t.me/tryigitx">
     <img src="https://img.shields.io/badge/Developer-@tryigitx-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white" alt="Contact tryigitx">
   </a>
+
 </div>
 
-## 📌 Overview
+---
 
-**FOEM** is an advanced, specialized application designed to systematically bypass and remove manufacturer-imposed restrictions on mobile devices, such as Bootloader (BL) locks. Developed strictly for **freedom of software** and **academic research**, FOEM grants users complete control over their hardware. 
+## Overview
 
-We believe that once you purchase a device, you should have full authority over its operation. FOEM is built to break down artificial barriers safely and efficiently.
+**FOEM** is a free, cross-platform application designed to remove manufacturer-imposed restrictions on mobile devices such as Bootloader (BL) locks. Built for **freedom of software** and **academic research**, FOEM gives users complete control over their own hardware.
 
-## ✨ Key Features
+Once you purchase a device, you should have full authority over it. FOEM breaks down artificial barriers safely and efficiently.
 
-- **Bootloader (BL) Unlocking:** Seamlessly circumvent BL locks to allow custom firmware installation, root access, and low-level system modifications.
-- **Advanced Boot Unlock Features:** Comprehensive options for unlocking bootloaders across various manufacturers, completely free of charge.
-- **ADB & Fastboot Support:** Full integration with ADB and Fastboot for complete device management, debugging, and flashing capabilities.
-- **EDL (Emergency Download) Support:** Low-level device flashing and unbricking through emergency protocols like Qualcomm's EDL mode.
-- **Repair Shop Utilities:** Integrates essential applications and tools commonly used by professional phone repair shops to diagnose, service, and restore devices.
-- **Advanced Diagnostic Capabilities:** Deep-level insights into your device's partitions, boot states, and OEM parameters.
-- **Academic & Research Focused:** An essential tool for security researchers, developers, and academics analyzing mobile operating systems and bootchains.
-- **100% Free:** FOEM is provided completely free of charge. No premium tiers, no hidden fees, just unrestricted freedom.
+## Our Mission
 
-## 🎯 Our Mission
+We will prevent phone repair shops from charging fees for software through dealerships. This is a completely free application. FOEM is designed to give you back control of your device without hidden costs or gatekeeping.
 
-**We will prevent phone repair shops from charging fees for software through dealerships. This is a free app.** FOEM is designed to give you back control of your device without hidden costs or gatekeeping.
+## Key Features
 
-## 🎨 Design Philosophy
+- **Bootloader (BL) Unlocking** -- Circumvent BL locks to allow custom firmware installation, root access, and low-level system modifications.
+- **ADB and Fastboot Integration** -- Full device management, debugging, and flashing capabilities through ADB and Fastboot.
+- **EDL (Emergency Download) Support** -- Low-level device flashing and unbricking through emergency protocols such as Qualcomm EDL mode.
+- **GMS Repair** -- Diagnose and restore Google Mobile Services on devices where GMS is broken or missing.
+- **Device Diagnostics** -- Deep-level insights into device partitions, boot states, and OEM parameters.
+- **Repair Shop Utilities** -- Essential tools commonly used by professional phone repair shops to diagnose, service, and restore devices.
+- **Built-in Update Checker** -- Automatic update checking against the latest GitHub release.
+- **100% Free** -- No premium tiers, no hidden fees. Completely free and open.
 
-The user interface and user experience of FOEM are deeply inspired by the sleek, intuitive, and modern designs of **iOS** and **NothingOS**. We believe that powerful tools should also be beautiful and easy to use.
+## Design Philosophy
 
-## 📱 Supported Manufacturers
+The user interface and experience of FOEM are inspired by the clean, modern aesthetics of **iOS**, **NothingOS**, and similar design systems. The goal is a minimal, intuitive, and visually polished application.
 
-FOEM is committed to universal compatibility. We plan to support all major smartphone manufacturers, including but not limited to:
-- Samsung
-- Xiaomi / POCO / Redmi
-- Google (Pixel)
-- OnePlus
-- Motorola
-- Sony
-- LG
-- Nokia
-- Huawei
-- Infinix
-- Oppo
-- Vivo
-- Realme
-- Asus
-- ZTE
-- Meizu
-- Lenovo
-- Honor
+## Supported Manufacturers
 
-**Note: This program will support them all.**
+FOEM is committed to universal compatibility. This program will support all major smartphone manufacturers:
 
-## 🔄 Updates & Releases
+| Manufacturer | Manufacturer | Manufacturer |
+| :--- | :--- | :--- |
+| Samsung | Xiaomi / POCO / Redmi | Google (Pixel) |
+| OnePlus | Motorola | Sony |
+| LG | Nokia | Huawei |
+| Infinix | Oppo | Vivo |
+| Realme | Asus | ZTE |
+| Meizu | Lenovo | Honor |
 
-Stay up-to-date with the latest features, bug fixes, and supported devices. Our built-in update checker will notify you of new versions.
+All listed manufacturers and their sub-brands will be fully supported.
 
-You can also manually check for and download the latest releases directly from our GitHub page:
-👉 **[FOEM Releases (https://github.com/tryigit/FOEM/releases)](https://github.com/tryigit/FOEM/releases)**
+## Updates and Releases
 
-## ⚖️ Legal & Ethical Disclaimer
+The application includes a built-in update checker that queries the latest release from the GitHub repository. You can also download releases manually:
 
-**FOEM** is intended strictly for academic purposes, independent research, and right-to-repair initiatives. 
-- The developers assume **no responsibility** for any damage caused to your device (including soft/hard bricking, loss of data, or voiding of warranties). 
-- Please proceed with caution and ensure you fully understand the risks associated with modifying bootloaders and low-level firmware.
+<p>
+  <a href="https://github.com/tryigit/FOEM/releases">
+    <img src="https://img.shields.io/badge/Download-Latest_Release-blue?style=for-the-badge&logo=github&logoColor=white" alt="Latest Release">
+  </a>
+</p>
 
-## 🚀 Getting Started
+## Getting Started
 
-*(Installation and usage instructions will be added here.)*
+### Requirements
 
-## 🤝 Contributing
+- Python 3.10 or later
+- ADB and Fastboot installed on your system
+- USB debugging enabled on your device
 
-We welcome contributions from the community. If you have improvements, bug fixes, or feature ideas, feel free to open a pull request or submit an issue.
+### Installation
 
-## 💖 Support the Development
+```
+git clone https://github.com/tryigit/FOEM.git
+cd FOEM
+pip install -r requirements.txt
+python -m src.main
+```
 
-If you find this project helpful, consider supporting the development. Your contributions help maintain the project and develop new features.
+Detailed setup instructions and platform-specific guides will be added as the project matures.
+
+## Project Structure
+
+```
+FOEM/
+  src/
+    __init__.py
+    main.py           -- Application entry point
+    diagnostics.py    -- Device detection and health checks
+    gms_repair.py     -- GMS repair logic
+    update_manager.py -- Update checking against GitHub releases
+    ui/
+      __init__.py
+      app.py          -- Main application window
+  .github/
+    workflows/
+      build.yml       -- CI build for Windows and Linux
+  requirements.txt
+  README.md
+```
+
+## Legal and Ethical Disclaimer
+
+FOEM is intended strictly for academic purposes, independent research, and right-to-repair initiatives. The developers assume no responsibility for any damage caused to your device, including soft/hard bricking, loss of data, or voiding of warranties. Proceed with caution and ensure you understand the risks associated with modifying bootloaders and low-level firmware.
+
+## Contributing
+
+Contributions are welcome. If you have improvements, bug fixes, or feature ideas, open a pull request or submit an issue.
+
+<p>
+  <a href="https://github.com/tryigit/FOEM/issues">
+    <img src="https://img.shields.io/badge/Report_Issue-GitHub-red?style=for-the-badge&logo=github&logoColor=white" alt="Report Issue">
+  </a>
+  <a href="https://github.com/tryigit/FOEM/pulls">
+    <img src="https://img.shields.io/badge/Pull_Requests-GitHub-green?style=for-the-badge&logo=github&logoColor=white" alt="Pull Requests">
+  </a>
+</p>
+
+## Support the Development
+
+If you find this project helpful, consider supporting the development. Your contributions help maintain the project and keep it free for everyone.
 
 ### Crypto Addresses
 
@@ -97,12 +150,17 @@ If you find this project helpful, consider supporting the development. Your cont
 
 ### Platforms
 
-*   **Binance User ID:** `114574830`
-*   **PayPal:** [paypal.me/tryigitx](https://www.paypal.me/tryigitx)
-*   **BuyMeACoffee:** [buymeacoffee.com/yigitx](https://buymeacoffee.com/yigitx)
+<p>
+  <a href="https://www.paypal.me/tryigitx">
+    <img src="https://img.shields.io/badge/PayPal-Donate-003087?style=for-the-badge&logo=paypal&logoColor=white" alt="PayPal">
+  </a>
+  <a href="https://buymeacoffee.com/yigitx">
+    <img src="https://img.shields.io/badge/Buy_Me_A_Coffee-Support-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black" alt="Buy Me a Coffee">
+  </a>
+</p>
 
-Thank you for your support!
+- **Binance User ID:** `114574830`
 
-## 📄 License
+## License
 
-*(License information to be updated)*
+This project is licensed under the MIT License. See the LICENSE file for details.
