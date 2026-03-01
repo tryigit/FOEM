@@ -30,6 +30,45 @@ We believe that once you purchase a device, you should have full authority over 
 - **Academic & Research Focused:** An essential tool for security researchers, developers, and academics analyzing mobile operating systems and bootchains.
 - **100% Free:** FOEM is provided completely free of charge. No premium tiers, no hidden fees, just unrestricted freedom.
 
+## 🎯 Our Mission
+
+**We will prevent phone repair shops from charging fees for software through dealerships. This is a free app.** FOEM is designed to give you back control of your device without hidden costs or gatekeeping.
+
+## 🎨 Design Philosophy
+
+The user interface and user experience of FOEM are deeply inspired by the sleek, intuitive, and modern designs of **iOS** and **NothingOS**. We believe that powerful tools should also be beautiful and easy to use.
+
+## 📱 Supported Manufacturers
+
+FOEM is committed to universal compatibility. We plan to support all major smartphone manufacturers, including but not limited to:
+- Samsung
+- Xiaomi / POCO / Redmi
+- Apple
+- Google (Pixel)
+- OnePlus
+- Motorola
+- Sony
+- LG
+- Nokia
+- Huawei
+- Oppo
+- Vivo
+- Realme
+- Asus
+- ZTE
+- Meizu
+- Lenovo
+- Honor
+
+**Note: This program will support them all.**
+
+## 🔄 Updates & Releases
+
+Stay up-to-date with the latest features, bug fixes, and supported devices. Our built-in update checker will notify you of new versions.
+
+You can also manually check for and download the latest releases directly from our GitHub page:
+👉 **[FOEM Releases (https://github.com/tryigit/FOEM/releases)](https://github.com/tryigit/FOEM/releases)**
+
 ## ⚖️ Legal & Ethical Disclaimer
 
 **FOEM** is intended strictly for academic purposes, independent research, and right-to-repair initiatives. 
