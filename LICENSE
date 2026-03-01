@@ -1,0 +1,238 @@
+FOEM Non-Commercial Software License
+Version 1.0
+
+Copyright (c) 2025 Yigit. All Rights Reserved.
+
+
+IMPORTANT: READ THIS LICENSE AGREEMENT CAREFULLY BEFORE USING THIS SOFTWARE.
+
+This End-User License Agreement ("Agreement") is a legally binding contract
+between you ("User", "You") and Yigit ("Author", "Licensor", "Rights Holder")
+governing your use of the FOEM software application, including all associated
+source code, binaries, documentation, and related materials (collectively,
+the "Software").
+
+By downloading, installing, copying, accessing, or otherwise using the
+Software, you acknowledge that you have read, understood, and agree to be
+bound by all terms and conditions of this Agreement. If you do not agree to
+these terms, you must not download, install, or use the Software in any form.
+
+
+1. DEFINITIONS
+
+   1.1 "Software" refers to the FOEM application, including but not limited
+       to all source code, compiled binaries, libraries, modules,
+       documentation, configuration files, assets, and any updates or
+       modifications provided by the Author.
+
+   1.2 "Commercial Use" means any use of the Software, in whole or in part,
+       that is intended for or directed toward commercial advantage, monetary
+       compensation, or revenue generation by any individual, business, or
+       organization, whether directly or indirectly.
+
+   1.3 "Author" refers to Yigit, the sole creator and rights holder of the
+       Software.
+
+   1.4 "Non-Commercial Purpose" means use solely for personal, academic,
+       educational, or independent security research activities that do not
+       generate revenue or provide commercial advantage.
+
+
+2. GRANT OF LICENSE
+
+   2.1 Subject to the terms and conditions of this Agreement, the Author
+       grants you a limited, non-exclusive, non-transferable, revocable
+       license to use the Software solely for Non-Commercial Purposes.
+
+   2.2 Permitted uses include:
+       (a) Personal use on your own devices.
+       (b) Academic and educational use within accredited institutions.
+       (c) Independent security research and analysis.
+       (d) Right-to-repair activities on devices you personally own.
+       (e) Study of the source code for educational purposes.
+
+
+3. COMMERCIAL USE PROHIBITION
+
+   3.1 ANY AND ALL COMMERCIAL USE OF THE SOFTWARE IS STRICTLY PROHIBITED
+       WITHOUT PRIOR EXPLICIT WRITTEN PERMISSION FROM THE AUTHOR.
+
+   3.2 Prohibited commercial uses include, but are not limited to:
+       (a) Use by mobile phone repair shops, service centers, technicians,
+           or any individual or entity providing device repair services for
+           profit or compensation of any kind.
+       (b) Selling, licensing, sublicensing, renting, leasing, or otherwise
+           distributing the Software or any portion thereof for a fee.
+       (c) Offering the Software as a service, including but not limited to
+           Software-as-a-Service (SaaS), Platform-as-a-Service (PaaS), or
+           any cloud-based or hosted service model.
+       (d) Integrating the Software, or any portion of its code, into any
+           commercial product, paid application, or proprietary system.
+       (e) Forking, modifying, adapting, or creating derivative works of
+           the Software for the purpose of monetization or commercial
+           distribution.
+       (f) Using the Software to provide paid training, consulting, or
+           technical support services.
+       (g) Bundling the Software with commercially distributed hardware
+           or software packages.
+       (h) Using the Software in any business environment where its use
+           directly or indirectly contributes to revenue generation.
+
+   3.3 Violation of this section constitutes a material breach of this
+       Agreement and may result in legal action, including claims for
+       damages and injunctive relief.
+
+
+4. RESERVATION OF RIGHTS AND DUAL-LICENSING
+
+   4.1 The Author retains all intellectual property rights, including but
+       not limited to copyrights, trade secrets, and any other proprietary
+       rights in and to the Software.
+
+   4.2 No rights are granted to you other than those expressly set forth
+       in this Agreement. All rights not expressly granted are reserved by
+       the Author.
+
+   4.3 The Author expressly reserves the exclusive right to issue separate
+       commercial licenses for the Software at any time, at the Author's
+       sole discretion (Dual-Licensing Model).
+
+   4.4 Any individual, business, or organization wishing to use the Software
+       for Commercial Use must obtain explicit, prior written permission
+       from the Author through a separately negotiated commercial license
+       agreement.
+
+   4.5 Inquiries regarding commercial licensing may be directed to the Author
+       through the official project repository at:
+       https://github.com/tryigit/FOEM
+
+
+5. REDISTRIBUTION
+
+   5.1 Redistribution of the Software is permitted only if ALL of the
+       following conditions are met:
+       (a) The redistribution is strictly non-commercial.
+       (b) The Software is redistributed in its complete, unmodified form.
+       (c) This exact License Agreement and the original copyright notice
+           are included with every copy or distribution.
+       (d) No modifications, alterations, or additions have been made to
+           the Software or its associated files.
+       (e) The redistribution does not imply endorsement by the Author.
+
+   5.2 Modified versions of the Software may not be redistributed under
+       any circumstances without prior written permission from the Author.
+
+
+6. DISCLAIMER OF WARRANTY
+
+   THE SOFTWARE IS PROVIDED "AS IS", "WITH ALL FAULTS", AND "AS AVAILABLE",
+   WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT
+   LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+   PURPOSE, NON-INFRINGEMENT, ACCURACY, COMPLETENESS, OR RELIABILITY.
+
+   THE AUTHOR MAKES NO WARRANTY THAT THE SOFTWARE WILL MEET YOUR
+   REQUIREMENTS, THAT THE OPERATION OF THE SOFTWARE WILL BE UNINTERRUPTED
+   OR ERROR-FREE, OR THAT DEFECTS IN THE SOFTWARE WILL BE CORRECTED.
+
+   THE ENTIRE RISK AS TO THE QUALITY, PERFORMANCE, AND RESULTS OBTAINED
+   FROM THE USE OF THE SOFTWARE IS ASSUMED SOLELY AND ENTIRELY BY YOU.
+
+   NO ORAL OR WRITTEN INFORMATION OR ADVICE GIVEN BY THE AUTHOR SHALL
+   CREATE A WARRANTY OR IN ANY WAY INCREASE THE SCOPE OF THE WARRANTIES
+   EXPRESSLY PROVIDED HEREIN.
+
+
+7. LIMITATION OF LIABILITY AND DEVICE-SPECIFIC RISKS
+
+   7.1 THE SOFTWARE INTERACTS WITH LOW-LEVEL DEVICE HARDWARE, INCLUDING
+       BUT NOT LIMITED TO BOOTLOADERS, EMERGENCY DOWNLOAD (EDL) MODES,
+       BASEBAND PROCESSORS, EFS PARTITIONS, IMEI DATA, NV DATA, AND OTHER
+       CRITICAL SYSTEM COMPONENTS. SUCH OPERATIONS CARRY INHERENT AND
+       SIGNIFICANT RISKS.
+
+   7.2 BY USING THE SOFTWARE, YOU EXPRESSLY ACKNOWLEDGE AND ACCEPT THAT
+       YOU ASSUME 100% OF ALL RISKS ASSOCIATED WITH ITS USE, INCLUDING
+       BUT NOT LIMITED TO:
+       (a) PERMANENT DEVICE BRICKING (SOFT-BRICK OR HARD-BRICK).
+       (b) COMPLETE OR PARTIAL HARDWARE DAMAGE OR FAILURE.
+       (c) IRREVERSIBLE LOSS OF DATA, INCLUDING PERSONAL FILES, CONTACTS,
+           MESSAGES, APPLICATIONS, AND SYSTEM CONFIGURATIONS.
+       (d) VOIDING OF MANUFACTURER WARRANTIES AND SERVICE AGREEMENTS.
+       (e) LOSS OF DEVICE CERTIFICATIONS OR REGULATORY COMPLIANCE.
+       (f) TRIGGERING OF SECURITY MECHANISMS (E.G., SAMSUNG KNOX, FRP,
+           MDM LOCKS) THAT MAY RENDER THE DEVICE UNUSABLE.
+       (g) CORRUPTION OF IMEI, BASEBAND, EFS, OR NV DATA THAT MAY AFFECT
+           CELLULAR CONNECTIVITY OR DEVICE IDENTIFICATION.
+       (h) LEGAL CONSEQUENCES ARISING FROM THE MODIFICATION OF DEVICE
+           IDENTIFIERS OR CIRCUMVENTION OF MANUFACTURER PROTECTIONS IN
+           YOUR JURISDICTION.
+
+   7.3 IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
+       INCIDENTAL, SPECIAL, CONSEQUENTIAL, EXEMPLARY, OR PUNITIVE DAMAGES
+       (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+       SERVICES, LOSS OF USE, LOSS OF DATA, LOSS OF PROFITS, LOSS OF
+       BUSINESS, OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+       THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+       (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
+       USE OF OR INABILITY TO USE THE SOFTWARE, EVEN IF THE AUTHOR HAS
+       BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+
+   7.4 THE FOREGOING LIMITATIONS SHALL APPLY TO THE FULLEST EXTENT
+       PERMITTED BY APPLICABLE LAW IN THE RELEVANT JURISDICTION.
+
+
+8. USER RESPONSIBILITY AND LEGAL COMPLIANCE
+
+   8.1 You are solely responsible for ensuring that your use of the Software
+       complies with all applicable local, state, national, and international
+       laws, regulations, and ordinances.
+
+   8.2 Certain features of the Software, including but not limited to IMEI
+       modification, bootloader unlocking, FRP bypass, and carrier unlock,
+       may be regulated or prohibited in certain jurisdictions. It is your
+       sole responsibility to determine the legality of such operations in
+       your jurisdiction before using these features.
+
+   8.3 The Author does not encourage, condone, or support the use of the
+       Software for any unlawful purpose. The Software is provided as a
+       research and educational tool.
+
+
+9. TERMINATION
+
+   9.1 This Agreement is effective until terminated. Your rights under this
+       Agreement will terminate automatically without notice if you fail to
+       comply with any of its terms or conditions.
+
+   9.2 Upon termination, you must immediately cease all use of the Software
+       and destroy all copies in your possession or control.
+
+   9.3 Sections 3, 4, 6, 7, 8, and 10 shall survive the termination of
+       this Agreement.
+
+
+10. GENERAL PROVISIONS
+
+   10.1 ENTIRE AGREEMENT: This Agreement constitutes the entire agreement
+        between you and the Author regarding the Software and supersedes
+        all prior or contemporaneous communications, proposals, and
+        representations with respect to the Software.
+
+   10.2 SEVERABILITY: If any provision of this Agreement is held to be
+        invalid, illegal, or unenforceable, the remaining provisions shall
+        continue in full force and effect.
+
+   10.3 WAIVER: The failure of the Author to enforce any right or provision
+        of this Agreement shall not constitute a waiver of such right or
+        provision.
+
+   10.4 AMENDMENTS: The Author reserves the right to modify this Agreement
+        at any time. Continued use of the Software after any such
+        modification constitutes acceptance of the modified terms.
+
+   10.5 ASSIGNMENT: You may not assign or transfer this Agreement or any
+        rights granted hereunder without the Author's prior written consent.
+
+
+For licensing inquiries, contributions, or to report violations:
+https://github.com/tryigit/FOEM

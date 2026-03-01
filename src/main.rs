@@ -1,6 +1,10 @@
 mod app;
 mod diagnostics;
-mod gms_repair;
+#[allow(dead_code)]
+mod features;
+mod license_text;
+#[allow(dead_code)]
+mod theme;
 mod update_manager;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -9,8 +13,8 @@ fn main() -> eframe::Result {
     let options = eframe::NativeOptions {
         viewport: eframe::egui::ViewportBuilder::default()
             .with_title(format!("FOEM v{}", VERSION))
-            .with_inner_size([960.0, 640.0])
-            .with_min_inner_size([720.0, 480.0]),
+            .with_inner_size([1060.0, 680.0])
+            .with_min_inner_size([800.0, 520.0]),
         ..Default::default()
     };
 

@@ -42,14 +42,72 @@ We will prevent phone repair shops from charging fees for software through deale
 
 ## Key Features
 
-- **Bootloader (BL) Unlocking** -- Circumvent BL locks to allow custom firmware installation, root access, and low-level system modifications.
-- **ADB and Fastboot Integration** -- Full device management, debugging, and flashing capabilities through ADB and Fastboot.
-- **EDL (Emergency Download) Support** -- Low-level device flashing and unbricking through emergency protocols such as Qualcomm EDL mode.
-- **GMS Repair** -- Diagnose and restore Google Mobile Services on devices where GMS is broken or missing.
-- **Device Diagnostics** -- Deep-level insights into device partitions, boot states, and OEM parameters.
-- **Repair Shop Utilities** -- Essential tools commonly used by professional phone repair shops to diagnose, service, and restore devices.
-- **Built-in Update Checker** -- Automatic update checking against the latest GitHub release.
-- **100% Free** -- No premium tiers, no hidden fees. Completely free and open.
+### Bootloader Management
+
+- Bootloader status checking and OEM unlock verification
+- Bootloader unlocking with manufacturer-specific methods
+- Bootloader relocking
+- Fastboot device variable inspection
+- Samsung Odin/Download mode, Xiaomi Mi Unlock, Huawei HiSilicon, Motorola unlock codes, Sony developer unlock, and standard fastboot OEM unlock
+
+### Device Repair
+
+- **IMEI Management** -- Read, backup, and write IMEI numbers using AT commands, service calls, and manufacturer-specific diagnostic methods
+- **GMS Repair** -- Diagnose, clear cache, and restore Google Mobile Services (GMS, GSF, Play Store, Setup Wizard)
+- **EFS Backup and Restore** -- Protect critical EFS partition data that stores IMEI, calibration, and radio configuration
+- **NV Data Management** -- Backup and restore non-volatile data partitions (modemst1, modemst2, fsg, fsc)
+- **DRK Repair** -- Device Root Key repair for Samsung devices (cc.dat, prov_data, ridge.dat)
+- **Baseband and Modem Repair** -- Check baseband version, RIL, modem board info, and clear modem cache
+- **CSC Change** -- Change Consumer Software Customization on Samsung devices (region/carrier settings)
+- **Knox Counter Check** -- Verify Samsung Knox warranty trip counter status
+- **Build.prop Reader** -- View critical system properties (model, manufacturer, Android version, security patch, fingerprint, hardware, bootloader)
+
+### Network and Security
+
+- **FRP Bypass** -- Factory Reset Protection bypass with multiple methods: ADB bypass, Setup Wizard skip, Account Manager removal, Content Provider reset
+- **Google Account Removal** -- Remove Google account databases and clear GMS/GSF data for FRP preparation
+- **Carrier and SIM Unlock** -- Check operator info, SIM state, network type, and apply NCK unlock codes
+- **MDM Removal** -- Detect and remove Mobile Device Management profiles (Device Owner, Profile Owner, device_policies.xml)
+- **Knox Bypass** -- Samsung Knox enrollment bypass by disabling Knox-related packages for the current user
+
+### Flashing Tools
+
+- **EDL Mode (Qualcomm 9008)** -- Enter Emergency Download mode via ADB, shell, or fastboot, with manual test-point instructions
+- **EDL Flash** -- Flash via Qualcomm Sahara/Firehose protocol with chipset-specific programmer files
+- **Fastboot Flash** -- Flash individual partitions (boot, recovery, system, vendor, dtbo, vbmeta, super, modem, radio, and more)
+- **Partition Erase** -- Erase specific partitions via fastboot
+- **vbmeta Flash** -- Flash vbmeta with disabled verification for custom ROM installations
+- **Recovery Flash** -- Install custom recovery (TWRP, OrangeFox) via fastboot flash or temporary boot
+- **Firmware Flash** -- Flash full stock firmware with manufacturer-specific protocols (Samsung Odin, Xiaomi fastboot, Huawei eRecovery)
+- **MediaTek SP Flash** -- Enter BROM/Preloader mode, scatter file support, DA file loading
+- **Reboot Modes** -- Reboot to system, recovery, bootloader, EDL, download mode, or sideload mode
+
+### Hardware Diagnostics
+
+- **Battery** -- Health, level, temperature, voltage, charging status, and detailed battery statistics
+- **Display** -- Resolution, density, refresh rate, physical display info, and touch input axis detection
+- **Sensors** -- Full sensor service dump: accelerometer, gyroscope, proximity, light, magnetometer, barometer, and more
+- **Audio** -- Speaker, microphone, earpiece detection, volume streams, and audio subsystem dump
+- **Cameras** -- Camera count detection, camera IDs, facing direction (front/rear)
+- **Connectivity** -- WiFi, Bluetooth, GPS, and NFC availability and status
+- **Biometrics** -- Fingerprint sensor HAL detection, face unlock availability
+- **Storage** -- Disk usage, partition layout, primary storage UUID
+- **USB** -- USB mode (MTP, ADB, PTP), controller info
+- **Telephony** -- SIM state, operator, network type, phone type, data state
+
+### Utility Tools
+
+- **ADB Shell** -- Interactive command execution on the connected device
+- **Logcat Viewer** -- Capture and display device logs, clear logcat buffer
+- **File Manager** -- Pull files from device, push files to device, list directory contents
+- **APK Installer** -- Sideload APK files via ADB with reinstall and downgrade support
+- **Package Manager** -- List all packages, user-installed packages, or system packages with optional filtering
+- **Bloatware Removal** -- Disable system apps for current user (no root required) and re-enable previously disabled apps
+- **Full Backup and Restore** -- Complete device backup (apps, data, shared storage) and restore via ADB backup
+- **Screenshot and Screen Recording** -- Capture device screen and pull to local machine
+- **Device Reboot** -- Reboot to system, recovery, bootloader, with quick-access buttons
+- **Developer Options** -- Launch device info settings for build number tap activation
+- **System Info** -- Device uptime, memory info, CPU info, running process list
 
 ## Design Philosophy
 
@@ -57,18 +115,22 @@ The user interface and experience of FOEM are inspired by the clean, modern aest
 
 ## Supported Manufacturers
 
-FOEM is committed to universal compatibility. This program will support all major smartphone manufacturers:
+FOEM is committed to universal compatibility. This program supports all major smartphone manufacturers with manufacturer-specific methods and protocols:
 
-| Manufacturer | Manufacturer | Manufacturer |
-| :--- | :--- | :--- |
-| Samsung | Xiaomi / POCO / Redmi | Google (Pixel) |
-| OnePlus | Motorola | Sony |
-| LG | Nokia | Huawei |
-| Infinix | Oppo | Vivo |
-| Realme | Asus | ZTE |
-| Meizu | Lenovo | Honor |
+| Manufacturer | Platform | Manufacturer | Platform |
+| :--- | :--- | :--- | :--- |
+| Samsung | Exynos / Qualcomm | Xiaomi / POCO / Redmi | Qualcomm / MediaTek |
+| Google (Pixel) | Tensor / Qualcomm | OnePlus | Qualcomm |
+| Motorola | Qualcomm / MediaTek | Sony | Qualcomm |
+| LG | Qualcomm / MediaTek | Nokia | Qualcomm / MediaTek |
+| Huawei | HiSilicon / Qualcomm | Honor | HiSilicon / Qualcomm |
+| Oppo | Qualcomm / MediaTek | Vivo | Qualcomm / MediaTek |
+| Realme | Qualcomm / MediaTek | Asus | Qualcomm |
+| ZTE | Qualcomm / MediaTek | Meizu | Qualcomm / MediaTek |
+| Lenovo | Qualcomm / MediaTek | Infinix | MediaTek |
+| Nothing | Qualcomm | Tecno | MediaTek |
 
-All listed manufacturers and their sub-brands will be fully supported.
+Each manufacturer has specific unlock procedures, flashing protocols, and diagnostic methods. FOEM selects the appropriate method based on the detected device and the selected manufacturer profile.
 
 ## Updates and Releases
 
@@ -112,21 +174,36 @@ Pre-built binaries for Linux and Windows are available on the releases page.
 ```
 FOEM/
   src/
-    main.rs             -- Application entry point
-    app.rs              -- Main GUI window (egui, dark theme)
-    diagnostics.rs      -- ADB/Fastboot device detection and health checks
-    gms_repair.rs       -- GMS repair logic
-    update_manager.rs   -- Update checking against GitHub releases
-  Cargo.toml            -- Rust dependencies and build configuration
+    main.rs                  -- Application entry point
+    app.rs                   -- Sidebar navigation, all feature panels, license and donate views
+    theme.rs                 -- Black/white iOS/NothingOS theme constants
+    license_text.rs          -- Embeds LICENSE into the binary
+    diagnostics.rs           -- ADB/Fastboot device detection and health checks
+    update_manager.rs        -- GitHub release update checker
+    features/
+      mod.rs                 -- Manufacturer enum, shared ADB/Fastboot helpers
+      bootloader.rs          -- BL unlock with manufacturer-specific methods
+      repair.rs              -- IMEI, GMS, EFS, NV data, DRK, baseband, CSC repair
+      network.rs             -- FRP bypass, carrier unlock, MDM removal, Knox bypass
+      flash.rs               -- EDL, fastboot, recovery, firmware, SP Flash, reboot modes
+      hardware_test.rs       -- Battery, display, sensors, camera, audio, connectivity, biometrics
+      tools.rs               -- ADB shell, logcat, file manager, APK install, backup, bloatware
+  Cargo.toml                 -- Rust dependencies and build configuration
+  LICENSE                    -- Non-Commercial EULA
+  SECURITY.md                -- Security policy and vulnerability reporting
   .github/
     workflows/
-      build.yml         -- CI build for Windows and Linux
+      build.yml              -- CI build for Windows and Linux with artifact upload
   README.md
 ```
 
 ## Legal and Ethical Disclaimer
 
-FOEM is intended strictly for academic purposes, independent research, and right-to-repair initiatives. The developers assume no responsibility for any damage caused to your device, including soft/hard bricking, loss of data, or voiding of warranties. Proceed with caution and ensure you understand the risks associated with modifying bootloaders and low-level firmware.
+FOEM is intended strictly for academic purposes, independent security research, and right-to-repair initiatives. The software interacts with low-level device hardware including bootloaders, EDL modes, IMEI data, EFS partitions, and baseband processors.
+
+THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. The developers assume NO responsibility for any device bricking, hardware damage, data loss, voided warranties, or legal consequences resulting from the use of this software. The user assumes 100% of the risk. Certain features such as IMEI modification, FRP bypass, and bootloader unlocking may be regulated in your jurisdiction. Ensure you understand and comply with all applicable laws.
+
+See the LICENSE file for the complete legal terms.
 
 ## Contributing
 
@@ -168,4 +245,4 @@ If you find this project helpful, consider supporting the development. Your cont
 
 ## License
 
-This project is licensed under the MIT License. See the LICENSE file for details.
+This project is licensed under the FOEM Non-Commercial Software License. See the [LICENSE](LICENSE) file for details. Commercial use is strictly prohibited without written permission from the Author. The Author reserves the right to issue separate commercial licenses (dual-licensing model).
