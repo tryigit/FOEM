@@ -43,7 +43,6 @@ The user interface and user experience of FOEM are deeply inspired by the sleek,
 FOEM is committed to universal compatibility. We plan to support all major smartphone manufacturers, including but not limited to:
 - Samsung
 - Xiaomi / POCO / Redmi
-- Apple
 - Google (Pixel)
 - OnePlus
 - Motorola
@@ -51,6 +50,7 @@ FOEM is committed to universal compatibility. We plan to support all major smart
 - LG
 - Nokia
 - Huawei
+- Infinix
 - Oppo
 - Vivo
 - Realme
