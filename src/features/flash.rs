@@ -218,3 +218,55 @@ pub fn sp_flash_info() -> String {
      Requires: Scatter file (.txt) and firmware images."
         .to_string()
 }
+
+// -- Root Installation (Magisk / KernelSU) --
+
+/// Install Magisk via APK, ZIP, or patched boot image.
+pub fn install_magisk(serial: &str, path: &str) -> String {
+    if path.is_empty() {
+        return "Magisk file path required. Provide .apk (Manager), .zip (Sideload), or .img (Patched Boot).".to_string();
+    }
+    if path.ends_with(".apk") {
+        match adb(serial, &["install", "-r", "-d", path]) {
+            Ok(out) => format!("Magisk Manager APK install:\n{}", out),
+            Err(e) => format!("Magisk APK install failed: {}", e),
+        }
+    } else if path.ends_with(".zip") {
+        match adb(serial, &["sideload", path]) {
+            Ok(out) => format!("Magisk ZIP sideload:\n{}", out),
+            Err(e) => format!("Magisk sideload failed (ensure device is in ADB sideload mode): {}", e),
+        }
+    } else if path.ends_with(".img") {
+        match fastboot(serial, &["flash", "boot", path]) {
+            Ok(out) => format!("Magisk patched boot flash:\n{}", out),
+            Err(e) => format!("Magisk boot flash failed: {}", e),
+        }
+    } else {
+        "Unsupported file type. Use .apk, .zip, or .img.".to_string()
+    }
+}
+
+/// Install KernelSU via APK, ZIP, or patched boot image.
+pub fn install_kernelsu(serial: &str, path: &str) -> String {
+    if path.is_empty() {
+        return "KernelSU file path required. Provide .apk (Manager), .zip (Sideload), or .img (Patched Boot).".to_string();
+    }
+    if path.ends_with(".apk") {
+        match adb(serial, &["install", "-r", "-d", path]) {
+            Ok(out) => format!("KernelSU Manager APK install:\n{}", out),
+            Err(e) => format!("KernelSU APK install failed: {}", e),
+        }
+    } else if path.ends_with(".zip") {
+        match adb(serial, &["sideload", path]) {
+            Ok(out) => format!("KernelSU AnyKernel3 ZIP sideload:\n{}", out),
+            Err(e) => format!("KernelSU sideload failed (ensure device is in ADB sideload mode): {}", e),
+        }
+    } else if path.ends_with(".img") {
+        match fastboot(serial, &["flash", "boot", path]) {
+            Ok(out) => format!("KernelSU patched boot flash:\n{}", out),
+            Err(e) => format!("KernelSU boot flash failed: {}", e),
+        }
+    } else {
+        "Unsupported file type. Use .apk, .zip, or .img.".to_string()
+    }
+}
