@@ -5,6 +5,9 @@
 
 use super::{adb, adb_shell, Manufacturer};
 
+use std::io::{Read, Write};
+use std::time::Duration;
+
 // -- IMEI Management --
 
 /// Read current IMEI(s) from the device.
@@ -29,6 +32,33 @@ pub fn read_imei(serial: &str) -> String {
     match adb_shell(serial, &["am", "start", "-a", "android.intent.action.DIAL", "-d", "tel:%2A%2306%23"]) {
         Ok(_) => output.push_str("  Dialer IMEI check launched (*#06#)\n"),
         Err(_) => {}
+    }
+    // Report available diagnostic serial ports for AT command access
+    output.push_str("\nDiagnostic Serial Ports:\n");
+    match serialport::available_ports() {
+        Ok(ports) => {
+            let usb_ports: Vec<_> = ports
+                .iter()
+                .filter(|p| matches!(p.port_type, serialport::SerialPortType::UsbPort(_)))
+                .collect();
+            if usb_ports.is_empty() {
+                output.push_str("  No USB diagnostic ports detected.\n");
+            } else {
+                for p in &usb_ports {
+                    let desc = match &p.port_type {
+                        serialport::SerialPortType::UsbPort(info) => {
+                            info.product.as_deref().unwrap_or("Unknown device")
+                        }
+                        _ => "Unknown",
+                    };
+                    output.push_str(&format!("  {} ({})\n", p.port_name, desc));
+                }
+                output.push_str("  Use 'Read IMEI (Diag)' with a port name for AT command access.\n");
+            }
+        }
+        Err(e) => {
+            output.push_str(&format!("  Port enumeration unavailable: {}\n", e));
+        }
     }
     output
 }
@@ -84,6 +114,257 @@ pub fn write_imei(_serial: &str, imei: &str, manufacturer: &Manufacturer) -> Str
             )
         }
     }
+}
+
+// -- Diagnostic Serial Port Communication --
+
+/// Send an AT command to a serial port and read the response.
+fn send_at_command(
+    port: &mut Box<dyn serialport::SerialPort>,
+    command: &str,
+) -> Result<String, String> {
+    let mut discard = [0u8; 1024];
+    let _ = port.read(&mut discard);
+
+    let cmd = format!("{}\r\n", command);
+    port.write_all(cmd.as_bytes())
+        .map_err(|e| format!("Failed to write to port: {}", e))?;
+    port.flush()
+        .map_err(|e| format!("Failed to flush port: {}", e))?;
+
+    std::thread::sleep(Duration::from_millis(200));
+
+    let mut response = Vec::new();
+    let mut buf = [0u8; 256];
+    let deadline = std::time::Instant::now() + Duration::from_secs(3);
+
+    loop {
+        match port.read(&mut buf) {
+            Ok(0) => break,
+            Ok(n) => {
+                response.extend_from_slice(&buf[..n]);
+                let text = String::from_utf8_lossy(&response);
+                if text.contains("OK") || text.contains("ERROR") {
+                    break;
+                }
+            }
+            Err(ref e) if e.kind() == std::io::ErrorKind::TimedOut => {
+                if !response.is_empty() {
+                    break;
+                }
+            }
+            Err(e) => return Err(format!("Read error: {}", e)),
+        }
+        if std::time::Instant::now() >= deadline {
+            break;
+        }
+    }
+
+    if response.is_empty() {
+        return Err(
+            "No response from device. Port may not be a diagnostic port.".to_string(),
+        );
+    }
+
+    Ok(String::from_utf8_lossy(&response).to_string())
+}
+
+/// Parse the meaningful value from an AT command response.
+fn parse_at_value(response: &str, command_echo: &str) -> String {
+    let mut value_lines = Vec::new();
+    for line in response.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed == "OK" || trimmed == "ERROR" {
+            continue;
+        }
+        if trimmed.starts_with(command_echo) {
+            continue;
+        }
+        if let Some((_prefix, val)) = trimmed.split_once(':') {
+            value_lines.push(val.trim().to_string());
+        } else {
+            value_lines.push(trimmed.to_string());
+        }
+    }
+    value_lines.join("\n")
+}
+
+/// List available serial/diagnostic ports on the system.
+pub fn list_diag_ports() -> String {
+    match serialport::available_ports() {
+        Ok(ports) if ports.is_empty() => {
+            "No serial/diagnostic ports detected.\n\
+             Ensure the device is connected and in diagnostic (Diag) mode.\n\
+             Qualcomm devices: Look for Qualcomm HS-USB Diagnostics 900E.\n\
+             MediaTek devices: Look for MediaTek USB Port."
+                .to_string()
+        }
+        Ok(ports) => {
+            let mut output = String::from("Available Serial Ports:\n");
+            for port in &ports {
+                let type_info = match &port.port_type {
+                    serialport::SerialPortType::UsbPort(info) => {
+                        format!(
+                            "USB -- VID:{:04X} PID:{:04X}{}",
+                            info.vid,
+                            info.pid,
+                            info.product
+                                .as_deref()
+                                .map(|p| format!(" ({})", p))
+                                .unwrap_or_default()
+                        )
+                    }
+                    serialport::SerialPortType::PciPort => "PCI".to_string(),
+                    serialport::SerialPortType::BluetoothPort => "Bluetooth".to_string(),
+                    serialport::SerialPortType::Unknown => "Unknown".to_string(),
+                };
+                output.push_str(&format!("  {} -- {}\n", port.port_name, type_info));
+            }
+            output
+        }
+        Err(e) => format!("Failed to enumerate serial ports: {}", e),
+    }
+}
+
+/// Read IMEI from a diagnostic serial port using AT+CGSN.
+///
+/// Opens the specified port at 115200 baud, sends standard AT commands
+/// to read device identity, and returns the results. Returns clear error
+/// messages if the port is locked, inaccessible, or the device is not
+/// in diagnostic mode.
+pub fn read_imei_diag(port_name: &str) -> String {
+    if port_name.is_empty() {
+        return "Diagnostic port name is required.\n\
+                Use 'List Ports' to find available diagnostic ports."
+            .to_string();
+    }
+
+    let port_result = serialport::new(port_name, 115200)
+        .timeout(Duration::from_secs(3))
+        .data_bits(serialport::DataBits::Eight)
+        .parity(serialport::Parity::None)
+        .stop_bits(serialport::StopBits::One)
+        .flow_control(serialport::FlowControl::None)
+        .open();
+
+    let mut port = match port_result {
+        Ok(p) => p,
+        Err(e) => {
+            let detail = match e.kind {
+                serialport::ErrorKind::NoDevice => format!(
+                    "Port {} not found.\n\
+                     The device may have been disconnected or the port name is incorrect.",
+                    port_name
+                ),
+                serialport::ErrorKind::Io(std::io::ErrorKind::PermissionDenied) => format!(
+                    "Permission denied on port {}.\n\
+                     The port may be locked by another application or require elevated privileges.\n\
+                     Linux: Check udev rules or run with sudo.\n\
+                     Windows: Check Device Manager for port conflicts.",
+                    port_name
+                ),
+                _ => format!(
+                    "Cannot open port {}: {}\n\
+                     Ensure the device is connected and in diagnostic mode.",
+                    port_name, e
+                ),
+            };
+            return format!("Diag Port Error:\n  {}", detail);
+        }
+    };
+
+    let mut output = format!("Diag Port IMEI Read ({}):\n", port_name);
+
+    match send_at_command(&mut port, "AT") {
+        Ok(resp) => {
+            if !resp.contains("OK") {
+                output.push_str(
+                    "  Port did not respond with OK to AT command.\n\
+                     Device may not be in AT command / diagnostic mode.\n",
+                );
+                return output;
+            }
+            output.push_str("  Port alive: OK\n");
+        }
+        Err(e) => {
+            output.push_str(&format!(
+                "  Port is not responding to AT commands: {}\n\
+                 Device may not be in diagnostic mode.\n\
+                 Qualcomm: Device must be in Diag/AT mode (not ADB or Fastboot).\n\
+                 Try switching USB mode on the device.\n",
+                e
+            ));
+            return output;
+        }
+    }
+
+    if let Ok(resp) = send_at_command(&mut port, "AT+CGMI") {
+        let val = parse_at_value(&resp, "AT+CGMI");
+        if !val.is_empty() {
+            output.push_str(&format!("  Manufacturer: {}\n", val));
+        }
+    }
+
+    if let Ok(resp) = send_at_command(&mut port, "AT+CGMM") {
+        let val = parse_at_value(&resp, "AT+CGMM");
+        if !val.is_empty() {
+            output.push_str(&format!("  Model: {}\n", val));
+        }
+    }
+
+    if let Ok(resp) = send_at_command(&mut port, "AT+CGMR") {
+        let val = parse_at_value(&resp, "AT+CGMR");
+        if !val.is_empty() {
+            output.push_str(&format!("  Revision: {}\n", val));
+        }
+    }
+
+    match send_at_command(&mut port, "AT+CGSN") {
+        Ok(resp) => {
+            if resp.contains("ERROR") {
+                output.push_str(
+                    "  IMEI (AT+CGSN): ERROR -- command not supported or device not ready.\n",
+                );
+            } else {
+                let imei = parse_at_value(&resp, "AT+CGSN");
+                if imei.is_empty() {
+                    output.push_str("  IMEI (AT+CGSN): no response data.\n");
+                } else {
+                    let clean: String = imei
+                        .trim()
+                        .chars()
+                        .filter(|c| c.is_ascii_digit())
+                        .collect();
+                    if clean.len() == 15 {
+                        output.push_str(&format!("  IMEI 1: {}\n", clean));
+                    } else {
+                        output.push_str(&format!("  IMEI (raw): {}\n", imei));
+                    }
+                }
+            }
+        }
+        Err(e) => {
+            output.push_str(&format!("  IMEI read failed: {}\n", e));
+        }
+    }
+
+    if let Ok(resp) = send_at_command(&mut port, "AT+CGSN=1") {
+        if !resp.contains("ERROR") {
+            let imei2 = parse_at_value(&resp, "AT+CGSN");
+            if !imei2.is_empty() {
+                let clean: String = imei2
+                    .trim()
+                    .chars()
+                    .filter(|c| c.is_ascii_digit())
+                    .collect();
+                if clean.len() == 15 {
+                    output.push_str(&format!("  IMEI 2: {}\n", clean));
+                }
+            }
+        }
+    }
+
+    output
 }
 
 // -- GMS (Google Mobile Services) Repair --
