@@ -1,0 +1,474 @@
+{
+  "meta": {
+    "language": "English",
+    "locale_code": "en",
+    "direction": "ltr",
+    "version": "1.0.0",
+    "author": "FOEM Contributors"
+  },
+
+  "app": {
+    "name": "FOEM",
+    "full_name": "Free Open Ecosystem for Mobile Devices",
+    "version_label": "Version",
+    "loading": "Loading...",
+    "ready": "Ready",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "apply": "Apply",
+    "close": "Close",
+    "back": "Back",
+    "next": "Next",
+    "save": "Save",
+    "delete": "Delete",
+    "refresh": "Refresh",
+    "search": "Search",
+    "select_file": "Select File",
+    "select_directory": "Select Directory",
+    "success": "Success",
+    "error": "Error",
+    "warning": "Warning",
+    "info": "Information",
+    "unknown": "Unknown",
+    "none": "None",
+    "yes": "Yes",
+    "no": "No",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "not_available": "Not Available"
+  },
+
+  "sidebar": {
+    "device_info": "Device Info",
+    "bootloader": "Bootloader",
+    "repair": "Repair",
+    "network": "Network & Security",
+    "flash": "Flash",
+    "hardware": "Hardware Diagnostics",
+    "tools": "Utility Tools",
+    "settings": "Settings",
+    "about": "About",
+    "donate": "Donate",
+    "license": "License"
+  },
+
+  "device": {
+    "status": "Device Status",
+    "not_connected": "No device connected",
+    "detecting": "Detecting device...",
+    "manufacturer": "Manufacturer",
+    "model": "Model",
+    "serial_number": "Serial Number",
+    "android_version": "Android Version",
+    "security_patch": "Security Patch",
+    "build_number": "Build Number",
+    "baseband_version": "Baseband Version",
+    "kernel_version": "Kernel Version",
+    "fingerprint": "Fingerprint",
+    "hardware": "Hardware",
+    "bootloader_version": "Bootloader Version",
+    "mode_adb": "ADB Mode",
+    "mode_fastboot": "Fastboot Mode",
+    "mode_edl": "EDL Mode (Qualcomm 9008)",
+    "mode_download": "Download Mode (Samsung)",
+    "mode_brom": "BROM Mode (MediaTek)"
+  },
+
+  "bootloader": {
+    "title": "Bootloader Management",
+    "status_check": "Check Bootloader Status",
+    "oem_unlock_check": "OEM Unlock Verification",
+    "unlock": "Unlock Bootloader",
+    "relock": "Relock Bootloader",
+    "inspect_variables": "Inspect Fastboot Variables",
+    "method_standard": "Standard Fastboot OEM Unlock",
+    "method_samsung": "Samsung Odin / Download Mode",
+    "method_xiaomi": "Xiaomi Mi Unlock",
+    "method_huawei": "Huawei HiSilicon",
+    "method_motorola": "Motorola Unlock Code",
+    "method_sony": "Sony Developer Unlock",
+    "confirm_unlock": "Are you sure you want to unlock the bootloader? This will erase all data on the device.",
+    "confirm_relock": "Are you sure you want to relock the bootloader? This may prevent future modifications.",
+    "status_locked": "Locked",
+    "status_unlocked": "Unlocked"
+  },
+
+  "repair": {
+    "title": "Device Repair",
+    "imei": {
+      "title": "IMEI Management",
+      "read": "Read IMEI",
+      "backup": "Backup IMEI",
+      "write": "Write IMEI",
+      "method_at": "AT Command Method",
+      "method_service": "Service Call Method",
+      "method_diag": "Diagnostic Method",
+      "method_nv": "NV Method",
+      "warning": "IMEI modification may be illegal in your jurisdiction. Proceed with caution."
+    },
+    "gms": {
+      "title": "GMS Repair",
+      "diagnose": "Diagnose GMS",
+      "clear_cache": "Clear GMS Cache",
+      "restore": "Restore Google Mobile Services"
+    },
+    "efs": {
+      "title": "EFS Backup and Restore",
+      "backup": "Backup EFS",
+      "restore": "Restore EFS",
+      "wipe": "Wipe EFS",
+      "auto_backup_notice": "Automatic backup will be created before any destructive operation.",
+      "confirm_wipe": "This operation will wipe EFS data. An automatic backup will be created first. Continue?"
+    },
+    "nv_data": {
+      "title": "NV Data Management",
+      "backup": "Backup NV Data",
+      "restore": "Restore NV Data",
+      "partitions": "Partitions: modemst1, modemst2, fsg, fsc",
+      "qcn_read": "Read QCN",
+      "qcn_write": "Write QCN",
+      "qcn_backup": "Backup QCN",
+      "qcn_restore": "Restore QCN"
+    },
+    "drk": {
+      "title": "DRK Repair (Samsung)",
+      "repair": "Repair Device Root Key",
+      "files": "Files: cc.dat, prov_data, ridge.dat"
+    },
+    "baseband": {
+      "title": "Baseband and Modem Repair",
+      "check_version": "Check Baseband Version",
+      "check_ril": "Check RIL",
+      "modem_board_info": "Modem Board Info",
+      "clear_modem_cache": "Clear Modem Cache"
+    },
+    "csc": {
+      "title": "CSC Change (Samsung)",
+      "change": "Change CSC",
+      "current": "Current CSC"
+    },
+    "knox_counter": {
+      "title": "Knox Counter Check",
+      "check": "Check Knox Counter Status"
+    },
+    "build_prop": {
+      "title": "Build.prop Reader",
+      "read": "Read Build Properties"
+    }
+  },
+
+  "network": {
+    "title": "Network and Security",
+    "frp": {
+      "title": "FRP Bypass",
+      "method_adb": "ADB Bypass",
+      "method_setup_wizard": "Setup Wizard Skip",
+      "method_account_manager": "Account Manager Removal",
+      "method_content_provider": "Content Provider Reset",
+      "warning": "FRP bypass should only be used on devices you own."
+    },
+    "google_account": {
+      "title": "Google Account Removal",
+      "remove": "Remove Google Account",
+      "clear_gms": "Clear GMS/GSF Data"
+    },
+    "carrier": {
+      "title": "Carrier and SIM Unlock",
+      "check_operator": "Check Operator Info",
+      "check_sim_state": "Check SIM State",
+      "check_network_type": "Check Network Type",
+      "apply_nck": "Apply NCK Unlock Code"
+    },
+    "mdm": {
+      "title": "MDM Removal",
+      "detect": "Detect MDM Profiles",
+      "remove": "Remove MDM"
+    },
+    "knox": {
+      "title": "Knox Bypass (Samsung)",
+      "bypass": "Bypass Knox Enrollment"
+    }
+  },
+
+  "flash": {
+    "title": "Flashing Tools",
+    "edl": {
+      "title": "EDL Mode (Qualcomm 9008)",
+      "enter_adb": "Enter EDL via ADB",
+      "enter_shell": "Enter EDL via Shell",
+      "enter_fastboot": "Enter EDL via Fastboot",
+      "test_point": "Manual Test-Point Instructions",
+      "flash_title": "EDL Flash",
+      "sahara_protocol": "Sahara Protocol",
+      "firehose_protocol": "Firehose Protocol",
+      "select_programmer": "Select Programmer File",
+      "select_rawprogram": "Select rawprogram.xml",
+      "select_patch": "Select patch0.xml",
+      "chipset_select": "Select Chipset"
+    },
+    "fastboot": {
+      "title": "Fastboot Flash",
+      "select_partition": "Select Partition",
+      "select_image": "Select Image File",
+      "flash": "Flash Partition",
+      "erase": "Erase Partition",
+      "partitions": {
+        "boot": "boot",
+        "recovery": "recovery",
+        "system": "system",
+        "vendor": "vendor",
+        "dtbo": "dtbo",
+        "vbmeta": "vbmeta",
+        "super": "super",
+        "modem": "modem",
+        "radio": "radio"
+      }
+    },
+    "vbmeta": {
+      "title": "vbmeta Flash",
+      "flash_disabled": "Flash vbmeta (Verification Disabled)"
+    },
+    "recovery": {
+      "title": "Recovery Flash",
+      "flash_permanent": "Flash Recovery (Permanent)",
+      "boot_temporary": "Boot Recovery (Temporary)"
+    },
+    "firmware": {
+      "title": "Firmware Flash",
+      "method_samsung": "Samsung Odin Protocol",
+      "method_xiaomi": "Xiaomi Fastboot Protocol",
+      "method_huawei": "Huawei eRecovery Protocol"
+    },
+    "mtk": {
+      "title": "MediaTek SP Flash",
+      "enter_brom": "Enter BROM/Preloader Mode",
+      "select_scatter": "Select Scatter File",
+      "select_da": "Select DA File",
+      "load_da": "Load Download Agent"
+    },
+    "reboot": {
+      "title": "Reboot Modes",
+      "system": "Reboot to System",
+      "recovery": "Reboot to Recovery",
+      "bootloader": "Reboot to Bootloader",
+      "edl": "Reboot to EDL",
+      "download": "Reboot to Download Mode",
+      "sideload": "Reboot to Sideload Mode"
+    },
+    "partition_manager": {
+      "title": "Partition Manager",
+      "read_gpt": "Read GPT Table",
+      "erase_block": "Erase Partition Block",
+      "target_modemst1": "modemst1",
+      "target_modemst2": "modemst2",
+      "target_fsg": "fsg"
+    },
+    "root_maker": {
+      "title": "Root Maker",
+      "extract_boot": "Extract boot.img",
+      "patch_magisk": "Patch with Magisk",
+      "flash_patched": "Flash Patched Boot",
+      "avb_notice": "AVB/dm-verity handling is automatic."
+    }
+  },
+
+  "hardware": {
+    "title": "Hardware Diagnostics",
+    "battery": {
+      "title": "Battery",
+      "health": "Health",
+      "level": "Level",
+      "temperature": "Temperature",
+      "voltage": "Voltage",
+      "charging_status": "Charging Status",
+      "statistics": "Battery Statistics"
+    },
+    "display": {
+      "title": "Display",
+      "resolution": "Resolution",
+      "density": "Density",
+      "refresh_rate": "Refresh Rate",
+      "physical_info": "Physical Display Info",
+      "touch_input": "Touch Input Axis Detection"
+    },
+    "sensors": {
+      "title": "Sensors",
+      "accelerometer": "Accelerometer",
+      "gyroscope": "Gyroscope",
+      "proximity": "Proximity",
+      "light": "Light",
+      "magnetometer": "Magnetometer",
+      "barometer": "Barometer",
+      "dump_all": "Full Sensor Dump"
+    },
+    "audio": {
+      "title": "Audio",
+      "speaker": "Speaker",
+      "microphone": "Microphone",
+      "earpiece": "Earpiece",
+      "volume_streams": "Volume Streams",
+      "subsystem_dump": "Audio Subsystem Dump"
+    },
+    "cameras": {
+      "title": "Cameras",
+      "count": "Camera Count",
+      "ids": "Camera IDs",
+      "facing": "Facing Direction"
+    },
+    "connectivity": {
+      "title": "Connectivity",
+      "wifi": "WiFi",
+      "bluetooth": "Bluetooth",
+      "gps": "GPS",
+      "nfc": "NFC"
+    },
+    "biometrics": {
+      "title": "Biometrics",
+      "fingerprint": "Fingerprint Sensor",
+      "face_unlock": "Face Unlock"
+    },
+    "storage": {
+      "title": "Storage",
+      "disk_usage": "Disk Usage",
+      "partition_layout": "Partition Layout",
+      "primary_uuid": "Primary Storage UUID"
+    },
+    "usb": {
+      "title": "USB",
+      "mode": "USB Mode",
+      "controller_info": "Controller Info"
+    },
+    "telephony": {
+      "title": "Telephony",
+      "sim_state": "SIM State",
+      "operator": "Operator",
+      "network_type": "Network Type",
+      "phone_type": "Phone Type",
+      "data_state": "Data State"
+    }
+  },
+
+  "tools": {
+    "title": "Utility Tools",
+    "adb_shell": {
+      "title": "ADB Shell",
+      "placeholder": "Enter command...",
+      "execute": "Execute",
+      "clear": "Clear Output"
+    },
+    "logcat": {
+      "title": "Logcat Viewer",
+      "capture": "Capture Logs",
+      "clear_buffer": "Clear Logcat Buffer",
+      "stop": "Stop Capture"
+    },
+    "file_manager": {
+      "title": "File Manager",
+      "pull": "Pull from Device",
+      "push": "Push to Device",
+      "list_directory": "List Directory"
+    },
+    "apk_installer": {
+      "title": "APK Installer",
+      "select_apk": "Select APK",
+      "install": "Install APK",
+      "reinstall": "Reinstall",
+      "downgrade": "Allow Downgrade"
+    },
+    "package_manager": {
+      "title": "Package Manager",
+      "list_all": "All Packages",
+      "list_user": "User-Installed",
+      "list_system": "System Packages",
+      "filter_placeholder": "Filter packages..."
+    },
+    "bloatware": {
+      "title": "Bloatware Removal",
+      "disable": "Disable App",
+      "enable": "Re-enable App"
+    },
+    "backup": {
+      "title": "Full Backup and Restore",
+      "backup": "Create Backup",
+      "restore": "Restore Backup"
+    },
+    "screenshot": {
+      "title": "Screenshot and Screen Recording",
+      "capture": "Capture Screenshot",
+      "record": "Start Recording",
+      "stop_record": "Stop Recording"
+    },
+    "reboot": {
+      "title": "Device Reboot",
+      "system": "System",
+      "recovery": "Recovery",
+      "bootloader": "Bootloader"
+    },
+    "developer": {
+      "title": "Developer Options",
+      "launch_settings": "Launch Device Info"
+    },
+    "system_info": {
+      "title": "System Info",
+      "uptime": "Uptime",
+      "memory": "Memory Info",
+      "cpu": "CPU Info",
+      "processes": "Running Processes"
+    }
+  },
+
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "theme": "Theme",
+    "theme_dark": "Dark",
+    "theme_light": "Light",
+    "auto_backup": "Auto-Backup Before Destructive Operations",
+    "backup_directory": "Backup Directory",
+    "usb_timeout": "USB Timeout (seconds)",
+    "log_level": "Log Level",
+    "check_updates": "Check for Updates on Startup"
+  },
+
+  "status": {
+    "operation_started": "Operation started.",
+    "operation_complete": "Operation completed successfully.",
+    "operation_failed": "Operation failed.",
+    "backup_created": "Backup created successfully.",
+    "backup_failed": "Backup creation failed.",
+    "device_detected": "Device detected.",
+    "device_lost": "Device connection lost.",
+    "timeout": "Operation timed out.",
+    "crc_check_passed": "CRC integrity check passed.",
+    "crc_check_failed": "CRC integrity check failed. Operation aborted.",
+    "flashing_in_progress": "Flashing in progress. Do not disconnect the device.",
+    "erasing_partition": "Erasing partition. Please wait.",
+    "reading_partition": "Reading partition data.",
+    "writing_partition": "Writing partition data."
+  },
+
+  "errors": {
+    "no_device": "No device detected. Please connect a device and enable USB debugging.",
+    "adb_not_found": "ADB binary not found. Please install Android Platform Tools.",
+    "fastboot_not_found": "Fastboot binary not found. Please install Android Platform Tools.",
+    "permission_denied": "Permission denied. Check USB permissions or run with elevated privileges.",
+    "file_not_found": "File not found.",
+    "invalid_file": "Invalid file format.",
+    "backup_required": "A backup is required before this operation can proceed.",
+    "unsupported_device": "This operation is not supported for the detected device.",
+    "communication_error": "USB communication error. Check cable and connection.",
+    "crc_mismatch": "CRC mismatch detected. Data integrity cannot be verified.",
+    "timeout_exceeded": "Operation timeout exceeded."
+  },
+
+  "dialogs": {
+    "confirm_destructive": "This is a destructive operation. An automatic backup will be created. Do you want to continue?",
+    "confirm_erase": "This will permanently erase the selected partition. This action cannot be undone. Continue?",
+    "confirm_flash": "You are about to flash data to the device. Ensure the correct file is selected. Continue?",
+    "confirm_exit": "An operation is in progress. Are you sure you want to exit?",
+    "backup_location": "Select backup destination:",
+    "restore_location": "Select backup file to restore:"
+  }
+}
