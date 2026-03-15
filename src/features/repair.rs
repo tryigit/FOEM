@@ -123,6 +123,7 @@ fn send_at_command(
     port: &mut Box<dyn serialport::SerialPort>,
     command: &str,
 ) -> Result<String, String> {
+    // Clear any stale data from the serial buffer before sending the command
     let mut discard = [0u8; 1024];
     let _ = port.read(&mut discard);
 
@@ -132,6 +133,7 @@ fn send_at_command(
     port.flush()
         .map_err(|e| format!("Failed to flush port: {}", e))?;
 
+    // Allow device time to process the command and prepare the response
     std::thread::sleep(Duration::from_millis(200));
 
     let mut response = Vec::new();
