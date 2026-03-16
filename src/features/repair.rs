@@ -41,7 +41,9 @@ pub fn read_imei(serial: &str) -> String {
             "-d",
             "tel:%2A%2306%23",
         ],
-    ).is_ok() {
+    )
+    .is_ok()
+    {
         output.push_str("  Dialer IMEI check launched (*#06#)\n");
     }
     // Report available diagnostic serial ports for AT command access
@@ -400,15 +402,32 @@ const GMS_PACKAGES: &[&str] = &[
 /// Check GMS package status.
 pub fn check_gms(serial: &str) -> String {
     let mut output = String::from("GMS Package Status:\n");
-    for pkg in GMS_PACKAGES {
-        let installed = adb_shell(serial, &["pm", "list", "packages", pkg])
-            .map(|out| out.contains(pkg))
-            .unwrap_or(false);
-        output.push_str(&format!(
-            "  {} -- {}\n",
-            pkg,
-            if installed { "installed" } else { "MISSING" }
-        ));
+    let mut cmd = String::new();
+    for (i, pkg) in GMS_PACKAGES.iter().enumerate() {
+        cmd.push_str(&format!("pm list packages {}", pkg));
+        if i < GMS_PACKAGES.len() - 1 {
+            cmd.push_str("; echo B_MARKER; ");
+        }
+    }
+
+    match adb_shell(serial, &["sh", "-c", &cmd]) {
+        Ok(res) => {
+            let parts: Vec<&str> = res.split("B_MARKER").collect();
+            for (i, pkg) in GMS_PACKAGES.iter().enumerate() {
+                let out = parts.get(i).copied().unwrap_or("");
+                let installed = out.contains(pkg);
+                output.push_str(&format!(
+                    "  {} -- {}\n",
+                    pkg,
+                    if installed { "installed" } else { "MISSING" }
+                ));
+            }
+        }
+        Err(_) => {
+            for pkg in GMS_PACKAGES {
+                output.push_str(&format!("  {} -- MISSING\n", pkg));
+            }
+        }
     }
     output
 }
@@ -416,10 +435,19 @@ pub fn check_gms(serial: &str) -> String {
 /// Clear GMS caches and force restart.
 pub fn repair_gms(serial: &str) -> String {
     let mut output = String::from("GMS Repair:\n");
+    let mut cmd = String::new();
+    for (i, pkg) in GMS_PACKAGES.iter().enumerate() {
+        cmd.push_str(&format!("pm clear {}", pkg));
+        if i < GMS_PACKAGES.len() - 1 {
+            cmd.push_str("; echo B_MARKER; ");
+        }
+    }
+
+    let _ = adb_shell(serial, &["sh", "-c", &cmd]);
     for pkg in GMS_PACKAGES {
-        let _ = adb_shell(serial, &["pm", "clear", pkg]);
         output.push_str(&format!("  Cleared cache: {}\n", pkg));
     }
+
     let _ = adb_shell(serial, &["am", "force-stop", "com.google.android.gms"]);
     let _ = adb_shell(
         serial,
