@@ -6,11 +6,18 @@ use super::{adb, adb_shell};
 
 /// Execute an arbitrary ADB shell command.
 pub fn execute_shell(serial: &str, command: &str) -> String {
+    execute_shell_internal(serial, command, adb_shell)
+}
+
+fn execute_shell_internal<F>(serial: &str, command: &str, adb_shell_fn: F) -> String
+where
+    F: Fn(&str, &[&str]) -> Result<String, String>,
+{
     if command.is_empty() {
         return "No command entered.".to_string();
     }
     let args: Vec<&str> = command.split_whitespace().collect();
-    match adb_shell(serial, &args) {
+    match adb_shell_fn(serial, &args) {
         Ok(out) => {
             if out.is_empty() {
                 "(command returned no output)".to_string()
@@ -333,6 +340,44 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_execute_shell_internal_empty_command() {
+        let result = execute_shell_internal("device1", "", |_, _| {
+            panic!("Should not be called");
+        });
+        assert_eq!(result, "No command entered.");
+    }
+
+    #[test]
+    fn test_execute_shell_internal_success() {
+        let result = execute_shell_internal("device1", "ls -la", |serial, args| {
+            assert_eq!(serial, "device1");
+            assert_eq!(args, &["ls", "-la"]);
+            Ok("file1\nfile2".to_string())
+        });
+        assert_eq!(result, "file1\nfile2");
+    }
+
+    #[test]
+    fn test_execute_shell_internal_success_empty_output() {
+        let result = execute_shell_internal("device1", "touch test.txt", |serial, args| {
+            assert_eq!(serial, "device1");
+            assert_eq!(args, &["touch", "test.txt"]);
+            Ok("".to_string())
+        });
+        assert_eq!(result, "(command returned no output)");
+    }
+
+    #[test]
+    fn test_execute_shell_internal_failure() {
+        let result = execute_shell_internal("device1", "badcmd", |serial, args| {
+            assert_eq!(serial, "device1");
+            assert_eq!(args, &["badcmd"]);
+            Err("command not found".to_string())
+        });
+        assert_eq!(result, "Error: command not found");
+    }
+
+    #[test]
     fn test_enable_package_empty() {
         let result = enable_package_internal("device_123", "", |_, _| {
             panic!("Should not be called");
@@ -345,10 +390,19 @@ mod tests {
         let package = "com.example.app";
         let result = enable_package_internal("device_123", package, |serial, args| {
             assert_eq!(serial, "device_123");
-            assert_eq!(args, &["cmd", "package", "install-existing", "com.example.app"]);
+            assert_eq!(
+                args,
+                &["cmd", "package", "install-existing", "com.example.app"]
+            );
             Ok("Package com.example.app installed for user: 0".to_string())
         });
-        assert_eq!(result, format!("Enable '{}': Package com.example.app installed for user: 0", package));
+        assert_eq!(
+            result,
+            format!(
+                "Enable '{}': Package com.example.app installed for user: 0",
+                package
+            )
+        );
     }
 
     #[test]
@@ -356,12 +410,17 @@ mod tests {
         let package = "com.example.app";
         let result = enable_package_internal("device_123", package, |serial, args| {
             assert_eq!(serial, "device_123");
-            assert_eq!(args, &["cmd", "package", "install-existing", "com.example.app"]);
+            assert_eq!(
+                args,
+                &["cmd", "package", "install-existing", "com.example.app"]
+            );
             Err("error: device not found".to_string())
         });
-        assert_eq!(result, format!("Enable '{}' failed: error: device not found", package));
+        assert_eq!(
+            result,
+            format!("Enable '{}' failed: error: device not found", package)
+        );
     }
-
 
     #[test]
     fn test_start_scrcpy_with_cmd_success() {
