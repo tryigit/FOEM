@@ -345,10 +345,19 @@ mod tests {
         let package = "com.example.app";
         let result = enable_package_internal("device_123", package, |serial, args| {
             assert_eq!(serial, "device_123");
-            assert_eq!(args, &["cmd", "package", "install-existing", "com.example.app"]);
+            assert_eq!(
+                args,
+                &["cmd", "package", "install-existing", "com.example.app"]
+            );
             Ok("Package com.example.app installed for user: 0".to_string())
         });
-        assert_eq!(result, format!("Enable '{}': Package com.example.app installed for user: 0", package));
+        assert_eq!(
+            result,
+            format!(
+                "Enable '{}': Package com.example.app installed for user: 0",
+                package
+            )
+        );
     }
 
     #[test]
@@ -356,12 +365,17 @@ mod tests {
         let package = "com.example.app";
         let result = enable_package_internal("device_123", package, |serial, args| {
             assert_eq!(serial, "device_123");
-            assert_eq!(args, &["cmd", "package", "install-existing", "com.example.app"]);
+            assert_eq!(
+                args,
+                &["cmd", "package", "install-existing", "com.example.app"]
+            );
             Err("error: device not found".to_string())
         });
-        assert_eq!(result, format!("Enable '{}' failed: error: device not found", package));
+        assert_eq!(
+            result,
+            format!("Enable '{}' failed: error: device not found", package)
+        );
     }
-
 
     #[test]
     fn test_start_scrcpy_with_cmd_success() {

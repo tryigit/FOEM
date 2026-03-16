@@ -6,7 +6,7 @@ use eframe::egui;
 
 use crate::diagnostics::DeviceDiagnostics;
 use crate::features::{self, Manufacturer};
-use crate::license_text::LICENSE_TEXT;
+use crate::license_text::{COMMUNITY_LINKS, CRYPTO_DONATIONS, FIAT_DONATIONS, LICENSE_TEXT};
 use crate::theme;
 use crate::update_manager::UpdateManager;
 use crate::VERSION;
@@ -1183,14 +1183,37 @@ impl FOEMApp {
         egui::ScrollArea::vertical().show(ui, |ui| {
             // About
             section(ui, "About");
-            ui.label(egui::RichText::new("FOEM -- Free Open Ecosystem for Mobile Devices").size(13.0).color(theme::FG));
-            ui.label(egui::RichText::new(format!("Version {}", VERSION)).size(11.0).color(theme::SECONDARY));
-            ui.label(egui::RichText::new("Design inspired by iOS and NothingOS").size(11.0).color(theme::TERTIARY));
-            ui.label(egui::RichText::new("Non-Commercial Software License. See full text below.").size(11.0).color(theme::SECONDARY));
+            ui.label(
+                egui::RichText::new("FOEM -- Free Open Ecosystem for Mobile Devices")
+                    .size(13.0)
+                    .color(theme::FG),
+            );
+            ui.label(
+                egui::RichText::new(format!("Version {}", VERSION))
+                    .size(11.0)
+                    .color(theme::SECONDARY),
+            );
+            ui.label(
+                egui::RichText::new("Design inspired by iOS and NothingOS")
+                    .size(11.0)
+                    .color(theme::TERTIARY),
+            );
+            ui.label(
+                egui::RichText::new("Non-Commercial Software License. See full text below.")
+                    .size(11.0)
+                    .color(theme::SECONDARY),
+            );
 
             // License
             section(ui, "License");
-            if btn(ui, if self.show_full_license { "Hide License" } else { "Show Full License" }) {
+            if btn(
+                ui,
+                if self.show_full_license {
+                    "Hide License"
+                } else {
+                    "Show Full License"
+                },
+            ) {
                 self.show_full_license = !self.show_full_license;
             }
             if self.show_full_license {
@@ -1216,7 +1239,13 @@ impl FOEMApp {
 
             // Donate
             section(ui, "Support the Development");
-            ui.label(egui::RichText::new("If you find this project helpful, consider supporting the development.").size(12.0).color(theme::SECONDARY));
+            ui.label(
+                egui::RichText::new(
+                    "If you find this project helpful, consider supporting the development.",
+                )
+                .size(12.0)
+                .color(theme::SECONDARY),
+            );
             ui.add_space(4.0);
 
             egui::Frame::none()
@@ -1224,36 +1253,41 @@ impl FOEMApp {
                 .rounding(theme::ROUNDING)
                 .inner_margin(theme::CARD_PADDING)
                 .show(ui, |ui| {
-                    ui.label(egui::RichText::new("Crypto Addresses").size(12.0).strong().color(theme::FG));
+                    ui.label(
+                        egui::RichText::new("Crypto Addresses")
+                            .size(12.0)
+                            .strong()
+                            .color(theme::FG),
+                    );
                     ui.add_space(4.0);
-                    ui.label(egui::RichText::new("USDT (TRC20): TQGTsbqawRHhv35UMxjHo14mieUGWXyQzk").size(11.0).monospace().color(theme::SECONDARY));
-                    ui.label(egui::RichText::new("XMR: 85m61iuWiwp24g8NRXoMKdW25ayVWFzYf5BoAqvgGpLACLuMsXbzGbWR9mC8asnCSfcyHN3dZgEX8KZh2pTc9AzWGXtrEUv").size(10.0).monospace().color(theme::SECONDARY));
-                    ui.label(egui::RichText::new("USDT/USDC (ERC20/BEP20): 0x1a4b9e55e268e6969492a70515a5fd9fd4e6ea8b").size(11.0).monospace().color(theme::SECONDARY));
-                    ui.add_space(6.0);
-                    ui.label(egui::RichText::new("Binance User ID: 114574830").size(11.0).color(theme::SECONDARY));
+                    for &(text, size, monospace, space) in CRYPTO_DONATIONS {
+                        let mut t = egui::RichText::new(text).size(size).color(theme::SECONDARY);
+                        if monospace {
+                            t = t.monospace();
+                        }
+                        ui.label(t);
+                        if space > 0.0 {
+                            ui.add_space(space);
+                        }
+                    }
                 });
 
             ui.add_space(8.0);
             ui.horizontal(|ui| {
-                if btn(ui, "PayPal") {
-                    let _ = open::that("https://www.paypal.me/tryigitx");
-                }
-                if btn(ui, "Buy Me a Coffee") {
-                    let _ = open::that("https://buymeacoffee.com/yigitx");
+                for &(text, link) in FIAT_DONATIONS {
+                    if btn(ui, text) {
+                        let _ = open::that(link);
+                    }
                 }
             });
 
             // Links
             section(ui, "Links");
             ui.horizontal(|ui| {
-                if btn(ui, "GitHub") {
-                    let _ = open::that("https://github.com/tryigit/FOEM");
-                }
-                if btn(ui, "Telegram Channel") {
-                    let _ = open::that("https://t.me/cleverestech");
-                }
-                if btn(ui, "Report Issue") {
-                    let _ = open::that("https://github.com/tryigit/FOEM/issues");
+                for &(text, link) in COMMUNITY_LINKS {
+                    if btn(ui, text) {
+                        let _ = open::that(link);
+                    }
                 }
             });
         });
