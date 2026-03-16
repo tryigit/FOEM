@@ -68,8 +68,15 @@ pub fn push_file(serial: &str, local_path: &str, remote_path: &str) -> String {
 }
 /// List files in a directory on the device.
 pub fn list_files(serial: &str, path: &str) -> String {
+    list_files_internal(serial, path, adb_shell)
+}
+
+fn list_files_internal<F>(serial: &str, path: &str, adb_shell_fn: F) -> String
+where
+    F: Fn(&str, &[&str]) -> Result<String, String>,
+{
     let dir = if path.is_empty() { "/sdcard/" } else { path };
-    match adb_shell(serial, &["ls", "-la", dir]) {
+    match adb_shell_fn(serial, &["ls", "-la", dir]) {
         Ok(out) => format!("{}:\n{}", dir, out),
         Err(e) => format!("List failed: {}", e),
     }
@@ -546,5 +553,35 @@ adb output"
             Err("device offline".to_string())
         });
         assert_eq!(result, "Uptime check failed: device offline");
+    }
+
+    #[test]
+    fn test_list_files_internal_empty_path() {
+        let result = list_files_internal("device_123", "", |serial, args| {
+            assert_eq!(serial, "device_123");
+            assert_eq!(args, &["ls", "-la", "/sdcard/"]);
+            Ok("file1\nfile2".to_string())
+        });
+        assert_eq!(result, "/sdcard/:\nfile1\nfile2");
+    }
+
+    #[test]
+    fn test_list_files_internal_custom_path() {
+        let result = list_files_internal("device_123", "/data/local/tmp", |serial, args| {
+            assert_eq!(serial, "device_123");
+            assert_eq!(args, &["ls", "-la", "/data/local/tmp"]);
+            Ok("tmp_file1\ntmp_file2".to_string())
+        });
+        assert_eq!(result, "/data/local/tmp:\ntmp_file1\ntmp_file2");
+    }
+
+    #[test]
+    fn test_list_files_internal_failure() {
+        let result = list_files_internal("device_123", "", |serial, args| {
+            assert_eq!(serial, "device_123");
+            assert_eq!(args, &["ls", "-la", "/sdcard/"]);
+            Err("permission denied".to_string())
+        });
+        assert_eq!(result, "List failed: permission denied");
     }
 }
