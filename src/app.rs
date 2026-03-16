@@ -6,6 +6,9 @@ use eframe::egui;
 
 use crate::diagnostics::DeviceDiagnostics;
 use crate::display_version;
+use crate::features::ai_assistant::{
+    self, AiAssistantState, AiSettings, Provider, TelemetrySnapshot,
+};
 use crate::features::{self, Manufacturer};
 use crate::license_text::{COMMUNITY_LINKS, CRYPTO_DONATIONS, FIAT_DONATIONS, LICENSE_TEXT};
 use crate::theme;
@@ -21,6 +24,7 @@ enum Panel {
     Flash,
     Diagnostics,
     Tools,
+    AiAssistant,
     Updates,
     License,
 }
@@ -33,6 +37,7 @@ pub struct FOEMApp {
     log: String,
     // Input fields
     imei_input: String,
+    imei_input_2: String,
     csc_input: String,
     adb_command: String,
     nck_input: String,
@@ -42,6 +47,9 @@ pub struct FOEMApp {
     remote_path: String,
     local_path: String,
     show_full_license: bool,
+    ai_settings: AiSettings,
+    ai_state: AiAssistantState,
+    ai_attachment_path: String,
 }
 
 impl FOEMApp {
@@ -62,6 +70,7 @@ impl FOEMApp {
             manufacturer_idx: 0,
             log: String::new(),
             imei_input: String::new(),
+            imei_input_2: String::new(),
             csc_input: String::new(),
             adb_command: String::new(),
             nck_input: String::new(),
@@ -71,6 +80,9 @@ impl FOEMApp {
             remote_path: String::new(),
             local_path: String::new(),
             show_full_license: false,
+            ai_settings: AiSettings::default(),
+            ai_state: AiAssistantState::default(),
+            ai_attachment_path: String::new(),
         }
     }
 
@@ -87,6 +99,40 @@ impl FOEMApp {
 
     fn manufacturer(&self) -> &Manufacturer {
         &Manufacturer::ALL[self.manufacturer_idx]
+    }
+
+    fn panel_name(&self) -> &'static str {
+        match self.panel {
+            Panel::Device => "Device",
+            Panel::Bootloader => "Bootloader",
+            Panel::Repair => "Repair",
+            Panel::Network => "Network",
+            Panel::Flash => "Flash",
+            Panel::Diagnostics => "Diagnostics",
+            Panel::Tools => "Tools",
+            Panel::AiAssistant => "AI Agent",
+            Panel::Updates => "Updates",
+            Panel::License => "License",
+        }
+    }
+
+    fn navigate_to_panel(&mut self, target: &str) -> bool {
+        let normalized = target.trim().to_ascii_lowercase();
+        let next = match normalized.as_str() {
+            "device" => Panel::Device,
+            "bootloader" => Panel::Bootloader,
+            "repair" => Panel::Repair,
+            "network" | "network & security" => Panel::Network,
+            "flash" => Panel::Flash,
+            "diagnostics" => Panel::Diagnostics,
+            "tools" => Panel::Tools,
+            "ai" | "ai agent" | "ai assistant" => Panel::AiAssistant,
+            "updates" => Panel::Updates,
+            "license" | "license & support" => Panel::License,
+            _ => return false,
+        };
+        self.panel = next;
+        true
     }
 }
 
@@ -125,6 +171,7 @@ impl eframe::App for FOEMApp {
                     ("Flash", Panel::Flash),
                     ("Diagnostics", Panel::Diagnostics),
                     ("Tools", Panel::Tools),
+                    ("AI Agent", Panel::AiAssistant),
                     ("Updates", Panel::Updates),
                     ("License & Support", Panel::License),
                 ];
@@ -184,6 +231,7 @@ impl eframe::App for FOEMApp {
                 Panel::Flash => self.panel_flash(ui),
                 Panel::Diagnostics => self.panel_diagnostics(ui),
                 Panel::Tools => self.panel_tools(ui),
+                Panel::AiAssistant => self.panel_ai_assistant(ui),
                 Panel::Updates => self.panel_updates(ui),
                 Panel::License => self.panel_license(ui),
             });
@@ -416,14 +464,25 @@ impl FOEMApp {
             });
             ui.horizontal_wrapped(|ui| {
                 ui.label(
-                    egui::RichText::new("IMEI:")
+                    egui::RichText::new("IMEI 1:")
                         .size(12.0)
                         .color(theme::SECONDARY),
                 );
                 ui.add(egui::TextEdit::singleline(&mut self.imei_input).desired_width(180.0));
+                ui.label(
+                    egui::RichText::new("IMEI 2 (optional):")
+                        .size(12.0)
+                        .color(theme::SECONDARY),
+                );
+                ui.add(egui::TextEdit::singleline(&mut self.imei_input_2).desired_width(180.0));
                 if btn(ui, "Write IMEI") {
                     if let Ok(s) = self.require_device() {
-                        self.log = features::repair::write_imei(s, &self.imei_input, &mfr);
+                        let imei_payload = if self.imei_input_2.trim().is_empty() {
+                            self.imei_input.clone()
+                        } else {
+                            format!("{},{}", self.imei_input.trim(), self.imei_input_2.trim())
+                        };
+                        self.log = features::repair::write_imei(s, &imei_payload, &mfr);
                     } else {
                         self.log = "Connect a device first.".into();
                     }
@@ -1166,6 +1225,193 @@ impl FOEMApp {
                     }
                 }
             });
+
+            ui.add_space(8.0);
+            log_area(ui, &self.log);
+        });
+    }
+
+    fn panel_ai_assistant(&mut self, ui: &mut egui::Ui) {
+        heading(ui, "AI Agent");
+
+        egui::ScrollArea::vertical().show(ui, |ui| {
+            section(ui, "Provider");
+            egui::ComboBox::from_id_salt("ai_provider")
+                .width(180.0)
+                .selected_text(self.ai_settings.provider.label())
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(
+                        &mut self.ai_settings.provider,
+                        Provider::OpenRouter,
+                        Provider::OpenRouter.label(),
+                    );
+                    ui.selectable_value(
+                        &mut self.ai_settings.provider,
+                        Provider::OpenAI,
+                        Provider::OpenAI.label(),
+                    );
+                    ui.selectable_value(
+                        &mut self.ai_settings.provider,
+                        Provider::Gemini,
+                        Provider::Gemini.label(),
+                    );
+                    ui.selectable_value(
+                        &mut self.ai_settings.provider,
+                        Provider::Local,
+                        Provider::Local.label(),
+                    );
+                });
+            ui.add_space(6.0);
+            ui.label(egui::RichText::new("Model").size(11.0).color(theme::SECONDARY));
+            ui.add(egui::TextEdit::singleline(&mut self.ai_settings.model).desired_width(320.0));
+            ui.label(
+                egui::RichText::new("API Key (for Local provider, leave empty if not needed)")
+                    .size(11.0)
+                    .color(theme::SECONDARY),
+            );
+            ui.add(
+                egui::TextEdit::singleline(&mut self.ai_settings.api_key)
+                    .password(true)
+                    .desired_width(420.0),
+            );
+            if self.ai_settings.provider == Provider::Local {
+                ui.label(egui::RichText::new("Local Endpoint").size(11.0).color(theme::SECONDARY));
+                ui.add(
+                    egui::TextEdit::singleline(&mut self.ai_settings.custom_endpoint)
+                        .desired_width(420.0),
+                );
+            }
+            section(ui, "Advanced");
+            ui.checkbox(&mut self.ai_settings.vision_enabled, "Enable vision/image analysis");
+            ui.add(
+                egui::Slider::new(&mut self.ai_settings.temperature, 0.0..=1.0)
+                    .text("Temperature")
+                    .step_by(0.05),
+            );
+            ui.label(
+                egui::RichText::new("Detected commands are listed below for manual copy/execute.")
+                    .size(11.0)
+                    .color(theme::TERTIARY),
+            );
+
+            section(ui, "Attachment");
+            ui.horizontal_wrapped(|ui| {
+                ui.add(
+                    egui::TextEdit::singleline(&mut self.ai_attachment_path).desired_width(420.0),
+                );
+                if btn(ui, "Attach File") {
+                    match self
+                        .ai_state
+                        .add_attachment_from_path(self.ai_attachment_path.trim())
+                    {
+                        Ok(()) => {
+                            self.log = format!(
+                                "Attachment added. Total attachments: {}",
+                                self.ai_state.attachments.len()
+                            );
+                            self.ai_attachment_path.clear();
+                        }
+                        Err(e) => {
+                            self.log = e;
+                        }
+                    }
+                }
+            });
+
+            section(ui, "Chat");
+            ui.add(
+                egui::TextEdit::multiline(&mut self.ai_state.input)
+                    .desired_rows(4)
+                    .desired_width(f32::INFINITY)
+                    .hint_text("Ask the AI agent for repair steps, diagnostics help, or command suggestions..."),
+            );
+            ui.horizontal_wrapped(|ui| {
+                if btn_accent(ui, "Send to AI") {
+                    if self.ai_state.input.trim().is_empty() {
+                        self.log = "Please enter a prompt first.".into();
+                    } else {
+                        let telemetry = TelemetrySnapshot {
+                            active_panel: self.panel_name().to_string(),
+                            recent_actions: vec![self.log.clone()],
+                            device_summary: self
+                                .serial()
+                                .map(|s| format!("Connected device: {}", s))
+                                .unwrap_or_else(|| "No device connected".to_string()),
+                        };
+                        let user_input = self.ai_state.input.clone();
+                        self.ai_state.push_user_message(user_input);
+                        match ai_assistant::send_chat(
+                            &mut self.ai_state,
+                            &self.ai_settings,
+                            telemetry,
+                        ) {
+                            Ok(resp) => {
+                                if let Some(target) = self.ai_state.last_action_target.clone() {
+                                    if self.navigate_to_panel(&target) {
+                                        self.log = format!(
+                                            "AI Response:\n{}\n\nAI navigated to panel: {}",
+                                            resp, target
+                                        );
+                                    } else {
+                                        self.log = format!(
+                                            "AI Response:\n{}\n\nAI requested unknown panel: {}",
+                                            resp, target
+                                        );
+                                    }
+                                } else {
+                                    self.log = format!("AI Response:\n{}", resp);
+                                }
+                                self.ai_state.last_error = None;
+                            }
+                            Err(e) => {
+                                self.log = format!("AI request failed: {}", e);
+                                self.ai_state.last_error = Some(e);
+                            }
+                        }
+                    }
+                }
+                if btn(ui, "Clear Conversation") {
+                    self.ai_state = AiAssistantState::default();
+                    self.log = "AI conversation cleared.".into();
+                }
+                if btn(ui, "Clear Detected Commands") {
+                    self.ai_state.pending_commands.clear();
+                    self.log = "Detected command list cleared.".into();
+                }
+            });
+
+            if !self.ai_state.pending_commands.is_empty() {
+                section(ui, "Detected Commands");
+                for cmd in &self.ai_state.pending_commands {
+                    ui.label(egui::RichText::new(cmd).monospace().size(11.0).color(theme::FG));
+                }
+            }
+
+            section(ui, "Conversation");
+            egui::Frame::none()
+                .fill(theme::CARD_BG)
+                .rounding(theme::ROUNDING)
+                .inner_margin(theme::CARD_PADDING)
+                .show(ui, |ui| {
+                    egui::ScrollArea::vertical()
+                        .max_height(240.0)
+                        .id_salt("ai_history_scroll")
+                        .show(ui, |ui| {
+                            for msg in &self.ai_state.history {
+                                let role = match msg.role {
+                                    ai_assistant::ChatRole::System => "System",
+                                    ai_assistant::ChatRole::User => "You",
+                                    ai_assistant::ChatRole::Assistant => "AI",
+                                };
+                                ui.label(
+                                    egui::RichText::new(format!("{}: {}", role, msg.content))
+                                        .size(11.0)
+                                        .color(theme::SECONDARY),
+                                );
+                                ui.add_space(4.0);
+                            }
+                        });
+                });
 
             ui.add_space(8.0);
             log_area(ui, &self.log);
