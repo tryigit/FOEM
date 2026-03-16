@@ -1,6 +1,7 @@
 /// ADB utility tools: shell, logcat, file operations, reboot,
 /// backup/restore, APK management, bloatware removal, screenshots.
 use super::{adb, adb_shell};
+use crate::exec::{normalize_local_path, normalize_remote_path};
 
 // -- ADB Shell --
 
@@ -59,22 +60,32 @@ pub fn clear_logcat(serial: &str) -> String {
 
 /// Pull a file from the device to the local machine.
 pub fn pull_file(serial: &str, remote_path: &str, local_path: &str) -> String {
-    if remote_path.is_empty() || local_path.is_empty() {
+    let remote = normalize_remote_path(remote_path);
+    let local = normalize_local_path(local_path);
+    if remote.is_empty() || local.is_empty() {
         return "Both remote and local paths are required.".to_string();
     }
-    match adb(serial, &["pull", remote_path, local_path]) {
+    match adb(serial, &["pull", &remote, &local]) {
         Ok(out) => format!("Pull result:\n{}", out),
-        Err(e) => format!("Pull failed: {}", e),
+        Err(e) => format!(
+            "Pull failed: {}. Verify the path and that the device stays connected.",
+            e
+        ),
     }
 }
 /// Push a file from the local machine to the device.
 pub fn push_file(serial: &str, local_path: &str, remote_path: &str) -> String {
-    if local_path.is_empty() || remote_path.is_empty() {
+    let local = normalize_local_path(local_path);
+    let remote = normalize_remote_path(remote_path);
+    if local.is_empty() || remote.is_empty() {
         return "Both local and remote paths are required.".to_string();
     }
-    match adb(serial, &["push", local_path, remote_path]) {
+    match adb(serial, &["push", &local, &remote]) {
         Ok(out) => format!("Push result:\n{}", out),
-        Err(e) => format!("Push failed: {}", e),
+        Err(e) => format!(
+            "Push failed: {}. Confirm the file exists and USB debugging is authorized.",
+            e
+        ),
     }
 }
 /// List files in a directory on the device.
@@ -96,10 +107,11 @@ fn install_apk_internal<F>(serial: &str, apk_path: &str, adb_fn: F) -> String
 where
     F: Fn(&str, &[&str]) -> Result<String, String>,
 {
-    if apk_path.is_empty() {
+    let apk = normalize_local_path(apk_path);
+    if apk.is_empty() {
         return "APK file path is required.".to_string();
     }
-    match adb_fn(serial, &["install", "-r", "-d", apk_path]) {
+    match adb_fn(serial, &["install", "-r", "-d", &apk]) {
         Ok(out) => format!("Install result:\n{}", out),
         Err(e) => format!("Install failed: {}", e),
     }
@@ -196,15 +208,13 @@ where
     F: Fn(&str, &[&str]) -> Result<String, String>,
 {
     let path = if backup_path.is_empty() {
-        "foem_backup.ab"
+        "foem_backup.ab".to_string()
     } else {
-        backup_path
+        normalize_local_path(backup_path)
     };
-    match adb_fn(serial, &["backup", "-all", "-apk", "-shared", "-f", path]) {
+    match adb_fn(serial, &["backup", "-all", "-apk", "-shared", "-f", &path]) {
         Ok(out) => format!(
-            "Backup initiated to '{}'.
-Confirm on device screen.
-{}",
+            "Backup initiated to '{}'.\nConfirm on device screen.\n{}",
             path, out
         ),
         Err(e) => format!("Backup failed: {}", e),
@@ -212,13 +222,14 @@ Confirm on device screen.
 }
 /// Full device restore from ADB backup.
 pub fn full_restore(serial: &str, backup_path: &str) -> String {
-    if backup_path.is_empty() {
+    let path = normalize_local_path(backup_path);
+    if path.is_empty() {
         return "Backup file path is required.".to_string();
     }
-    match adb(serial, &["restore", backup_path]) {
+    match adb(serial, &["restore", &path]) {
         Ok(out) => format!(
             "Restore initiated from '{}'.\nConfirm on device screen.\n{}",
-            backup_path, out
+            path, out
         ),
         Err(e) => format!("Restore failed: {}", e),
     }
@@ -229,12 +240,12 @@ pub fn full_restore(serial: &str, backup_path: &str) -> String {
 pub fn take_screenshot(serial: &str, local_path: &str) -> String {
     let device_path = "/sdcard/FOEM/screenshot.png";
     let local = if local_path.is_empty() {
-        "screenshot.png"
+        "screenshot.png".to_string()
     } else {
-        local_path
+        normalize_local_path(local_path)
     };
     match adb_shell(serial, &["screencap", "-p", device_path]) {
-        Ok(_) => match adb(serial, &["pull", device_path, local]) {
+        Ok(_) => match adb(serial, &["pull", device_path, &local]) {
             Ok(out) => format!("Screenshot saved to '{}'.\n{}", local, out),
             Err(e) => format!("Screenshot taken but pull failed: {}", e),
         },

@@ -1,5 +1,8 @@
 name: Build
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 on:
   push:
     branches: [main, master]
@@ -39,6 +42,29 @@ jobs:
 
       - name: Run tests
         run: cargo test --bin foem --release
+
+      - name: Decode code signing certificate (Windows only)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $certPath = Join-Path $env:RUNNER_TEMP "foem_signing.pfx"
+          [System.IO.File]::WriteAllBytes($certPath, [System.Convert]::FromBase64String("${{ secrets.CERT_BASE64 }}"))
+          Write-Host "Certificate decoded to $certPath"
+
+      - name: Sign Windows executable
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $certPath = Join-Path $env:RUNNER_TEMP "foem_signing.pfx"
+          $exePath = "target/release/foem.exe"
+          & "C:\Program Files (x86)\Windows Kits\10\bin\x64\signtool.exe" sign /f $certPath /p "${{ secrets.CERT_PASSWORD }}" /tr http://timestamp.digicert.com /td sha256 /fd sha256 $exePath
+
+      - name: Cleanup certificate
+        if: always() && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $certPath = Join-Path $env:RUNNER_TEMP "foem_signing.pfx"
+          if (Test-Path $certPath) { Remove-Item -Force $certPath }
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

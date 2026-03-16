@@ -29,6 +29,7 @@ pub const CARD_PADDING: f32 = 14.0;
 /// Apply the FOEM dark theme to an egui context.
 pub fn apply(ctx: &egui::Context) {
     let mut style = (*ctx.style()).clone();
+    let scale = ctx.pixels_per_point().max(1.0);
     style.visuals = egui::Visuals::dark();
     style.visuals.panel_fill = BG;
     style.visuals.window_fill = CARD_BG;
@@ -39,6 +40,39 @@ pub fn apply(ctx: &egui::Context) {
     style.visuals.widgets.active.bg_fill = ACCENT;
     style.visuals.selection.bg_fill = ACCENT;
     style.visuals.extreme_bg_color = egui::Color32::from_rgb(10, 10, 10);
-    style.spacing.item_spacing = egui::vec2(8.0, 6.0);
+    style.visuals.window_rounding = egui::Rounding::same(ROUNDING);
+    style.visuals.widgets.noninteractive.rounding = egui::Rounding::same(ROUNDING / 2.0);
+    style.visuals.widgets.inactive.rounding = egui::Rounding::same(ROUNDING / 2.0);
+    style.spacing.item_spacing = egui::vec2(10.0 * scale, 8.0 * scale);
+    style.spacing.button_padding = egui::vec2(14.0 * scale, 10.0 * scale);
+    style.spacing.interact_size = egui::vec2(120.0 * scale, 38.0 * scale);
+    style.spacing.window_margin = egui::Margin::symmetric(12.0 * scale, 12.0 * scale);
+    style.text_styles = [
+        (
+            egui::TextStyle::Heading,
+            egui::FontId::proportional(22.0 * scale),
+        ),
+        (
+            egui::TextStyle::Name("Section".into()),
+            egui::FontId::proportional(16.0 * scale),
+        ),
+        (
+            egui::TextStyle::Body,
+            egui::FontId::proportional(14.0 * scale),
+        ),
+        (
+            egui::TextStyle::Button,
+            egui::FontId::proportional(13.0 * scale),
+        ),
+        (
+            egui::TextStyle::Monospace,
+            egui::FontId::monospace(13.0 * scale),
+        ),
+        (
+            egui::TextStyle::Small,
+            egui::FontId::proportional(12.0 * scale),
+        ),
+    ]
+    .into();
     ctx.set_style(style);
 }

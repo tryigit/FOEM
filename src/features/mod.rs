@@ -1,8 +1,4 @@
 /// Feature modules for FOEM.
-///
-/// Each module provides functions that execute ADB/Fastboot commands
-/// for a specific category of device operations.
-/// Manufacturer-specific logic is handled via the Manufacturer enum.
 pub mod bootloader;
 pub mod flash;
 pub mod hardware_test;
@@ -10,7 +6,7 @@ pub mod network;
 pub mod repair;
 pub mod tools;
 
-use std::process::Command;
+use crate::exec;
 
 /// Supported device manufacturers.
 /// Used to select manufacturer-specific methods and protocols.
@@ -107,39 +103,14 @@ impl Manufacturer {
     }
 }
 
-fn run_cmd(
-    program: &str,
-    serial: &str,
-    args: &[&str],
-    error_prefix: &str,
-) -> Result<String, String> {
-    let mut cmd = Command::new(program);
-    cmd.args(["-s", serial]);
-    cmd.args(args);
-    match cmd.output() {
-        Ok(output) if output.status.success() => {
-            Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
-        }
-        Ok(output) => {
-            let err = String::from_utf8_lossy(&output.stderr).trim().to_string();
-            Err(if err.is_empty() {
-                "Command failed with no error output.".to_string()
-            } else {
-                err
-            })
-        }
-        Err(e) => Err(format!("{}: {}", error_prefix, e)),
-    }
-}
-
 /// Shared helper: run an ADB command and return its output.
 pub fn adb(serial: &str, args: &[&str]) -> Result<String, String> {
-    run_cmd("adb", serial, args, "Failed to execute ADB")
+    exec::run_with_serial("adb", serial, args, "Failed to execute ADB")
 }
 
 /// Shared helper: run a Fastboot command and return its output.
 pub fn fastboot(serial: &str, args: &[&str]) -> Result<String, String> {
-    run_cmd("fastboot", serial, args, "Failed to execute Fastboot")
+    exec::run_with_serial("fastboot", serial, args, "Failed to execute Fastboot")
 }
 
 /// Shared helper: run an ADB shell command.

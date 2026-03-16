@@ -5,11 +5,11 @@
 use eframe::egui;
 
 use crate::diagnostics::DeviceDiagnostics;
+use crate::display_version;
 use crate::features::{self, Manufacturer};
 use crate::license_text::{COMMUNITY_LINKS, CRYPTO_DONATIONS, FIAT_DONATIONS, LICENSE_TEXT};
 use crate::theme;
 use crate::update_manager::UpdateManager;
-use crate::VERSION;
 
 #[derive(Default, PartialEq, Clone, Copy)]
 enum Panel {
@@ -46,6 +46,14 @@ pub struct FOEMApp {
 
 impl FOEMApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        let native_scale = cc.egui_ctx.native_pixels_per_point().unwrap_or({
+            if cfg!(target_os = "windows") {
+                1.25
+            } else {
+                1.0
+            }
+        });
+        cc.egui_ctx.set_pixels_per_point(native_scale.max(1.0));
         theme::apply(&cc.egui_ctx);
         Self {
             panel: Panel::Device,
@@ -101,7 +109,7 @@ impl eframe::App for FOEMApp {
                         .color(theme::FG),
                 );
                 ui.label(
-                    egui::RichText::new(format!("v{}", VERSION))
+                    egui::RichText::new(format!("v{}", display_version()))
                         .size(11.0)
                         .color(theme::TERTIARY),
                 );
@@ -213,10 +221,11 @@ fn log_area(ui: &mut egui::Ui, text: &str) {
             egui::ScrollArea::vertical()
                 .max_height(380.0)
                 .show(ui, |ui| {
+                    ui.spacing_mut().item_spacing = egui::vec2(6.0, 8.0);
                     ui.label(
                         egui::RichText::new(text)
                             .monospace()
-                            .size(11.5)
+                            .size(13.0)
                             .color(theme::FG),
                     );
                 });
@@ -224,14 +233,24 @@ fn log_area(ui: &mut egui::Ui, text: &str) {
 }
 
 fn btn(ui: &mut egui::Ui, label: &str) -> bool {
-    ui.button(egui::RichText::new(label).size(12.0)).clicked()
+    ui.add(
+        egui::Button::new(egui::RichText::new(label).size(12.5))
+            .min_size(egui::vec2(132.0, 36.0))
+            .wrap(),
+    )
+    .clicked()
 }
 
 fn btn_accent(ui: &mut egui::Ui, label: &str) -> bool {
-    ui.button(
-        egui::RichText::new(label)
-            .size(12.0)
-            .color(egui::Color32::WHITE),
+    ui.add(
+        egui::Button::new(
+            egui::RichText::new(label)
+                .size(12.5)
+                .color(egui::Color32::WHITE),
+        )
+        .fill(theme::ACCENT)
+        .min_size(egui::vec2(132.0, 36.0))
+        .wrap(),
     )
     .clicked()
 }
@@ -255,11 +274,12 @@ impl FOEMApp {
         );
 
         ui.add_space(8.0);
-        ui.horizontal(|ui| {
+        ui.horizontal_wrapped(|ui| {
             if btn_accent(ui, "Detect Device") {
                 self.log = match self.diagnostics.detect_device() {
-                    Some(s) => format!("Device detected: {}", s),
-                    None => "No device detected. Check USB debugging.".into(),
+                    Ok(Some(s)) => format!("Device detected: {}", s),
+                    Ok(None) => "No device detected. Check USB debugging.".into(),
+                    Err(e) => format!("Detect device failed: {}", e),
                 };
             }
             if btn(ui, "Device Info") {
@@ -304,7 +324,7 @@ impl FOEMApp {
         );
 
         section(ui, "Status");
-        ui.horizontal(|ui| {
+        ui.horizontal_wrapped(|ui| {
             if btn(ui, "Check BL Status") {
                 if let Ok(s) = self.require_device() {
                     self.log = features::bootloader::check_status(s);
@@ -329,7 +349,7 @@ impl FOEMApp {
         });
 
         section(ui, "Actions");
-        ui.horizontal(|ui| {
+        ui.horizontal_wrapped(|ui| {
             if btn_accent(ui, "Unlock Bootloader") {
                 if let Ok(s) = self.require_device() {
                     self.log = features::bootloader::unlock(s, &mfr);
@@ -347,13 +367,6 @@ impl FOEMApp {
             if btn(ui, "Bypass Bootloader Unlock (Pre-Feb)") {
                 if let Ok(s) = self.require_device() {
                     self.log = features::bootloader::bypass_unlock(s);
-                } else {
-                    self.log = "Connect a device first.".into();
-                }
-            }
-            if btn(ui, "Attempt Locked Root") {
-                if let Ok(s) = self.require_device() {
-                    self.log = features::bootloader::attempt_locked_root(s);
                 } else {
                     self.log = "Connect a device first.".into();
                 }
@@ -385,7 +398,7 @@ impl FOEMApp {
         egui::ScrollArea::vertical().show(ui, |ui| {
             // IMEI
             section(ui, "IMEI Management");
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 if btn(ui, "Read IMEI") {
                     if let Ok(s) = self.require_device() {
                         self.log = features::repair::read_imei(s);
@@ -401,7 +414,7 @@ impl FOEMApp {
                     }
                 }
             });
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 ui.label(
                     egui::RichText::new("IMEI:")
                         .size(12.0)
@@ -419,7 +432,7 @@ impl FOEMApp {
 
             // GMS
             section(ui, "Google Mobile Services");
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 if btn(ui, "Check GMS") {
                     if let Ok(s) = self.require_device() {
                         self.log = features::repair::check_gms(s);
@@ -438,7 +451,7 @@ impl FOEMApp {
 
             // EFS / NV
             section(ui, "EFS / NV Data");
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 if btn(ui, "Backup EFS") {
                     if let Ok(s) = self.require_device() {
                         self.log = features::repair::backup_efs(s);
@@ -471,7 +484,7 @@ impl FOEMApp {
 
             // Samsung-specific
             section(ui, "Samsung Specific");
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 if btn(ui, "DRK Repair") {
                     if let Ok(s) = self.require_device() {
                         self.log = features::repair::repair_drk(s);
@@ -487,7 +500,7 @@ impl FOEMApp {
                     }
                 }
             });
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 ui.label(
                     egui::RichText::new("CSC:")
                         .size(12.0)
@@ -505,7 +518,7 @@ impl FOEMApp {
 
             // Baseband
             section(ui, "Baseband / Modem");
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 if btn(ui, "Check Baseband") {
                     if let Ok(s) = self.require_device() {
                         self.log = features::repair::check_baseband(s);
@@ -533,7 +546,7 @@ impl FOEMApp {
         egui::ScrollArea::vertical().show(ui, |ui| {
             // FRP
             section(ui, "FRP (Factory Reset Protection)");
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 if btn(ui, "Check FRP") {
                     if let Ok(s) = self.require_device() {
                         self.log = features::network::check_frp_status(s);
@@ -562,7 +575,7 @@ impl FOEMApp {
                     }
                 }
             });
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 if btn(ui, "Remove Accounts") {
                     if let Ok(s) = self.require_device() {
                         self.log = features::network::bypass_frp(
@@ -594,7 +607,7 @@ impl FOEMApp {
 
             // Carrier
             section(ui, "Carrier / SIM Unlock");
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 if btn(ui, "Check Lock Status") {
                     if let Ok(s) = self.require_device() {
                         self.log = features::network::check_carrier_lock(s);
@@ -603,7 +616,7 @@ impl FOEMApp {
                     }
                 }
             });
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 ui.label(
                     egui::RichText::new("NCK:")
                         .size(12.0)
@@ -621,7 +634,7 @@ impl FOEMApp {
 
             // MDM
             section(ui, "MDM / Enterprise");
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 if btn(ui, "Check MDM") {
                     if let Ok(s) = self.require_device() {
                         self.log = features::network::check_mdm_status(s);
@@ -657,7 +670,7 @@ impl FOEMApp {
         egui::ScrollArea::vertical().show(ui, |ui| {
             // EDL
             section(ui, "EDL Mode (Qualcomm 9008)");
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 if btn_accent(ui, "Enter EDL Mode") {
                     if let Ok(s) = self.require_device() {
                         self.log = features::flash::enter_edl_mode(s);
@@ -676,7 +689,7 @@ impl FOEMApp {
 
             // Fastboot
             section(ui, "Fastboot Flash");
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 ui.label(
                     egui::RichText::new("Partition:")
                         .size(12.0)
@@ -691,7 +704,7 @@ impl FOEMApp {
                         }
                     });
             });
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 ui.label(
                     egui::RichText::new("Image:")
                         .size(12.0)
@@ -699,7 +712,7 @@ impl FOEMApp {
                 );
                 ui.add(egui::TextEdit::singleline(&mut self.flash_path).desired_width(300.0));
             });
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 if btn_accent(ui, "Flash Partition") {
                     if let Ok(s) = self.require_device() {
                         let part = features::flash::FASTBOOT_PARTITIONS[self.partition_idx];
@@ -727,7 +740,7 @@ impl FOEMApp {
 
             // Root
             section(ui, "Root (Magisk / KernelSU)");
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 if btn_accent(ui, "Install Magisk") {
                     if let Ok(s) = self.require_device() {
                         self.log = features::flash::install_magisk(s, &self.flash_path);
@@ -746,7 +759,7 @@ impl FOEMApp {
 
             // Recovery
             section(ui, "Recovery");
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 if btn(ui, "Flash Recovery") {
                     if let Ok(s) = self.require_device() {
                         self.log = features::flash::flash_recovery(s, &self.flash_path);
@@ -765,7 +778,7 @@ impl FOEMApp {
 
             // Firmware
             section(ui, "Firmware");
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 if btn_accent(ui, "Flash Firmware") {
                     if let Ok(s) = self.require_device() {
                         self.log = features::flash::flash_firmware(s, &self.flash_path, &mfr);
@@ -777,7 +790,7 @@ impl FOEMApp {
 
             // MediaTek
             section(ui, "MediaTek SP Flash");
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 if btn(ui, "Enter BROM Mode") {
                     if let Ok(s) = self.require_device() {
                         self.log = features::flash::enter_brom_mode(s);
@@ -792,7 +805,7 @@ impl FOEMApp {
 
             // Reboot modes
             section(ui, "Reboot");
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 let modes = [
                     "system",
                     "recovery",
@@ -821,7 +834,7 @@ impl FOEMApp {
         heading(ui, "Hardware Diagnostics");
 
         egui::ScrollArea::vertical().show(ui, |ui| {
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 if btn_accent(ui, "Run All Tests") {
                     if let Ok(s) = self.require_device() {
                         self.log = features::hardware_test::run_all(s);
@@ -832,7 +845,7 @@ impl FOEMApp {
             });
 
             section(ui, "Individual Tests");
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 if btn(ui, "Battery") {
                     if let Ok(s) = self.require_device() {
                         self.log = features::hardware_test::check_battery(s);
@@ -862,7 +875,7 @@ impl FOEMApp {
                     }
                 }
             });
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 if btn(ui, "Cameras") {
                     if let Ok(s) = self.require_device() {
                         self.log = features::hardware_test::test_cameras(s);
@@ -892,7 +905,7 @@ impl FOEMApp {
                     }
                 }
             });
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 if btn(ui, "USB") {
                     if let Ok(s) = self.require_device() {
                         self.log = features::hardware_test::test_usb(s);
@@ -927,7 +940,7 @@ impl FOEMApp {
         egui::ScrollArea::vertical().show(ui, |ui| {
             // ADB Shell
             section(ui, "ADB Shell");
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 ui.add(
                     egui::TextEdit::singleline(&mut self.adb_command)
                         .desired_width(400.0)
@@ -944,7 +957,7 @@ impl FOEMApp {
 
             // Logcat
             section(ui, "Logcat");
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 if btn(ui, "Logcat (100 lines)") {
                     if let Ok(s) = self.require_device() {
                         self.log = features::tools::capture_logcat(s, 100);
@@ -963,7 +976,7 @@ impl FOEMApp {
 
             // File Manager
             section(ui, "File Manager");
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 ui.label(
                     egui::RichText::new("Remote:")
                         .size(11.0)
@@ -977,7 +990,7 @@ impl FOEMApp {
                 );
                 ui.add(egui::TextEdit::singleline(&mut self.local_path).desired_width(200.0));
             });
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 if btn(ui, "Pull File") {
                     if let Ok(s) = self.require_device() {
                         self.log =
@@ -1005,7 +1018,7 @@ impl FOEMApp {
 
             // APK & Packages
             section(ui, "APK & Packages");
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 ui.label(
                     egui::RichText::new("Filter:")
                         .size(11.0)
@@ -1020,7 +1033,7 @@ impl FOEMApp {
                     }
                 }
             });
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 if btn(ui, "List All") {
                     if let Ok(s) = self.require_device() {
                         self.log = features::tools::list_packages(s, &self.package_filter);
@@ -1060,7 +1073,7 @@ impl FOEMApp {
 
             // Backup & Restore
             section(ui, "Backup & Restore");
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 if btn(ui, "Full Backup") {
                     if let Ok(s) = self.require_device() {
                         self.log = features::tools::full_backup(s, &self.local_path);
@@ -1093,7 +1106,7 @@ impl FOEMApp {
 
             // System
             section(ui, "System");
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 if btn(ui, "Reboot") {
                     if let Ok(s) = self.require_device() {
                         self.log = features::tools::reboot(s);
@@ -1123,7 +1136,7 @@ impl FOEMApp {
                     }
                 }
             });
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 if btn(ui, "Uptime") {
                     if let Ok(s) = self.require_device() {
                         self.log = features::tools::get_uptime(s);
@@ -1162,19 +1175,21 @@ impl FOEMApp {
     fn panel_updates(&mut self, ui: &mut egui::Ui) {
         heading(ui, "Updates");
 
-        ui.horizontal(|ui| {
+        ui.horizontal_wrapped(|ui| {
             if btn_accent(ui, "Check for Updates") {
                 match self.update_manager.check_for_updates() {
                     Ok(Some(info)) => {
                         self.log = format!(
                             "New version available: {}\nCurrent: {}\nDownload: {}",
-                            info.latest_version, VERSION, info.download_url,
+                            info.latest_version,
+                            display_version(),
+                            info.download_url,
                         );
                     }
                     Ok(None) => {
                         self.log = format!(
                             "Current version: {}\nYou are running the latest version.",
-                            VERSION
+                            display_version()
                         );
                     }
                     Err(e) => {
@@ -1203,7 +1218,7 @@ impl FOEMApp {
                     .color(theme::FG),
             );
             ui.label(
-                egui::RichText::new(format!("Version {}", VERSION))
+                egui::RichText::new(format!("Version {}", display_version()))
                     .size(11.0)
                     .color(theme::SECONDARY),
             );
@@ -1287,7 +1302,7 @@ impl FOEMApp {
                 });
 
             ui.add_space(8.0);
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 for &(text, link) in FIAT_DONATIONS {
                     if btn(ui, text) {
                         let _ = open::that(link);
@@ -1297,7 +1312,7 @@ impl FOEMApp {
 
             // Links
             section(ui, "Links");
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 for &(text, link) in COMMUNITY_LINKS {
                     if btn(ui, text) {
                         let _ = open::that(link);
