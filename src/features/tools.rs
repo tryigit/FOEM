@@ -104,7 +104,14 @@ pub fn list_packages(serial: &str, filter: &str) -> String {
 
 /// List only third-party (user-installed) packages.
 pub fn list_user_packages(serial: &str) -> String {
-    match adb_shell(serial, &["pm", "list", "packages", "-3"]) {
+    list_user_packages_internal(serial, adb_shell)
+}
+
+fn list_user_packages_internal<F>(serial: &str, adb_shell_fn: F) -> String
+where
+    F: Fn(&str, &[&str]) -> Result<String, String>,
+{
+    match adb_shell_fn(serial, &["pm", "list", "packages", "-3"]) {
         Ok(out) => {
             let count = out.lines().count();
             format!("User-installed packages ({}):\n{}", count, out)
@@ -388,5 +395,39 @@ mod tests {
             "Expected troubleshooting hint, got: {}",
             result
         );
+    }
+
+
+    #[test]
+    fn test_list_user_packages_success() {
+        let result = list_user_packages_internal("device_123", |serial, args| {
+            assert_eq!(serial, "device_123");
+            assert_eq!(args, &["pm", "list", "packages", "-3"]);
+            Ok("package:com.example.app1\npackage:com.example.app2".to_string())
+        });
+        assert_eq!(
+            result,
+            "User-installed packages (2):\npackage:com.example.app1\npackage:com.example.app2"
+        );
+    }
+
+    #[test]
+    fn test_list_user_packages_empty() {
+        let result = list_user_packages_internal("device_123", |serial, args| {
+            assert_eq!(serial, "device_123");
+            assert_eq!(args, &["pm", "list", "packages", "-3"]);
+            Ok("".to_string())
+        });
+        assert_eq!(result, "User-installed packages (0):\n");
+    }
+
+    #[test]
+    fn test_list_user_packages_failure() {
+        let result = list_user_packages_internal("device_123", |serial, args| {
+            assert_eq!(serial, "device_123");
+            assert_eq!(args, &["pm", "list", "packages", "-3"]);
+            Err("device offline".to_string())
+        });
+        assert_eq!(result, "List failed: device offline");
     }
 }
