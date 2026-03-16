@@ -70,9 +70,7 @@ impl DeviceDiagnostics {
         ];
 
         for (key, prop) in &props {
-            if let Some(val) =
-                Self::run_cmd(&["adb", "-s", &serial, "shell", "getprop", prop])
-            {
+            if let Some(val) = Self::run_cmd(&["adb", "-s", &serial, "shell", "getprop", prop]) {
                 if !val.is_empty() {
                     info.insert(key.to_string(), val);
                 }
