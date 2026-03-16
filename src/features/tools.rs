@@ -249,7 +249,14 @@ pub fn reboot_recovery(serial: &str) -> String {
 }
 /// Reboot to bootloader/fastboot mode.
 pub fn reboot_bootloader(serial: &str) -> String {
-    match adb(serial, &["reboot", "bootloader"]) {
+    reboot_bootloader_internal(serial, adb)
+}
+
+fn reboot_bootloader_internal<F>(serial: &str, adb_fn: F) -> String
+where
+    F: Fn(&str, &[&str]) -> Result<String, String>,
+{
+    match adb_fn(serial, &["reboot", "bootloader"]) {
         Ok(_) => "Device rebooting to bootloader/fastboot.".to_string(),
         Err(e) => format!("Reboot to bootloader failed: {}", e),
     }
@@ -580,5 +587,28 @@ adb output"
             Err("error: device not found".to_string())
         });
         assert_eq!(result, "Install failed: error: device not found");
+    }
+
+    #[test]
+    fn test_reboot_bootloader_success() {
+        let result = reboot_bootloader_internal("device_123", |serial, args| {
+            assert_eq!(serial, "device_123");
+            assert_eq!(args, &["reboot", "bootloader"]);
+            Ok("".to_string())
+        });
+        assert_eq!(result, "Device rebooting to bootloader/fastboot.");
+    }
+
+    #[test]
+    fn test_reboot_bootloader_failure() {
+        let result = reboot_bootloader_internal("device_123", |serial, args| {
+            assert_eq!(serial, "device_123");
+            assert_eq!(args, &["reboot", "bootloader"]);
+            Err("error: device not found".to_string())
+        });
+        assert_eq!(
+            result,
+            "Reboot to bootloader failed: error: device not found"
+        );
     }
 }
