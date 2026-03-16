@@ -531,20 +531,15 @@ pub fn restore_nv_data(serial: &str) -> String {
 
 /// DRK (Device Root Key) repair for Samsung devices.
 pub fn repair_drk(serial: &str) -> String {
-    let cmds = [
-        ("Removing DRK flag", &["rm", "-f", "/efs/prov/cc.dat"][..]),
-        ("Clearing DRK data", &["rm", "-rf", "/efs/prov_data/"][..]),
-        (
-            "Removing warranty void",
-            &["rm", "-f", "/efs/prov/ridge.dat"][..],
-        ),
-    ];
+    let script = "rm -f /efs/prov/cc.dat && rm -rf /efs/prov_data/ && rm -f /efs/prov/ridge.dat";
     let mut output = String::from("DRK Repair (Samsung):\n");
-    for (desc, args) in &cmds {
-        match adb_shell(serial, args) {
-            Ok(_) => output.push_str(&format!("  {} -- done\n", desc)),
-            Err(_) => output.push_str(&format!("  {} -- failed (root required)\n", desc)),
+    match adb_shell(serial, &["sh", "-c", script]) {
+        Ok(_) => {
+            output.push_str("  Removing DRK flag -- done\n");
+            output.push_str("  Clearing DRK data -- done\n");
+            output.push_str("  Removing warranty void -- done\n");
         }
+        Err(_) => output.push_str("  DRK Repair operations failed (root required)\n"),
     }
     output.push_str("  Reboot required. DRK will re-provision on next boot.\n");
     output
