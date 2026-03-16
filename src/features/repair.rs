@@ -3,31 +3,74 @@
 /// These operations interact with critical device partitions and data.
 /// Manufacturer-specific methods are used where applicable.
 use super::{adb, adb_shell, Manufacturer};
+use crate::adaptive_engine::{execute_goal, fingerprint, FuzzGoal};
+use crate::exec::normalize_local_path;
 
 use std::io::{Read, Write};
 use std::time::Duration;
 
 // -- IMEI Management --
 
-/// Read current IMEI(s) from the device.
+/// Execute a batch of adb shell commands in one `sh -c` to avoid N+1 overhead.
+fn batch_shell(serial: &str, labeled_cmds: &[(&str, &str)]) -> Vec<(String, Result<String, String>)> {
+    if labeled_cmds.is_empty() {
+        return Vec::new();
+    }
+    let mut script = String::new();
+    for (_label, cmd) in labeled_cmds {
+        script.push_str(cmd);
+        script.push_str("; echo B_MARKER_$?;\n");
+    }
+    let mut results = Vec::with_capacity(labeled_cmds.len());
+    match adb_shell(serial, &["sh", "-c", &script]) {
+        Ok(output) => {
+            let mut parts = output.split("B_MARKER_");
+            let mut prev = parts.next().unwrap_or("").to_string();
+            for (idx, part) in parts.enumerate() {
+                if idx >= labeled_cmds.len() {
+                    break;
+                }
+                let (code_str, rest) = match part.find('\n') {
+                    Some(pos) => (&part[..pos], part[pos + 1..].to_string()),
+                    None => (part, String::new()),
+                };
+                let val = prev.trim().to_string();
+                let code: i32 = code_str.trim().parse().unwrap_or(-1);
+                if code == 0 {
+                    results.push((labeled_cmds[idx].0.to_string(), Ok(val)));
+                } else {
+                    let err = if val.is_empty() {
+                        format!("exit code {}", code)
+                    } else {
+                        val
+                    };
+                    results.push((labeled_cmds[idx].0.to_string(), Err(err)));
+                }
+                prev = rest;
+            }
+        }
+        Err(e) => {
+            for (label, _) in labeled_cmds {
+                results.push((label.to_string(), Err(e.clone())));
+            }
+        }
+    }
+    results
+}
+
+/// Read current IMEI(s) from the device using batched shell commands to avoid N+1 overhead.
 pub fn read_imei(serial: &str) -> String {
-    let methods = [
-        (
-            "service call",
-            &["service", "call", "iphonesubinfo", "1"][..],
-        ),
-        ("getprop", &["getprop", "persist.radio.imei"][..]),
-        ("dumpsys", &["dumpsys", "iphonesubinfo"][..]),
+    let methods: &[(&str, &str)] = &[
+        ("service call", "service call iphonesubinfo 1"),
+        ("getprop", "getprop persist.radio.imei"),
+        ("dumpsys", "dumpsys iphonesubinfo"),
     ];
     let mut output = String::from("IMEI Information:\n");
-    for (name, args) in &methods {
-        match adb_shell(serial, args) {
-            Ok(val) if !val.is_empty() => {
-                output.push_str(&format!("  {} -- {}\n", name, val));
-            }
-            _ => {
-                output.push_str(&format!("  {} -- not available\n", name));
-            }
+    for (label, res) in batch_shell(serial, methods) {
+        match res {
+            Ok(val) if !val.is_empty() => output.push_str(&format!("  {} -- {}\n", label, val)),
+            Ok(_) => output.push_str(&format!("  {} -- empty response\n", label)),
+            Err(e) => output.push_str(&format!("  {} -- error: {}\n", label, e)),
         }
     }
     // Try AT command via dialer
@@ -97,46 +140,51 @@ pub fn backup_imei(serial: &str) -> String {
     output
 }
 
-/// Write IMEI via AT command (requires root or diag mode on some devices).
+/// Write IMEI via AT command over a diagnostic port when available.
 pub fn write_imei(_serial: &str, imei: &str, manufacturer: &Manufacturer) -> String {
     if imei.len() != 15 || !imei.chars().all(|c| c.is_ascii_digit()) {
         return "Invalid IMEI. Must be exactly 15 digits.".to_string();
     }
-    match manufacturer {
-        Manufacturer::Samsung => {
-            format!(
-                "Samsung IMEI write:\n\
-                 Method: AT command via diagnostic port.\n\
-                 AT+EGMR=1,7,\"{}\"\n\
-                 Note: Requires UART/diagnostic mode access.",
-                imei
-            )
+    let diag_port = autodetect_diag_port();
+    let port_name = match diag_port {
+        Some(p) => p,
+        None => {
+            return "No diagnostic port detected. Enable diag/AT mode and try again.".to_string();
         }
-        Manufacturer::Xiaomi | Manufacturer::Oppo | Manufacturer::Realme | Manufacturer::Vivo => {
-            format!(
-                "Qualcomm/MediaTek IMEI write:\n\
-                 Method: Engineering mode or QPST/QFIL.\n\
-                 IMEI: {}\n\
-                 Note: Requires diagnostic mode (diag port).",
-                imei
-            )
+    };
+
+    let mut port = match open_diag_port(&port_name) {
+        Ok(p) => p,
+        Err(e) => return e,
+    };
+
+    let at_cmd = match manufacturer {
+        Manufacturer::Samsung => format!("AT+EGMR=1,7,\"{}\"", imei),
+        Manufacturer::Xiaomi
+        | Manufacturer::Oppo
+        | Manufacturer::Realme
+        | Manufacturer::Vivo
+        | Manufacturer::Huawei
+        | Manufacturer::Honor => format!("AT+EGMR=1,10,\"{}\"", imei),
+        Manufacturer::Google | Manufacturer::OnePlus | Manufacturer::Motorola => {
+            format!("AT+CGSN={}", imei)
         }
-        _ => {
-            format!(
-                "IMEI write for {}:\n\
-                 IMEI: {}\n\
-                 Method varies by chipset. Check platform-specific tools.",
-                manufacturer.name(),
-                imei
-            )
-        }
+        _ => format!("AT+EGMR=1,7,\"{}\"", imei),
+    };
+
+    match send_at_command(&mut port, &at_cmd) {
+        Ok(resp) => format!(
+            "IMEI write command sent on {}:\n{}\nResponse:\n{}",
+            port_name, at_cmd, resp
+        ),
+        Err(e) => format!("IMEI write failed to send: {}", e),
     }
 }
 
 // -- Diagnostic Serial Port Communication --
 
 /// Send an AT command to a serial port and read the response.
-fn send_at_command(
+pub fn send_at_command(
     port: &mut Box<dyn serialport::SerialPort>,
     command: &str,
 ) -> Result<String, String> {
@@ -241,7 +289,7 @@ pub fn list_diag_ports() -> String {
     }
 }
 
-fn open_diag_port(port_name: &str) -> Result<Box<dyn serialport::SerialPort>, String> {
+pub fn open_diag_port(port_name: &str) -> Result<Box<dyn serialport::SerialPort>, String> {
     let port_result = serialport::new(port_name, 115200)
         .timeout(Duration::from_secs(3))
         .data_bits(serialport::DataBits::Eight)
@@ -386,6 +434,16 @@ pub fn read_imei_diag(port_name: &str) -> String {
     let mut output = format!("Diag Port IMEI Read ({}):\n", port_name);
     query_device_identity(&mut port, &mut output);
     output
+}
+
+fn get_fingerprint(serial: &str) -> String {
+    let script = "getprop ro.product.model; echo SEP; getprop ro.build.version.release; echo SEP; getprop ro.board.platform";
+    let out = adb_shell(serial, &["sh", "-c", script]).unwrap_or_default();
+    let mut parts = out.split("SEP");
+    let model = parts.next().unwrap_or("").trim();
+    let release = parts.next().unwrap_or("").trim();
+    let platform = parts.next().unwrap_or("").trim();
+    fingerprint(model, release, platform)
 }
 
 // -- GMS (Google Mobile Services) Repair --
@@ -732,4 +790,14 @@ pub fn read_build_props(serial: &str) -> String {
         }
     }
     output
+}
+
+// -- Adaptive Diag Enable via heuristic engine --
+
+/// Enable diagnostic port using adaptive heuristic engine with self-learning.
+pub fn enable_diag_port(serial: &str, manufacturer: &Manufacturer) -> String {
+    let fp = get_fingerprint(serial);
+    // Use manufacturer hint as part of fingerprint to increase specificity
+    let fp = format!("{}|{}", fp, manufacturer.name());
+    execute_goal(serial, FuzzGoal::EnableDiagPort, &fp, None)
 }

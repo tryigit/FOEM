@@ -1,4 +1,5 @@
 mod app;
+mod adaptive_engine;
 mod diagnostics;
 mod exec;
 #[allow(dead_code)]
