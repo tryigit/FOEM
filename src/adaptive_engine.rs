@@ -162,7 +162,11 @@ fn execute_step(
     step: &ExploitStep,
     diag_port_hint: Option<&str>,
 ) -> Result<String, String> {
-    let retries = step.retries.max(1) as usize;
+    let retries = if step.retries == 0 {
+        1
+    } else {
+        step.retries as usize
+    };
     let mut last_error = String::new();
     for attempt in 0..retries {
         let res = std::panic::catch_unwind(|| match step.kind {
@@ -205,14 +209,16 @@ fn execute_step(
                 let bytes = hex::decode(step.payload.replace([' ', '\n', '\r'], ""))
                     .map_err(|e| format!("Hex decode failed: {}", e))?;
                 crate::features::repair::send_diag_bytes(&mut *port, &bytes)
-                    .map(|_| "DIAG bytes sent".to_string())
+                    .map(|_| format!("Sent {} diag bytes", bytes.len()))
             }
         });
 
         match res {
             Ok(Ok(val)) => return Ok(val),
             Ok(Err(e)) => last_error = e,
-            Err(_) => last_error = "Step panicked during execution".to_string(),
+            Err(_) => {
+                last_error = format!("Step {:?} panicked during execution", step.kind);
+            }
         };
 
         if attempt + 1 < retries {

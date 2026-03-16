@@ -36,6 +36,7 @@ pub struct AiSettings {
     pub custom_endpoint: String,
     pub model: String,
     pub vision_enabled: bool,
+    pub temperature: f32,
 }
 
 impl Default for AiSettings {
@@ -46,6 +47,7 @@ impl Default for AiSettings {
             custom_endpoint: "http://localhost:11434/v1/chat/completions".into(),
             model: "gpt-4.1".into(),
             vision_enabled: true,
+            temperature: 0.2,
         }
     }
 }
@@ -153,7 +155,8 @@ impl AiAssistantState {
                 content: encoded,
             });
         } else {
-            let text = String::from_utf8(bytes).unwrap_or_default();
+            let text = String::from_utf8(bytes)
+                .map_err(|e| format!("Attachment is not valid UTF-8 text: {}", e))?;
             self.attachments.push(Attachment {
                 name,
                 mime: "text/plain".into(),
@@ -331,7 +334,7 @@ pub fn send_chat(
     let req_body = json!({
         "model": settings.model.clone(),
         "messages": messages,
-        "temperature": 0.2
+        "temperature": settings.temperature
     });
 
     let url = endpoint(settings);
