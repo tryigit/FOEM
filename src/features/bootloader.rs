@@ -104,6 +104,31 @@ pub fn relock(serial: &str) -> String {
 pub fn get_device_vars(serial: &str) -> String {
     let vars = ["unlocked", "secure", "variant", "serialno", "product"];
     let mut output = String::from("Fastboot device variables:\n");
+
+    // Attempt to batch query via `getvar all`
+    if let Ok(out) = fastboot(serial, &["getvar", "all"]) {
+        let mut parsed_vars = std::collections::HashMap::new();
+        for line in out.lines() {
+            let line = line.trim();
+            let stripped = line.strip_prefix("(bootloader) ").unwrap_or(line);
+            if let Some((k, v)) = stripped.split_once(':') {
+                parsed_vars.insert(k.trim().to_string(), v.trim().to_string());
+            }
+        }
+
+        if !parsed_vars.is_empty() {
+            for var in &vars {
+                if let Some(val) = parsed_vars.get(*var) {
+                    output.push_str(&format!("  {}: {}\n", var, val));
+                } else {
+                    output.push_str(&format!("  {}: (unavailable)\n", var));
+                }
+            }
+            return output;
+        }
+    }
+
+    // Fallback to N+1 queries if `getvar all` fails or returns empty
     for var in &vars {
         match fastboot(serial, &["getvar", var]) {
             Ok(val) => output.push_str(&format!("  {}: {}\n", var, val)),
