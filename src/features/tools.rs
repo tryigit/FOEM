@@ -15,7 +15,7 @@ where
     if command.is_empty() {
         return "No command entered.".to_string();
     }
-    let args: Vec<&str> = command.split_whitespace().collect();
+    let args = vec!["sh", "-c", command];
     match adb_shell_fn(serial, &args) {
         Ok(out) => {
             if out.is_empty() {
@@ -323,11 +323,16 @@ where
 {
     match adb_shell_fn(serial, &["cat", "/proc/cpuinfo"]) {
         Ok(val) => {
-            let mut output = String::from("CPU Info:
-");
+            let mut output = String::from(
+                "CPU Info:
+",
+            );
             for line in val.lines().take(20) {
-                output.push_str(&format!("  {}
-", line));
+                output.push_str(&format!(
+                    "  {}
+",
+                    line
+                ));
             }
             output
         }
@@ -367,7 +372,7 @@ mod tests {
     fn test_execute_shell_internal_success() {
         let result = execute_shell_internal("device1", "ls -la", |serial, args| {
             assert_eq!(serial, "device1");
-            assert_eq!(args, &["ls", "-la"]);
+            assert_eq!(args, &["sh", "-c", "ls -la"]);
             Ok("file1\nfile2".to_string())
         });
         assert_eq!(result, "file1\nfile2");
@@ -376,7 +381,7 @@ mod tests {
     fn test_execute_shell_internal_success_empty_output() {
         let result = execute_shell_internal("device1", "touch test.txt", |serial, args| {
             assert_eq!(serial, "device1");
-            assert_eq!(args, &["touch", "test.txt"]);
+            assert_eq!(args, &["sh", "-c", "touch test.txt"]);
             Ok("".to_string())
         });
         assert_eq!(result, "(command returned no output)");
@@ -385,7 +390,7 @@ mod tests {
     fn test_execute_shell_internal_failure() {
         let result = execute_shell_internal("device1", "badcmd", |serial, args| {
             assert_eq!(serial, "device1");
-            assert_eq!(args, &["badcmd"]);
+            assert_eq!(args, &["sh", "-c", "badcmd"]);
             Err("command not found".to_string())
         });
         assert_eq!(result, "Error: command not found");
@@ -599,8 +604,21 @@ adb output"
     }
 
     #[test]
-    fn test_reboot_bootloader_success() {
-        let result = reboot_bootloader_internal("device_123", |serial, args| {
+    fn test_get_cpu_info_success_short() {
+        let result = get_cpu_info_internal("device_123", |serial, args| {
+            assert_eq!(serial, "device_123");
+            assert_eq!(args, &["cat", "/proc/cpuinfo"]);
+            Ok("Processor\t: ARMv7 Processor rev 4 (v7l)\nBogoMIPS\t: 38.40".to_string())
+        });
+        assert_eq!(
+            result,
+            "CPU Info:\n  Processor\t: ARMv7 Processor rev 4 (v7l)\n  BogoMIPS\t: 38.40\n"
+        );
+    }
+
+    #[test]
+    fn test_get_cpu_info_success_long() {
+        let result = get_cpu_info_internal("device_123", |serial, args| {
             assert_eq!(serial, "device_123");
             assert_eq!(args, &["reboot", "bootloader"]);
             Ok("".to_string())
