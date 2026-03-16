@@ -58,10 +58,17 @@ pub fn pull_file(serial: &str, remote_path: &str, local_path: &str) -> String {
 }
 /// Push a file from the local machine to the device.
 pub fn push_file(serial: &str, local_path: &str, remote_path: &str) -> String {
+    push_file_internal(serial, local_path, remote_path, adb)
+}
+
+fn push_file_internal<F>(serial: &str, local_path: &str, remote_path: &str, adb_fn: F) -> String
+where
+    F: Fn(&str, &[&str]) -> Result<String, String>,
+{
     if local_path.is_empty() || remote_path.is_empty() {
         return "Both local and remote paths are required.".to_string();
     }
-    match adb(serial, &["push", local_path, remote_path]) {
+    match adb_fn(serial, &["push", local_path, remote_path]) {
         Ok(out) => format!("Push result:\n{}", out),
         Err(e) => format!("Push failed: {}", e),
     }
@@ -546,5 +553,43 @@ adb output"
             Err("device offline".to_string())
         });
         assert_eq!(result, "Uptime check failed: device offline");
+    }
+
+    #[test]
+    fn test_push_file_empty_paths() {
+        let result = push_file_internal("device_123", "", "", |_, _| {
+            panic!("Should not be called");
+        });
+        assert_eq!(result, "Both local and remote paths are required.");
+
+        let result_local_empty = push_file_internal("device_123", "", "/remote/path", |_, _| {
+            panic!("Should not be called");
+        });
+        assert_eq!(result_local_empty, "Both local and remote paths are required.");
+
+        let result_remote_empty = push_file_internal("device_123", "/local/path", "", |_, _| {
+            panic!("Should not be called");
+        });
+        assert_eq!(result_remote_empty, "Both local and remote paths are required.");
+    }
+
+    #[test]
+    fn test_push_file_success() {
+        let result = push_file_internal("device_123", "/local/file.txt", "/sdcard/file.txt", |serial, args| {
+            assert_eq!(serial, "device_123");
+            assert_eq!(args, &["push", "/local/file.txt", "/sdcard/file.txt"]);
+            Ok("1 file pushed, 0 skipped.".to_string())
+        });
+        assert_eq!(result, "Push result:\n1 file pushed, 0 skipped.");
+    }
+
+    #[test]
+    fn test_push_file_failure() {
+        let result = push_file_internal("device_123", "/local/file.txt", "/sdcard/file.txt", |serial, args| {
+            assert_eq!(serial, "device_123");
+            assert_eq!(args, &["push", "/local/file.txt", "/sdcard/file.txt"]);
+            Err("adb: error: failed to copy".to_string())
+        });
+        assert_eq!(result, "Push failed: adb: error: failed to copy");
     }
 }
