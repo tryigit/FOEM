@@ -262,7 +262,14 @@ pub fn enable_developer_options(serial: &str) -> String {
 }
 /// Get device uptime.
 pub fn get_uptime(serial: &str) -> String {
-    match adb_shell(serial, &["uptime"]) {
+    get_uptime_internal(serial, adb_shell)
+}
+
+fn get_uptime_internal<F>(serial: &str, adb_shell_fn: F) -> String
+where
+    F: Fn(&str, &[&str]) -> Result<String, String>,
+{
+    match adb_shell_fn(serial, &["uptime"]) {
         Ok(val) => format!("Device uptime: {}", val),
         Err(e) => format!("Uptime check failed: {}", e),
     }
@@ -519,5 +526,25 @@ adb output"
             Err("device disconnected".to_string())
         });
         assert_eq!(result, "Backup failed: device disconnected");
+    }
+
+    #[test]
+    fn test_get_uptime_success() {
+        let result = get_uptime_internal("device_123", |serial, args| {
+            assert_eq!(serial, "device_123");
+            assert_eq!(args, &["uptime"]);
+            Ok("10:00:00 up 1 day, 2:00".to_string())
+        });
+        assert_eq!(result, "Device uptime: 10:00:00 up 1 day, 2:00");
+    }
+
+    #[test]
+    fn test_get_uptime_failure() {
+        let result = get_uptime_internal("device_123", |serial, args| {
+            assert_eq!(serial, "device_123");
+            assert_eq!(args, &["uptime"]);
+            Err("device offline".to_string())
+        });
+        assert_eq!(result, "Uptime check failed: device offline");
     }
 }

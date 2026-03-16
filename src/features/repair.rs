@@ -654,11 +654,29 @@ pub fn check_baseband(serial: &str) -> String {
         ("Modem Board", "ro.board.platform"),
         ("Radio", "gsm.current.phone-type"),
     ];
+
+    let mut script = String::new();
+    for (_, prop) in &props {
+        script.push_str(&format!("getprop {}; echo B_MARKER; ", prop));
+    }
+
     let mut output = String::from("Baseband/Modem Info:\n");
-    for (label, prop) in &props {
-        match adb_shell(serial, &["getprop", prop]) {
-            Ok(val) if !val.is_empty() => output.push_str(&format!("  {}: {}\n", label, val)),
-            _ => output.push_str(&format!("  {}: not available\n", label)),
+    match adb_shell(serial, &["sh", "-c", script.as_str()]) {
+        Ok(res) => {
+            let mut parts = res.split("B_MARKER");
+            for (label, _) in &props {
+                let val = parts.next().unwrap_or("").trim();
+                if !val.is_empty() {
+                    output.push_str(&format!("  {}: {}\n", label, val));
+                } else {
+                    output.push_str(&format!("  {}: not available\n", label));
+                }
+            }
+        }
+        Err(_) => {
+            for (label, _) in &props {
+                output.push_str(&format!("  {}: not available\n", label));
+            }
         }
     }
     output

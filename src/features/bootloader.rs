@@ -194,9 +194,6 @@ pub fn attempt_locked_root(serial: &str) -> String {
 
 /// Exploit security vulnerability in some devices (e.g. 8 Elite Gen 5) to bypass bootloader unlock restrictions.
 /// This method only works for devices without the February security patch.
-
-/// Exploit security vulnerability in some devices (e.g. 8 Elite Gen 5) to bypass bootloader unlock restrictions.
-/// This method only works for devices without the February security patch.
 pub fn bypass_unlock(serial: &str) -> String {
     let mut log = String::new();
 
