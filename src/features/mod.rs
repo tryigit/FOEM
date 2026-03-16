@@ -3,12 +3,11 @@
 /// Each module provides functions that execute ADB/Fastboot commands
 /// for a specific category of device operations.
 /// Manufacturer-specific logic is handled via the Manufacturer enum.
-
 pub mod bootloader;
-pub mod repair;
-pub mod network;
 pub mod flash;
 pub mod hardware_test;
+pub mod network;
+pub mod repair;
 pub mod tools;
 
 use std::process::Command;
