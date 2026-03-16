@@ -139,10 +139,17 @@ pub fn disable_package(serial: &str, package: &str) -> String {
 
 /// Re-enable a previously disabled package.
 pub fn enable_package(serial: &str, package: &str) -> String {
+    enable_package_internal(serial, package, adb_shell)
+}
+
+fn enable_package_internal<F>(serial: &str, package: &str, adb_shell_fn: F) -> String
+where
+    F: Fn(&str, &[&str]) -> Result<String, String>,
+{
     if package.is_empty() {
         return "Package name is required.".to_string();
     }
-    match adb_shell(serial, &["cmd", "package", "install-existing", package]) {
+    match adb_shell_fn(serial, &["cmd", "package", "install-existing", package]) {
         Ok(out) => format!("Enable '{}': {}", package, out),
         Err(e) => format!("Enable '{}' failed: {}", package, e),
     }
@@ -324,6 +331,37 @@ fn start_scrcpy_with_cmd(cmd: &str, serial: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_enable_package_empty() {
+        let result = enable_package_internal("device_123", "", |_, _| {
+            panic!("Should not be called");
+        });
+        assert_eq!(result, "Package name is required.");
+    }
+
+    #[test]
+    fn test_enable_package_success() {
+        let package = "com.example.app";
+        let result = enable_package_internal("device_123", package, |serial, args| {
+            assert_eq!(serial, "device_123");
+            assert_eq!(args, &["cmd", "package", "install-existing", "com.example.app"]);
+            Ok("Package com.example.app installed for user: 0".to_string())
+        });
+        assert_eq!(result, format!("Enable '{}': Package com.example.app installed for user: 0", package));
+    }
+
+    #[test]
+    fn test_enable_package_failure() {
+        let package = "com.example.app";
+        let result = enable_package_internal("device_123", package, |serial, args| {
+            assert_eq!(serial, "device_123");
+            assert_eq!(args, &["cmd", "package", "install-existing", "com.example.app"]);
+            Err("error: device not found".to_string())
+        });
+        assert_eq!(result, format!("Enable '{}' failed: error: device not found", package));
+    }
+
 
     #[test]
     fn test_start_scrcpy_with_cmd_success() {
