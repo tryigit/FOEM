@@ -136,7 +136,14 @@ where
 }
 /// List system packages.
 pub fn list_system_packages(serial: &str) -> String {
-    match adb_shell(serial, &["pm", "list", "packages", "-s"]) {
+    list_system_packages_internal(serial, crate::features::adb_shell)
+}
+
+fn list_system_packages_internal<F>(serial: &str, adb_shell_fn: F) -> String
+where
+    F: Fn(&str, &[&str]) -> Result<String, String>,
+{
+    match adb_shell_fn(serial, &["pm", "list", "packages", "-s"]) {
         Ok(out) => {
             let count = out.lines().count();
             format!("System packages ({}):\n{}", count, out)
@@ -761,5 +768,38 @@ adb output"
             Err("device offline".to_string())
         });
         assert_eq!(result, "Logcat failed: device offline");
+    }
+
+    #[test]
+    fn test_list_system_packages_success() {
+        let result = list_system_packages_internal("device_123", |serial, args| {
+            assert_eq!(serial, "device_123");
+            assert_eq!(args, &["pm", "list", "packages", "-s"]);
+            Ok("package:com.android.systemui\npackage:com.android.settings".to_string())
+        });
+        assert_eq!(
+            result,
+            "System packages (2):\npackage:com.android.systemui\npackage:com.android.settings"
+        );
+    }
+
+    #[test]
+    fn test_list_system_packages_empty() {
+        let result = list_system_packages_internal("device_123", |serial, args| {
+            assert_eq!(serial, "device_123");
+            assert_eq!(args, &["pm", "list", "packages", "-s"]);
+            Ok("".to_string())
+        });
+        assert_eq!(result, "System packages (0):\n");
+    }
+
+    #[test]
+    fn test_list_system_packages_failure() {
+        let result = list_system_packages_internal("device_123", |serial, args| {
+            assert_eq!(serial, "device_123");
+            assert_eq!(args, &["pm", "list", "packages", "-s"]);
+            Err("device offline".to_string())
+        });
+        assert_eq!(result, "List failed: device offline");
     }
 }
