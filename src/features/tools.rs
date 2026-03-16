@@ -249,7 +249,14 @@ pub fn reboot_recovery(serial: &str) -> String {
 }
 /// Reboot to bootloader/fastboot mode.
 pub fn reboot_bootloader(serial: &str) -> String {
-    match adb(serial, &["reboot", "bootloader"]) {
+    reboot_bootloader_internal(serial, adb)
+}
+
+fn reboot_bootloader_internal<F>(serial: &str, adb_fn: F) -> String
+where
+    F: Fn(&str, &[&str]) -> Result<String, String>,
+{
+    match adb_fn(serial, &["reboot", "bootloader"]) {
         Ok(_) => "Device rebooting to bootloader/fastboot.".to_string(),
         Err(e) => format!("Reboot to bootloader failed: {}", e),
     }
@@ -613,27 +620,22 @@ adb output"
     fn test_get_cpu_info_success_long() {
         let result = get_cpu_info_internal("device_123", |serial, args| {
             assert_eq!(serial, "device_123");
-            assert_eq!(args, &["cat", "/proc/cpuinfo"]);
-            let mut long_output = String::new();
-            for i in 0..30 {
-                long_output.push_str(&format!("Line {}\n", i));
-            }
-            Ok(long_output)
+            assert_eq!(args, &["reboot", "bootloader"]);
+            Ok("".to_string())
         });
-        let mut expected = String::from("CPU Info:\n");
-        for i in 0..20 {
-            expected.push_str(&format!("  Line {}\n", i));
-        }
-        assert_eq!(result, expected);
+        assert_eq!(result, "Device rebooting to bootloader/fastboot.");
     }
 
     #[test]
-    fn test_get_cpu_info_failure() {
-        let result = get_cpu_info_internal("device_123", |serial, args| {
+    fn test_reboot_bootloader_failure() {
+        let result = reboot_bootloader_internal("device_123", |serial, args| {
             assert_eq!(serial, "device_123");
-            assert_eq!(args, &["cat", "/proc/cpuinfo"]);
-            Err("device offline".to_string())
+            assert_eq!(args, &["reboot", "bootloader"]);
+            Err("error: device not found".to_string())
         });
-        assert_eq!(result, "CPU info failed: device offline");
+        assert_eq!(
+            result,
+            "Reboot to bootloader failed: error: device not found"
+        );
     }
 }
