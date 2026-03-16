@@ -307,11 +307,20 @@ pub fn get_memory_info(serial: &str) -> String {
 }
 /// Get CPU information.
 pub fn get_cpu_info(serial: &str) -> String {
-    match adb_shell(serial, &["cat", "/proc/cpuinfo"]) {
+    get_cpu_info_internal(serial, adb_shell)
+}
+
+fn get_cpu_info_internal<F>(serial: &str, adb_shell_fn: F) -> String
+where
+    F: Fn(&str, &[&str]) -> Result<String, String>,
+{
+    match adb_shell_fn(serial, &["cat", "/proc/cpuinfo"]) {
         Ok(val) => {
-            let mut output = String::from("CPU Info:\n");
+            let mut output = String::from("CPU Info:
+");
             for line in val.lines().take(20) {
-                output.push_str(&format!("  {}\n", line));
+                output.push_str(&format!("  {}
+", line));
             }
             output
         }
@@ -580,5 +589,43 @@ adb output"
             Err("error: device not found".to_string())
         });
         assert_eq!(result, "Install failed: error: device not found");
+    }
+
+    #[test]
+    fn test_get_cpu_info_success_short() {
+        let result = get_cpu_info_internal("device_123", |serial, args| {
+            assert_eq!(serial, "device_123");
+            assert_eq!(args, &["cat", "/proc/cpuinfo"]);
+            Ok("Processor\t: ARMv7 Processor rev 4 (v7l)\nBogoMIPS\t: 38.40".to_string())
+        });
+        assert_eq!(result, "CPU Info:\n  Processor\t: ARMv7 Processor rev 4 (v7l)\n  BogoMIPS\t: 38.40\n");
+    }
+
+    #[test]
+    fn test_get_cpu_info_success_long() {
+        let result = get_cpu_info_internal("device_123", |serial, args| {
+            assert_eq!(serial, "device_123");
+            assert_eq!(args, &["cat", "/proc/cpuinfo"]);
+            let mut long_output = String::new();
+            for i in 0..30 {
+                long_output.push_str(&format!("Line {}\n", i));
+            }
+            Ok(long_output)
+        });
+        let mut expected = String::from("CPU Info:\n");
+        for i in 0..20 {
+            expected.push_str(&format!("  Line {}\n", i));
+        }
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_get_cpu_info_failure() {
+        let result = get_cpu_info_internal("device_123", |serial, args| {
+            assert_eq!(serial, "device_123");
+            assert_eq!(args, &["cat", "/proc/cpuinfo"]);
+            Err("device offline".to_string())
+        });
+        assert_eq!(result, "CPU info failed: device offline");
     }
 }
