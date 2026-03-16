@@ -2,7 +2,6 @@
 ///
 /// Battery, screen, sensors, camera, audio, connectivity,
 /// biometrics, USB, vibration, and general hardware tests.
-
 use super::adb_shell;
 
 /// Run all available hardware tests.
@@ -73,7 +72,10 @@ pub fn test_display(serial: &str) -> String {
     match adb_shell(serial, &["getevent", "-lp"]) {
         Ok(val) => {
             let touch_count = val.matches("ABS_MT_POSITION").count();
-            output.push_str(&format!("  Touch input devices: {} axes found\n", touch_count));
+            output.push_str(&format!(
+                "  Touch input devices: {} axes found\n",
+                touch_count
+            ));
         }
         Err(_) => output.push_str("  Touch info not available.\n"),
     }
@@ -90,7 +92,10 @@ pub fn test_sensors(serial: &str) -> String {
             let mut count = 0;
             for line in val.lines() {
                 let trimmed = line.trim();
-                if trimmed.starts_with('{') || trimmed.contains("name=") || trimmed.contains("vendor=") {
+                if trimmed.starts_with('{')
+                    || trimmed.contains("name=")
+                    || trimmed.contains("vendor=")
+                {
                     output.push_str(&format!("  {}\n", trimmed));
                     count += 1;
                     if count > 30 {
@@ -145,7 +150,14 @@ pub fn test_connectivity(serial: &str) -> String {
     match adb_shell(serial, &["dumpsys", "wifi"]) {
         Ok(val) => {
             let enabled = val.contains("Wi-Fi is enabled");
-            output.push_str(&format!("  WiFi: {}\n", if enabled { "enabled" } else { "disabled/unknown" }));
+            output.push_str(&format!(
+                "  WiFi: {}\n",
+                if enabled {
+                    "enabled"
+                } else {
+                    "disabled/unknown"
+                }
+            ));
         }
         Err(_) => output.push_str("  WiFi: check failed\n"),
     }
@@ -153,7 +165,14 @@ pub fn test_connectivity(serial: &str) -> String {
     match adb_shell(serial, &["dumpsys", "bluetooth_manager"]) {
         Ok(val) => {
             let enabled = val.contains("enabled: true");
-            output.push_str(&format!("  Bluetooth: {}\n", if enabled { "enabled" } else { "disabled/unknown" }));
+            output.push_str(&format!(
+                "  Bluetooth: {}\n",
+                if enabled {
+                    "enabled"
+                } else {
+                    "disabled/unknown"
+                }
+            ));
         }
         Err(_) => output.push_str("  Bluetooth: check failed\n"),
     }
@@ -161,7 +180,10 @@ pub fn test_connectivity(serial: &str) -> String {
     match adb_shell(serial, &["dumpsys", "location"]) {
         Ok(val) => {
             let has_gps = val.contains("gps") || val.contains("GPS");
-            output.push_str(&format!("  GPS: {}\n", if has_gps { "available" } else { "not detected" }));
+            output.push_str(&format!(
+                "  GPS: {}\n",
+                if has_gps { "available" } else { "not detected" }
+            ));
         }
         Err(_) => output.push_str("  GPS: check failed\n"),
     }
@@ -169,7 +191,10 @@ pub fn test_connectivity(serial: &str) -> String {
     match adb_shell(serial, &["dumpsys", "nfc"]) {
         Ok(val) => {
             let has_nfc = val.contains("mState=") || val.contains("NFC");
-            output.push_str(&format!("  NFC: {}\n", if has_nfc { "available" } else { "not detected" }));
+            output.push_str(&format!(
+                "  NFC: {}\n",
+                if has_nfc { "available" } else { "not detected" }
+            ));
         }
         Err(_) => output.push_str("  NFC: not available\n"),
     }
@@ -208,7 +233,11 @@ pub fn test_biometrics(serial: &str) -> String {
             let has_fp = val.contains("HAL") || val.contains("fingerprint");
             output.push_str(&format!(
                 "  Fingerprint: {}\n",
-                if has_fp { "sensor detected" } else { "not available" }
+                if has_fp {
+                    "sensor detected"
+                } else {
+                    "not available"
+                }
             ));
         }
         Err(_) => output.push_str("  Fingerprint: check failed\n"),
@@ -219,7 +248,11 @@ pub fn test_biometrics(serial: &str) -> String {
             let has_face = !val.is_empty() && !val.contains("not found");
             output.push_str(&format!(
                 "  Face Unlock: {}\n",
-                if has_face { "available" } else { "not available" }
+                if has_face {
+                    "available"
+                } else {
+                    "not available"
+                }
             ));
         }
         Err(_) => output.push_str("  Face Unlock: not available\n"),
