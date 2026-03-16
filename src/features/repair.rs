@@ -31,7 +31,7 @@ pub fn read_imei(serial: &str) -> String {
         }
     }
     // Try AT command via dialer
-    match adb_shell(
+    if adb_shell(
         serial,
         &[
             "am",
@@ -41,9 +41,8 @@ pub fn read_imei(serial: &str) -> String {
             "-d",
             "tel:%2A%2306%23",
         ],
-    ) {
-        Ok(_) => output.push_str("  Dialer IMEI check launched (*#06#)\n"),
-        Err(_) => {}
+    ).is_ok() {
+        output.push_str("  Dialer IMEI check launched (*#06#)\n");
     }
     // Report available diagnostic serial ports for AT command access
     output.push_str("\nDiagnostic Serial Ports:\n");

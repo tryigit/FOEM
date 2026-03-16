@@ -134,9 +134,8 @@ pub fn test_audio(serial: &str) -> String {
         Err(_) => output.push_str("  Audio dump not available.\n"),
     }
     // Try to play a test tone
-    match adb_shell(serial, &["media", "volume", "--show"]) {
-        Ok(_) => output.push_str("  Volume UI triggered.\n"),
-        Err(_) => {}
+    if adb_shell(serial, &["media", "volume", "--show"]).is_ok() {
+        output.push_str("  Volume UI triggered.\n");
     }
     output
 }
@@ -274,9 +273,8 @@ pub fn test_storage(serial: &str) -> String {
         Err(_) => output.push_str("  Storage info not available.\n"),
     }
     // Internal storage health
-    match adb_shell(serial, &["sm", "get-primary-storage-uuid"]) {
-        Ok(val) => output.push_str(&format!("  Primary storage UUID: {}\n", val)),
-        Err(_) => {}
+    if let Ok(val) = adb_shell(serial, &["sm", "get-primary-storage-uuid"]) {
+        output.push_str(&format!("  Primary storage UUID: {}\n", val));
     }
     output
 }
@@ -310,11 +308,30 @@ pub fn test_telephony(serial: &str) -> String {
         ("Phone type", "gsm.current.phone-type"),
         ("Data state", "gsm.defaultpdpcontext.active"),
     ];
-    for (label, prop) in &props {
-        match adb_shell(serial, &["getprop", prop]) {
-            Ok(val) if !val.is_empty() => output.push_str(&format!("  {}: {}\n", label, val)),
-            _ => output.push_str(&format!("  {}: --\n", label)),
+
+    // Batch all getprop commands into a single shell execution
+    let mut script = String::new();
+    for (_, prop) in &props {
+        script.push_str(&format!("getprop {}; ", prop));
+    }
+
+    match adb_shell(serial, &["sh", "-c", &script]) {
+        Ok(res) => {
+            let lines: Vec<&str> = res.lines().collect();
+            for (i, (label, _)) in props.iter().enumerate() {
+                if i < lines.len() && !lines[i].trim().is_empty() {
+                    output.push_str(&format!("  {}: {}\n", label, lines[i].trim()));
+                } else {
+                    output.push_str(&format!("  {}: --\n", label));
+                }
+            }
+        }
+        Err(_) => {
+            for (label, _) in &props {
+                output.push_str(&format!("  {}: --\n", label));
+            }
         }
     }
+
     output
 }
