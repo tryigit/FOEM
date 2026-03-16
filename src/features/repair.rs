@@ -2,7 +2,6 @@
 ///
 /// These operations interact with critical device partitions and data.
 /// Manufacturer-specific methods are used where applicable.
-
 use super::{adb, adb_shell, Manufacturer};
 
 use std::io::{Read, Write};
@@ -13,7 +12,10 @@ use std::time::Duration;
 /// Read current IMEI(s) from the device.
 pub fn read_imei(serial: &str) -> String {
     let methods = [
-        ("service call", &["service", "call", "iphonesubinfo", "1"][..]),
+        (
+            "service call",
+            &["service", "call", "iphonesubinfo", "1"][..],
+        ),
         ("getprop", &["getprop", "persist.radio.imei"][..]),
         ("dumpsys", &["dumpsys", "iphonesubinfo"][..]),
     ];
@@ -29,10 +31,17 @@ pub fn read_imei(serial: &str) -> String {
         }
     }
     // Try AT command via dialer
-    match adb_shell(serial, &["am", "start", "-a", "android.intent.action.DIAL", "-d", "tel:%2A%2306%23"]) {
-        Ok(_) => output.push_str("  Dialer IMEI check launched (*#06#)\n"),
-        Err(_) => {}
-    }
+    if adb_shell(
+        serial,
+        &[
+            "am",
+            "start",
+            "-a",
+            "android.intent.action.DIAL",
+            "-d",
+            "tel:%2A%2306%23",
+        ],
+    ).is_ok() { output.push_str("  Dialer IMEI check launched (*#06#)\n") }
     // Report available diagnostic serial ports for AT command access
     output.push_str("\nDiagnostic Serial Ports:\n");
     match serialport::available_ports() {
@@ -53,7 +62,8 @@ pub fn read_imei(serial: &str) -> String {
                     };
                     output.push_str(&format!("  {} ({})\n", p.port_name, desc));
                 }
-                output.push_str("  Use 'Read IMEI (Diag)' with a port name for AT command access.\n");
+                output
+                    .push_str("  Use 'Read IMEI (Diag)' with a port name for AT command access.\n");
             }
         }
         Err(e) => {
@@ -69,14 +79,27 @@ pub fn backup_imei(serial: &str) -> String {
     let _ = adb_shell(serial, &["mkdir", "-p", backup_path]);
     let partitions = ["efs", "modemst1", "modemst2", "fsg", "fsc"];
     let mut output = String::from("IMEI/EFS Backup:\n");
+
+    let mut script = String::new();
     for part in &partitions {
         let src = format!("/dev/block/bootdevice/by-name/{}", part);
         let dst = format!("{}/{}.img", backup_path, part);
-        match adb_shell(serial, &["dd", &format!("if={}", src), &format!("of={}", dst)]) {
-            Ok(_) => output.push_str(&format!("  {} -- backed up\n", part)),
-            Err(_) => output.push_str(&format!("  {} -- not found or access denied\n", part)),
+        script.push_str(&format!(
+            "dd if={} of={} >/dev/null 2>&1 && echo {}_OK || echo {}_ERR; ",
+            src, dst, part, part
+        ));
+    }
+
+    let result = adb_shell(serial, &["sh", "-c", &script]).unwrap_or_default();
+
+    for part in &partitions {
+        if result.contains(&format!("{}_OK", part)) {
+            output.push_str(&format!("  {} -- backed up\n", part));
+        } else {
+            output.push_str(&format!("  {} -- not found or access denied\n", part));
         }
     }
+
     output
 }
 
@@ -163,9 +186,7 @@ fn send_at_command(
     }
 
     if response.is_empty() {
-        return Err(
-            "No response from device. Port may not be a diagnostic port.".to_string(),
-        );
+        return Err("No response from device. Port may not be a diagnostic port.".to_string());
     }
 
     Ok(String::from_utf8_lossy(&response).to_string())
@@ -194,13 +215,11 @@ fn parse_at_value(response: &str, command_echo: &str) -> String {
 /// List available serial/diagnostic ports on the system.
 pub fn list_diag_ports() -> String {
     match serialport::available_ports() {
-        Ok(ports) if ports.is_empty() => {
-            "No serial/diagnostic ports detected.\n\
+        Ok(ports) if ports.is_empty() => "No serial/diagnostic ports detected.\n\
              Ensure the device is connected and in diagnostic (Diag) mode.\n\
              Qualcomm devices: Look for Qualcomm HS-USB Diagnostics 900E.\n\
              MediaTek devices: Look for MediaTek USB Port."
-                .to_string()
-        }
+            .to_string(),
         Ok(ports) => {
             let mut output = String::from("Available Serial Ports:\n");
             for port in &ports {
@@ -332,11 +351,8 @@ pub fn read_imei_diag(port_name: &str) -> String {
                 if imei.is_empty() {
                     output.push_str("  IMEI (AT+CGSN): no response data.\n");
                 } else {
-                    let clean: String = imei
-                        .trim()
-                        .chars()
-                        .filter(|c| c.is_ascii_digit())
-                        .collect();
+                    let clean: String =
+                        imei.trim().chars().filter(|c| c.is_ascii_digit()).collect();
                     if clean.len() == 15 {
                         output.push_str(&format!("  IMEI 1: {}\n", clean));
                     } else {
@@ -404,7 +420,15 @@ pub fn repair_gms(serial: &str) -> String {
         output.push_str(&format!("  Cleared cache: {}\n", pkg));
     }
     let _ = adb_shell(serial, &["am", "force-stop", "com.google.android.gms"]);
-    let _ = adb_shell(serial, &["am", "broadcast", "-a", "android.intent.action.BOOT_COMPLETED"]);
+    let _ = adb_shell(
+        serial,
+        &[
+            "am",
+            "broadcast",
+            "-a",
+            "android.intent.action.BOOT_COMPLETED",
+        ],
+    );
     output.push_str("  Force-stopped GMS and sent boot broadcast.\n");
     output.push_str("  Reboot recommended for full effect.\n");
     output
@@ -426,12 +450,19 @@ pub fn backup_efs(serial: &str) -> String {
     let _ = adb_shell(serial, &["mkdir", "-p", backup_dir]);
     match adb_shell(serial, &["ls", "/efs/"]) {
         Ok(listing) => {
-            let _ = adb_shell(serial, &[
-                "tar", "-czf",
-                &format!("{}/efs.tar.gz", backup_dir),
-                "/efs/",
-            ]);
-            format!("EFS backup attempt:\n  Contents: {}\n  Saved to: {}/efs.tar.gz", listing, backup_dir)
+            let _ = adb_shell(
+                serial,
+                &[
+                    "tar",
+                    "-czf",
+                    &format!("{}/efs.tar.gz", backup_dir),
+                    "/efs/",
+                ],
+            );
+            format!(
+                "EFS backup attempt:\n  Contents: {}\n  Saved to: {}/efs.tar.gz",
+                listing, backup_dir
+            )
         }
         Err(_) => "EFS partition not accessible. Root may be required.".to_string(),
     }
@@ -443,7 +474,10 @@ pub fn restore_efs(serial: &str) -> String {
     match adb_shell(serial, &["ls", backup_path]) {
         Ok(_) => {
             let _ = adb_shell(serial, &["tar", "-xzf", backup_path, "-C", "/"]);
-            format!("EFS restore attempted from {}.\nReboot required.", backup_path)
+            format!(
+                "EFS restore attempted from {}.\nReboot required.",
+                backup_path
+            )
         }
         Err(_) => "No EFS backup found. Run backup first.".to_string(),
     }
@@ -457,14 +491,27 @@ pub fn backup_nv_data(serial: &str) -> String {
     let _ = adb_shell(serial, &["mkdir", "-p", backup_dir]);
     let partitions = ["modemst1", "modemst2", "fsg", "fsc"];
     let mut output = String::from("NV Data Backup:\n");
+
+    let mut script = String::new();
     for part in &partitions {
         let src = format!("/dev/block/bootdevice/by-name/{}", part);
         let dst = format!("{}/{}.img", backup_dir, part);
-        match adb_shell(serial, &["dd", &format!("if={}", src), &format!("of={}", dst)]) {
-            Ok(_) => output.push_str(&format!("  {} -- saved\n", part)),
-            Err(_) => output.push_str(&format!("  {} -- failed (root required)\n", part)),
+        script.push_str(&format!(
+            "dd if={} of={} >/dev/null 2>&1 && echo {}_OK || echo {}_ERR; ",
+            src, dst, part, part
+        ));
+    }
+
+    let result = adb_shell(serial, &["sh", "-c", &script]).unwrap_or_default();
+
+    for part in &partitions {
+        if result.contains(&format!("{}_OK", part)) {
+            output.push_str(&format!("  {} -- saved\n", part));
+        } else {
+            output.push_str(&format!("  {} -- failed (root required)\n", part));
         }
     }
+
     output
 }
 
@@ -473,14 +520,27 @@ pub fn restore_nv_data(serial: &str) -> String {
     let backup_dir = "/sdcard/FOEM/nv_backup";
     let partitions = ["modemst1", "modemst2", "fsg", "fsc"];
     let mut output = String::from("NV Data Restore:\n");
+
+    let mut script = String::new();
     for part in &partitions {
         let src = format!("{}/{}.img", backup_dir, part);
         let dst = format!("/dev/block/bootdevice/by-name/{}", part);
-        match adb_shell(serial, &["dd", &format!("if={}", src), &format!("of={}", dst)]) {
-            Ok(_) => output.push_str(&format!("  {} -- restored\n", part)),
-            Err(_) => output.push_str(&format!("  {} -- failed\n", part)),
+        script.push_str(&format!(
+            "dd if={} of={} >/dev/null 2>&1 && echo {}_OK || echo {}_ERR; ",
+            src, dst, part, part
+        ));
+    }
+
+    let result = adb_shell(serial, &["sh", "-c", &script]).unwrap_or_default();
+
+    for part in &partitions {
+        if result.contains(&format!("{}_OK", part)) {
+            output.push_str(&format!("  {} -- restored\n", part));
+        } else {
+            output.push_str(&format!("  {} -- failed\n", part));
         }
     }
+
     output.push_str("  Reboot required.\n");
     output
 }
@@ -492,7 +552,10 @@ pub fn repair_drk(serial: &str) -> String {
     let cmds = [
         ("Removing DRK flag", &["rm", "-f", "/efs/prov/cc.dat"][..]),
         ("Clearing DRK data", &["rm", "-rf", "/efs/prov_data/"][..]),
-        ("Removing warranty void", &["rm", "-f", "/efs/prov/ridge.dat"][..]),
+        (
+            "Removing warranty void",
+            &["rm", "-f", "/efs/prov/ridge.dat"][..],
+        ),
     ];
     let mut output = String::from("DRK Repair (Samsung):\n");
     for (desc, args) in &cmds {
