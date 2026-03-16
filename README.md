@@ -107,6 +107,18 @@ We will prevent phone repair shops from charging fees for software through deale
 - **Developer Options** -- Launch device info settings for build number tap activation
 - **System Info** -- Device uptime, memory info, CPU info, running process list
 
+
+## AI Agent Assistant
+
+FOEM includes an integrated AI Agent Assistant designed to enhance your workflow and provide intelligent support. The AI agent is capable of:
+
+- **Bug Fixing:** Automatically detecting and suggesting fixes for code issues and runtime errors.
+- **Feature Implementation:** Generating code snippets and assisting with the development of new features based on natural language prompts.
+- **Codebase Navigation:** Helping you understand complex project structures and quickly locate specific functions or files.
+- **EDL Tools Support:** Providing guidance and automated assistance for Emergency Download (EDL) mode operations, including flashing via Qualcomm Sahara/Firehose protocols, generating programmer files, and partition management.
+
+The AI Assistant acts as a pair-programmer, significantly reducing development time and lowering the barrier to entry for complex device repair tasks.
+
 ## Design Philosophy
 
 The user interface and experience of FOEM are inspired by the clean, modern aesthetics of **iOS**, **NothingOS**, and similar design systems. The goal is a minimal, intuitive, and visually polished application.
