@@ -235,7 +235,14 @@ pub fn reboot(serial: &str) -> String {
 }
 /// Reboot to recovery mode.
 pub fn reboot_recovery(serial: &str) -> String {
-    match adb(serial, &["reboot", "recovery"]) {
+    reboot_recovery_internal(serial, adb)
+}
+
+fn reboot_recovery_internal<F>(serial: &str, adb_fn: F) -> String
+where
+    F: Fn(&str, &[&str]) -> Result<String, String>,
+{
+    match adb_fn(serial, &["reboot", "recovery"]) {
         Ok(_) => "Device rebooting to recovery.".to_string(),
         Err(e) => format!("Reboot to recovery failed: {}", e),
     }
@@ -546,5 +553,27 @@ adb output"
             Err("device offline".to_string())
         });
         assert_eq!(result, "Uptime check failed: device offline");
+    }
+
+    #[test]
+    fn test_reboot_recovery_success() {
+        let serial = "device123";
+        let result = reboot_recovery_internal(serial, |s, args| {
+            assert_eq!(s, "device123");
+            assert_eq!(args, &["reboot", "recovery"]);
+            Ok("".to_string())
+        });
+        assert_eq!(result, "Device rebooting to recovery.");
+    }
+
+    #[test]
+    fn test_reboot_recovery_failure() {
+        let serial = "device123";
+        let result = reboot_recovery_internal(serial, |s, args| {
+            assert_eq!(s, "device123");
+            assert_eq!(args, &["reboot", "recovery"]);
+            Err("device offline".to_string())
+        });
+        assert_eq!(result, "Reboot to recovery failed: device offline");
     }
 }
