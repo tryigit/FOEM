@@ -520,15 +520,36 @@ pub fn backup_nv_data(serial: &str) -> String {
     let _ = adb_shell(serial, &["mkdir", "-p", backup_dir]);
     let partitions = ["modemst1", "modemst2", "fsg", "fsc"];
     let mut output = String::from("NV Data Backup:\n");
-    for part in &partitions {
+
+    let mut cmd = String::new();
+    for (i, part) in partitions.iter().enumerate() {
         let src = format!("/dev/block/bootdevice/by-name/{}", part);
         let dst = format!("{}/{}.img", backup_dir, part);
-        match adb_shell(
-            serial,
-            &["dd", &format!("if={}", src), &format!("of={}", dst)],
-        ) {
-            Ok(_) => output.push_str(&format!("  {} -- saved\n", part)),
-            Err(_) => output.push_str(&format!("  {} -- failed (root required)\n", part)),
+        cmd.push_str(&format!(
+            "if dd if={} of={} 2>/dev/null; then echo OK; else echo FAIL; fi",
+            src, dst
+        ));
+        if i < partitions.len() - 1 {
+            cmd.push_str("; echo B_MARKER; ");
+        }
+    }
+
+    match adb_shell(serial, &["sh", "-c", &cmd]) {
+        Ok(res) => {
+            let parts: Vec<&str> = res.split("B_MARKER").collect();
+            for (i, part) in partitions.iter().enumerate() {
+                let out = parts.get(i).copied().unwrap_or("").trim();
+                if out.contains("OK") {
+                    output.push_str(&format!("  {} -- saved\n", part));
+                } else {
+                    output.push_str(&format!("  {} -- failed (root required)\n", part));
+                }
+            }
+        }
+        Err(_) => {
+            for part in &partitions {
+                output.push_str(&format!("  {} -- failed (root required)\n", part));
+            }
         }
     }
     output
@@ -566,7 +587,7 @@ pub fn restore_nv_data(serial: &str) -> String {
             }
         }
         Err(_) => {
-            for part in partitions {
+            for part in &partitions {
                 output.push_str(&format!("  {} -- failed\n", part));
             }
         }
