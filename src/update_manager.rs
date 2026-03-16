@@ -3,8 +3,7 @@ use serde::Deserialize;
 
 use crate::VERSION;
 
-const GITHUB_API_URL: &str =
-    "https://api.github.com/repos/tryigit/FOEM/releases/latest";
+const GITHUB_API_URL: &str = "https://api.github.com/repos/tryigit/FOEM/releases/latest";
 const RELEASES_URL: &str = "https://github.com/tryigit/FOEM/releases";
 
 #[derive(Debug)]
@@ -43,9 +42,7 @@ impl UpdateManager {
             .map_err(|e| format!("Failed to parse response: {}", e))?;
 
         let latest = release.tag_name.trim_start_matches('v').to_string();
-        let download_url = release
-            .html_url
-            .unwrap_or_else(|| RELEASES_URL.to_string());
+        let download_url = release.html_url.unwrap_or_else(|| RELEASES_URL.to_string());
 
         if latest != VERSION {
             Ok(Some(UpdateInfo {

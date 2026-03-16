@@ -240,19 +240,7 @@ pub fn list_diag_ports() -> String {
     }
 }
 
-/// Read IMEI from a diagnostic serial port using AT+CGSN.
-///
-/// Opens the specified port at 115200 baud, sends standard AT commands
-/// to read device identity, and returns the results. Returns clear error
-/// messages if the port is locked, inaccessible, or the device is not
-/// in diagnostic mode.
-pub fn read_imei_diag(port_name: &str) -> String {
-    if port_name.is_empty() {
-        return "Diagnostic port name is required.\n\
-                Use 'List Ports' to find available diagnostic ports."
-            .to_string();
-    }
-
+fn open_diag_port(port_name: &str) -> Result<Box<dyn serialport::SerialPort>, String> {
     let port_result = serialport::new(port_name, 115200)
         .timeout(Duration::from_secs(3))
         .data_bits(serialport::DataBits::Eight)
@@ -261,8 +249,8 @@ pub fn read_imei_diag(port_name: &str) -> String {
         .flow_control(serialport::FlowControl::None)
         .open();
 
-    let mut port = match port_result {
-        Ok(p) => p,
+    match port_result {
+        Ok(p) => Ok(p),
         Err(e) => {
             let detail = match e.kind {
                 serialport::ErrorKind::NoDevice => format!(
@@ -283,20 +271,20 @@ pub fn read_imei_diag(port_name: &str) -> String {
                     port_name, e
                 ),
             };
-            return format!("Diag Port Error:\n  {}", detail);
+            Err(format!("Diag Port Error:\n  {}", detail))
         }
-    };
+    }
+}
 
-    let mut output = format!("Diag Port IMEI Read ({}):\n", port_name);
-
-    match send_at_command(&mut port, "AT") {
+fn query_device_identity(port: &mut Box<dyn serialport::SerialPort>, output: &mut String) {
+    match send_at_command(port, "AT") {
         Ok(resp) => {
             if !resp.contains("OK") {
                 output.push_str(
                     "  Port did not respond with OK to AT command.\n\
                      Device may not be in AT command / diagnostic mode.\n",
                 );
-                return output;
+                return;
             }
             output.push_str("  Port alive: OK\n");
         }
@@ -308,32 +296,32 @@ pub fn read_imei_diag(port_name: &str) -> String {
                  Try switching USB mode on the device.\n",
                 e
             ));
-            return output;
+            return;
         }
     }
 
-    if let Ok(resp) = send_at_command(&mut port, "AT+CGMI") {
+    if let Ok(resp) = send_at_command(port, "AT+CGMI") {
         let val = parse_at_value(&resp, "AT+CGMI");
         if !val.is_empty() {
             output.push_str(&format!("  Manufacturer: {}\n", val));
         }
     }
 
-    if let Ok(resp) = send_at_command(&mut port, "AT+CGMM") {
+    if let Ok(resp) = send_at_command(port, "AT+CGMM") {
         let val = parse_at_value(&resp, "AT+CGMM");
         if !val.is_empty() {
             output.push_str(&format!("  Model: {}\n", val));
         }
     }
 
-    if let Ok(resp) = send_at_command(&mut port, "AT+CGMR") {
+    if let Ok(resp) = send_at_command(port, "AT+CGMR") {
         let val = parse_at_value(&resp, "AT+CGMR");
         if !val.is_empty() {
             output.push_str(&format!("  Revision: {}\n", val));
         }
     }
 
-    match send_at_command(&mut port, "AT+CGSN") {
+    match send_at_command(port, "AT+CGSN") {
         Ok(resp) => {
             if resp.contains("ERROR") {
                 output.push_str(
@@ -359,7 +347,7 @@ pub fn read_imei_diag(port_name: &str) -> String {
         }
     }
 
-    if let Ok(resp) = send_at_command(&mut port, "AT+CGSN=1") {
+    if let Ok(resp) = send_at_command(port, "AT+CGSN=1") {
         if !resp.contains("ERROR") {
             let imei2 = parse_at_value(&resp, "AT+CGSN");
             if !imei2.is_empty() {
@@ -374,7 +362,28 @@ pub fn read_imei_diag(port_name: &str) -> String {
             }
         }
     }
+}
 
+/// Read IMEI from a diagnostic serial port using AT+CGSN.
+///
+/// Opens the specified port at 115200 baud, sends standard AT commands
+/// to read device identity, and returns the results. Returns clear error
+/// messages if the port is locked, inaccessible, or the device is not
+/// in diagnostic mode.
+pub fn read_imei_diag(port_name: &str) -> String {
+    if port_name.is_empty() {
+        return "Diagnostic port name is required.\n\
+                Use 'List Ports' to find available diagnostic ports."
+            .to_string();
+    }
+
+    let mut port = match open_diag_port(port_name) {
+        Ok(p) => p,
+        Err(e) => return e,
+    };
+
+    let mut output = format!("Diag Port IMEI Read ({}):\n", port_name);
+    query_device_identity(&mut port, &mut output);
     output
 }
 

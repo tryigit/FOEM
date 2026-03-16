@@ -3,12 +3,11 @@
 /// Each module provides functions that execute ADB/Fastboot commands
 /// for a specific category of device operations.
 /// Manufacturer-specific logic is handled via the Manufacturer enum.
-
 pub mod bootloader;
-pub mod repair;
-pub mod network;
 pub mod flash;
 pub mod hardware_test;
+pub mod network;
+pub mod repair;
 pub mod tools;
 
 use std::process::Command;
@@ -108,8 +107,12 @@ impl Manufacturer {
     }
 }
 
-
-fn run_cmd(program: &str, serial: &str, args: &[&str], error_prefix: &str) -> Result<String, String> {
+fn run_cmd(
+    program: &str,
+    serial: &str,
+    args: &[&str],
+    error_prefix: &str,
+) -> Result<String, String> {
     let mut cmd = Command::new(program);
     cmd.args(["-s", serial]);
     cmd.args(args);
