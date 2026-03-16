@@ -443,21 +443,14 @@ pub fn repair_gms(serial: &str) -> String {
         }
     }
 
+    // Batch force-stop and broadcast into the same shell command
+    cmd.push_str("; am force-stop com.google.android.gms; am broadcast -a android.intent.action.BOOT_COMPLETED");
+
     let _ = adb_shell(serial, &["sh", "-c", &cmd]);
     for pkg in GMS_PACKAGES {
         output.push_str(&format!("  Cleared cache: {}\n", pkg));
     }
 
-    let _ = adb_shell(serial, &["am", "force-stop", "com.google.android.gms"]);
-    let _ = adb_shell(
-        serial,
-        &[
-            "am",
-            "broadcast",
-            "-a",
-            "android.intent.action.BOOT_COMPLETED",
-        ],
-    );
     output.push_str("  Force-stopped GMS and sent boot broadcast.\n");
     output.push_str("  Reboot recommended for full effect.\n");
     output
