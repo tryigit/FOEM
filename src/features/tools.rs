@@ -648,8 +648,8 @@ adb output"
     }
 
     #[test]
-    fn test_get_cpu_info_success_long() {
-        let result = get_cpu_info_internal("device_123", |serial, args| {
+    fn test_reboot_bootloader_success() {
+        let result = reboot_bootloader_internal("device_123", |serial, args| {
             assert_eq!(serial, "device_123");
             assert_eq!(args, &["reboot", "bootloader"]);
             Ok("".to_string())
@@ -676,7 +676,10 @@ adb output"
             assert_eq!(args, &["cat", "/proc/meminfo"]);
             Ok("MemTotal:        2048000 kB\nMemFree:          102400 kB".to_string())
         });
-        assert_eq!(result, "Memory Info:\n  MemTotal:        2048000 kB\n  MemFree:          102400 kB\n");
+        assert_eq!(
+            result,
+            "Memory Info:\n  MemTotal:        2048000 kB\n  MemFree:          102400 kB\n"
+        );
     }
 
     #[test]
@@ -727,10 +730,7 @@ adb output"
             );
             Ok("Success".to_string())
         });
-        assert_eq!(
-            result,
-            format!("Disable '{}': Success", package)
-        );
+        assert_eq!(result, format!("Disable '{}': Success", package));
     }
 
     #[test]
