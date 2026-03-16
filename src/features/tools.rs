@@ -78,10 +78,17 @@ pub fn list_files(serial: &str, path: &str) -> String {
 
 /// Install an APK from the local machine.
 pub fn install_apk(serial: &str, apk_path: &str) -> String {
+    install_apk_internal(serial, apk_path, super::adb)
+}
+
+fn install_apk_internal<F>(serial: &str, apk_path: &str, adb_fn: F) -> String
+where
+    F: Fn(&str, &[&str]) -> Result<String, String>,
+{
     if apk_path.is_empty() {
         return "APK file path is required.".to_string();
     }
-    match adb(serial, &["install", "-r", "-d", apk_path]) {
+    match adb_fn(serial, &["install", "-r", "-d", apk_path]) {
         Ok(out) => format!("Install result:\n{}", out),
         Err(e) => format!("Install failed: {}", e),
     }
@@ -546,5 +553,32 @@ adb output"
             Err("device offline".to_string())
         });
         assert_eq!(result, "Uptime check failed: device offline");
+    }
+    #[test]
+    fn test_install_apk_empty_path() {
+        let result = install_apk_internal("device_123", "", |_, _| {
+            panic!("Should not be called");
+        });
+        assert_eq!(result, "APK file path is required.");
+    }
+
+    #[test]
+    fn test_install_apk_success() {
+        let result = install_apk_internal("device_123", "app.apk", |serial, args| {
+            assert_eq!(serial, "device_123");
+            assert_eq!(args, &["install", "-r", "-d", "app.apk"]);
+            Ok("Success".to_string())
+        });
+        assert_eq!(result, "Install result:\nSuccess");
+    }
+
+    #[test]
+    fn test_install_apk_failure() {
+        let result = install_apk_internal("device_123", "app.apk", |serial, args| {
+            assert_eq!(serial, "device_123");
+            assert_eq!(args, &["install", "-r", "-d", "app.apk"]);
+            Err("error: device not found".to_string())
+        });
+        assert_eq!(result, "Install failed: error: device not found");
     }
 }
