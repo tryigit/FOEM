@@ -19,9 +19,7 @@
   <a href="https://t.me/cleverestech">
     <img src="https://img.shields.io/badge/Telegram_Channel-Cleveres_Tech-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white" alt="Telegram Channel">
   </a>
-  <a href="https://t.me/Resul2105">
-    <img src="https://img.shields.io/badge/Developer-@Resul2105-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white" alt="Contact Resul2105">
-  </a>
+
   <a href="https://t.me/tryigitx">
     <img src="https://img.shields.io/badge/Developer-@tryigitx-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white" alt="Contact tryigitx">
   </a>
