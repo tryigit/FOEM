@@ -456,7 +456,6 @@ mod tests {
         );
     }
 
-
     #[test]
     fn test_list_user_packages_success() {
         let result = list_user_packages_internal("device_123", |serial, args| {
