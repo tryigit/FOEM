@@ -239,7 +239,14 @@ pub fn start_screen_record(serial: &str) -> String {
 
 /// Reboot the device to system.
 pub fn reboot(serial: &str) -> String {
-    match adb(serial, &["reboot"]) {
+    reboot_internal(serial, adb)
+}
+
+fn reboot_internal<F>(serial: &str, adb_fn: F) -> String
+where
+    F: Fn(&str, &[&str]) -> Result<String, String>,
+{
+    match adb_fn(serial, &["reboot"]) {
         Ok(_) => "Device rebooting to system.".to_string(),
         Err(e) => format!("Reboot failed: {}", e),
     }
@@ -487,5 +494,25 @@ mod tests {
             Err("device offline".to_string())
         });
         assert_eq!(result, "List failed: device offline");
+    }
+
+    #[test]
+    fn test_reboot_success() {
+        let result = reboot_internal("device1", |serial, args| {
+            assert_eq!(serial, "device1");
+            assert_eq!(args, &["reboot"]);
+            Ok("".to_string())
+        });
+        assert_eq!(result, "Device rebooting to system.");
+    }
+
+    #[test]
+    fn test_reboot_failure() {
+        let result = reboot_internal("device1", |serial, args| {
+            assert_eq!(serial, "device1");
+            assert_eq!(args, &["reboot"]);
+            Err("device not found".to_string())
+        });
+        assert_eq!(result, "Reboot failed: device not found");
     }
 }
