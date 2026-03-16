@@ -285,11 +285,45 @@ pub fn get_cpu_info(serial: &str) -> String {
 
 /// Start screen mirroring using scrcpy.
 pub fn start_scrcpy(serial: &str) -> String {
-    match std::process::Command::new("scrcpy")
+    start_scrcpy_with_cmd("scrcpy", serial)
+}
+
+/// Internal function to start scrcpy, allowing dependency injection of the command name for testing.
+fn start_scrcpy_with_cmd(cmd: &str, serial: &str) -> String {
+    match std::process::Command::new(cmd)
         .arg("-s")
         .arg(serial)
         .spawn() {
         Ok(_) => format!("Launched scrcpy for device {}", serial),
         Err(e) => format!("Failed to launch scrcpy: {}\nIs scrcpy installed on your system?", e),
+    }
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_start_scrcpy_with_cmd_success() {
+        let serial = "test_device_success";
+
+        // Using "cargo" as a dummy command since it is available cross-platform during test runs.
+        let result = start_scrcpy_with_cmd("cargo", serial);
+        assert_eq!(result, format!("Launched scrcpy for device {}", serial));
+    }
+
+    #[test]
+    fn test_start_scrcpy_with_cmd_failure() {
+        let serial = "test_device_failure";
+
+        // A command that does not exist should fail to spawn.
+        let result = start_scrcpy_with_cmd("this_command_does_not_exist_12345", serial);
+        assert!(
+            result.starts_with("Failed to launch scrcpy: "),
+            "Expected failure message, got: {}", result
+        );
+        assert!(
+            result.contains("Is scrcpy installed on your system?"),
+            "Expected troubleshooting hint, got: {}", result
+        );
     }
 }
