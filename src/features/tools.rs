@@ -314,11 +314,20 @@ pub fn get_memory_info(serial: &str) -> String {
 }
 /// Get CPU information.
 pub fn get_cpu_info(serial: &str) -> String {
-    match adb_shell(serial, &["cat", "/proc/cpuinfo"]) {
+    get_cpu_info_internal(serial, adb_shell)
+}
+
+fn get_cpu_info_internal<F>(serial: &str, adb_shell_fn: F) -> String
+where
+    F: Fn(&str, &[&str]) -> Result<String, String>,
+{
+    match adb_shell_fn(serial, &["cat", "/proc/cpuinfo"]) {
         Ok(val) => {
-            let mut output = String::from("CPU Info:\n");
+            let mut output = String::from("CPU Info:
+");
             for line in val.lines().take(20) {
-                output.push_str(&format!("  {}\n", line));
+                output.push_str(&format!("  {}
+", line));
             }
             output
         }
