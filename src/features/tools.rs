@@ -45,10 +45,17 @@ pub fn clear_logcat(serial: &str) -> String {
 
 /// Pull a file from the device to the local machine.
 pub fn pull_file(serial: &str, remote_path: &str, local_path: &str) -> String {
+    pull_file_internal(serial, remote_path, local_path, adb)
+}
+
+fn pull_file_internal<F>(serial: &str, remote_path: &str, local_path: &str, adb_fn: F) -> String
+where
+    F: Fn(&str, &[&str]) -> Result<String, String>,
+{
     if remote_path.is_empty() || local_path.is_empty() {
         return "Both remote and local paths are required.".to_string();
     }
-    match adb(serial, &["pull", remote_path, local_path]) {
+    match adb_fn(serial, &["pull", remote_path, local_path]) {
         Ok(out) => format!("Pull result:\n{}", out),
         Err(e) => format!("Pull failed: {}", e),
     }
@@ -388,5 +395,45 @@ mod tests {
             "Expected troubleshooting hint, got: {}",
             result
         );
+    }
+
+
+    #[test]
+    fn test_pull_file_empty_remote_path() {
+        let result = pull_file_internal("device_123", "", "/local/path", |_, _| {
+            panic!("Should not be called");
+        });
+        assert_eq!(result, "Both remote and local paths are required.");
+    }
+
+    #[test]
+    fn test_pull_file_empty_local_path() {
+        let result = pull_file_internal("device_123", "/remote/path", "", |_, _| {
+            panic!("Should not be called");
+        });
+        assert_eq!(result, "Both remote and local paths are required.");
+    }
+
+    #[test]
+    fn test_pull_file_success() {
+        let result = pull_file_internal("device_123", "/remote/path", "/local/path", |serial, args| {
+            assert_eq!(serial, "device_123");
+            assert_eq!(args, &["pull", "/remote/path", "/local/path"]);
+            Ok("1 file pulled, 0 skipped. 10.0 MB/s (1000 bytes in 0.000s)".to_string())
+        });
+        assert_eq!(
+            result,
+            "Pull result:\n1 file pulled, 0 skipped. 10.0 MB/s (1000 bytes in 0.000s)"
+        );
+    }
+
+    #[test]
+    fn test_pull_file_failure() {
+        let result = pull_file_internal("device_123", "/remote/path", "/local/path", |serial, args| {
+            assert_eq!(serial, "device_123");
+            assert_eq!(args, &["pull", "/remote/path", "/local/path"]);
+            Err("error: device not found".to_string())
+        });
+        assert_eq!(result, "Pull failed: error: device not found");
     }
 }
