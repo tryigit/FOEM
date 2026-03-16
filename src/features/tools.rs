@@ -8,7 +8,6 @@ use super::{adb, adb_shell};
 pub fn execute_shell(serial: &str, command: &str) -> String {
     execute_shell_internal(serial, command, adb_shell)
 }
-
 fn execute_shell_internal<F>(serial: &str, command: &str, adb_shell_fn: F) -> String
 where
     F: Fn(&str, &[&str]) -> Result<String, String>,
@@ -28,7 +27,6 @@ where
         Err(e) => format!("Error: {}", e),
     }
 }
-
 // -- Logcat --
 
 /// Capture logcat output (limited to recent lines).
@@ -39,7 +37,6 @@ pub fn capture_logcat(serial: &str, lines: usize) -> String {
         Err(e) => format!("Logcat failed: {}", e),
     }
 }
-
 /// Clear logcat buffer.
 pub fn clear_logcat(serial: &str) -> String {
     match adb(serial, &["logcat", "-c"]) {
@@ -47,7 +44,6 @@ pub fn clear_logcat(serial: &str) -> String {
         Err(e) => format!("Clear logcat failed: {}", e),
     }
 }
-
 // -- File Manager --
 
 /// Pull a file from the device to the local machine.
@@ -60,7 +56,6 @@ pub fn pull_file(serial: &str, remote_path: &str, local_path: &str) -> String {
         Err(e) => format!("Pull failed: {}", e),
     }
 }
-
 /// Push a file from the local machine to the device.
 pub fn push_file(serial: &str, local_path: &str, remote_path: &str) -> String {
     if local_path.is_empty() || remote_path.is_empty() {
@@ -71,7 +66,6 @@ pub fn push_file(serial: &str, local_path: &str, remote_path: &str) -> String {
         Err(e) => format!("Push failed: {}", e),
     }
 }
-
 /// List files in a directory on the device.
 pub fn list_files(serial: &str, path: &str) -> String {
     let dir = if path.is_empty() { "/sdcard/" } else { path };
@@ -80,7 +74,6 @@ pub fn list_files(serial: &str, path: &str) -> String {
         Err(e) => format!("List failed: {}", e),
     }
 }
-
 // -- APK Management --
 
 /// Install an APK from the local machine.
@@ -93,7 +86,6 @@ pub fn install_apk(serial: &str, apk_path: &str) -> String {
         Err(e) => format!("Install failed: {}", e),
     }
 }
-
 /// List installed packages (optionally filtered).
 pub fn list_packages(serial: &str, filter: &str) -> String {
     let mut args = vec!["pm", "list", "packages"];
@@ -108,12 +100,10 @@ pub fn list_packages(serial: &str, filter: &str) -> String {
         Err(e) => format!("List packages failed: {}", e),
     }
 }
-
 /// List only third-party (user-installed) packages.
 pub fn list_user_packages(serial: &str) -> String {
     list_user_packages_internal(serial, adb_shell)
 }
-
 fn list_user_packages_internal<F>(serial: &str, adb_shell_fn: F) -> String
 where
     F: Fn(&str, &[&str]) -> Result<String, String>,
@@ -126,7 +116,6 @@ where
         Err(e) => format!("List failed: {}", e),
     }
 }
-
 /// List system packages.
 pub fn list_system_packages(serial: &str) -> String {
     match adb_shell(serial, &["pm", "list", "packages", "-s"]) {
@@ -137,7 +126,6 @@ pub fn list_system_packages(serial: &str) -> String {
         Err(e) => format!("List failed: {}", e),
     }
 }
-
 // -- Bloatware Removal --
 
 /// Disable a system app for the current user (no root required).
@@ -150,12 +138,10 @@ pub fn disable_package(serial: &str, package: &str) -> String {
         Err(e) => format!("Disable '{}' failed: {}", package, e),
     }
 }
-
 /// Re-enable a previously disabled package.
 pub fn enable_package(serial: &str, package: &str) -> String {
     enable_package_internal(serial, package, adb_shell)
 }
-
 fn enable_package_internal<F>(serial: &str, package: &str, adb_shell_fn: F) -> String
 where
     F: Fn(&str, &[&str]) -> Result<String, String>,
@@ -168,25 +154,31 @@ where
         Err(e) => format!("Enable '{}' failed: {}", package, e),
     }
 }
-
 // -- Backup and Restore --
 
 /// Full device backup via ADB backup.
 pub fn full_backup(serial: &str, backup_path: &str) -> String {
+    full_backup_internal(serial, backup_path, adb)
+}
+fn full_backup_internal<F>(serial: &str, backup_path: &str, adb_fn: F) -> String
+where
+    F: Fn(&str, &[&str]) -> Result<String, String>,
+{
     let path = if backup_path.is_empty() {
         "foem_backup.ab"
     } else {
         backup_path
     };
-    match adb(serial, &["backup", "-all", "-apk", "-shared", "-f", path]) {
+    match adb_fn(serial, &["backup", "-all", "-apk", "-shared", "-f", path]) {
         Ok(out) => format!(
-            "Backup initiated to '{}'.\nConfirm on device screen.\n{}",
+            "Backup initiated to '{}'.
+Confirm on device screen.
+{}",
             path, out
         ),
         Err(e) => format!("Backup failed: {}", e),
     }
 }
-
 /// Full device restore from ADB backup.
 pub fn full_restore(serial: &str, backup_path: &str) -> String {
     if backup_path.is_empty() {
@@ -200,7 +192,6 @@ pub fn full_restore(serial: &str, backup_path: &str) -> String {
         Err(e) => format!("Restore failed: {}", e),
     }
 }
-
 // -- Screenshot and Recording --
 
 /// Take a device screenshot and pull it to local machine.
@@ -219,7 +210,6 @@ pub fn take_screenshot(serial: &str, local_path: &str) -> String {
         Err(e) => format!("Screenshot failed: {}", e),
     }
 }
-
 /// Start screen recording on device.
 pub fn start_screen_record(serial: &str) -> String {
     let device_path = "/sdcard/FOEM/screenrecord.mp4";
@@ -234,7 +224,6 @@ pub fn start_screen_record(serial: &str) -> String {
         ),
     }
 }
-
 // -- Device Reboot --
 
 /// Reboot the device to system.
@@ -244,7 +233,6 @@ pub fn reboot(serial: &str) -> String {
         Err(e) => format!("Reboot failed: {}", e),
     }
 }
-
 /// Reboot to recovery mode.
 pub fn reboot_recovery(serial: &str) -> String {
     match adb(serial, &["reboot", "recovery"]) {
@@ -252,7 +240,6 @@ pub fn reboot_recovery(serial: &str) -> String {
         Err(e) => format!("Reboot to recovery failed: {}", e),
     }
 }
-
 /// Reboot to bootloader/fastboot mode.
 pub fn reboot_bootloader(serial: &str) -> String {
     match adb(serial, &["reboot", "bootloader"]) {
@@ -260,7 +247,6 @@ pub fn reboot_bootloader(serial: &str) -> String {
         Err(e) => format!("Reboot to bootloader failed: {}", e),
     }
 }
-
 /// Enable developer options by simulating build number taps.
 pub fn enable_developer_options(serial: &str) -> String {
     // Open About Phone
@@ -274,7 +260,6 @@ pub fn enable_developer_options(serial: &str) -> String {
      Then enable 'USB Debugging' in Developer Options."
         .to_string()
 }
-
 /// Get device uptime.
 pub fn get_uptime(serial: &str) -> String {
     match adb_shell(serial, &["uptime"]) {
@@ -282,7 +267,6 @@ pub fn get_uptime(serial: &str) -> String {
         Err(e) => format!("Uptime check failed: {}", e),
     }
 }
-
 /// Get running processes.
 pub fn get_processes(serial: &str) -> String {
     match adb_shell(serial, &["ps", "-A"]) {
@@ -294,7 +278,6 @@ pub fn get_processes(serial: &str) -> String {
         Err(e) => format!("Process list failed: {}", e),
     }
 }
-
 /// Get memory information.
 pub fn get_memory_info(serial: &str) -> String {
     match adb_shell(serial, &["cat", "/proc/meminfo"]) {
@@ -308,7 +291,6 @@ pub fn get_memory_info(serial: &str) -> String {
         Err(e) => format!("Memory info failed: {}", e),
     }
 }
-
 /// Get CPU information.
 pub fn get_cpu_info(serial: &str) -> String {
     match adb_shell(serial, &["cat", "/proc/cpuinfo"]) {
@@ -322,12 +304,10 @@ pub fn get_cpu_info(serial: &str) -> String {
         Err(e) => format!("CPU info failed: {}", e),
     }
 }
-
 /// Start screen mirroring using scrcpy.
 pub fn start_scrcpy(serial: &str) -> String {
     start_scrcpy_with_cmd("scrcpy", serial)
 }
-
 /// Internal function to start scrcpy, allowing dependency injection of the command name for testing.
 fn start_scrcpy_with_cmd(cmd: &str, serial: &str) -> String {
     match std::process::Command::new(cmd)
@@ -353,7 +333,6 @@ mod tests {
         });
         assert_eq!(result, "No command entered.");
     }
-
     #[test]
     fn test_execute_shell_internal_success() {
         let result = execute_shell_internal("device1", "ls -la", |serial, args| {
@@ -363,7 +342,6 @@ mod tests {
         });
         assert_eq!(result, "file1\nfile2");
     }
-
     #[test]
     fn test_execute_shell_internal_success_empty_output() {
         let result = execute_shell_internal("device1", "touch test.txt", |serial, args| {
@@ -373,7 +351,6 @@ mod tests {
         });
         assert_eq!(result, "(command returned no output)");
     }
-
     #[test]
     fn test_execute_shell_internal_failure() {
         let result = execute_shell_internal("device1", "badcmd", |serial, args| {
@@ -383,7 +360,6 @@ mod tests {
         });
         assert_eq!(result, "Error: command not found");
     }
-
     #[test]
     fn test_enable_package_empty() {
         let result = enable_package_internal("device_123", "", |_, _| {
@@ -391,7 +367,6 @@ mod tests {
         });
         assert_eq!(result, "Package name is required.");
     }
-
     #[test]
     fn test_enable_package_success() {
         let package = "com.example.app";
@@ -411,7 +386,6 @@ mod tests {
             )
         );
     }
-
     #[test]
     fn test_enable_package_failure() {
         let package = "com.example.app";
@@ -428,7 +402,6 @@ mod tests {
             format!("Enable '{}' failed: error: device not found", package)
         );
     }
-
     #[test]
     fn test_start_scrcpy_with_cmd_success() {
         let serial = "test_device_success";
@@ -437,7 +410,6 @@ mod tests {
         let result = start_scrcpy_with_cmd("cargo", serial);
         assert_eq!(result, format!("Launched scrcpy for device {}", serial));
     }
-
     #[test]
     fn test_start_scrcpy_with_cmd_failure() {
         let serial = "test_device_failure";
@@ -468,7 +440,6 @@ mod tests {
             "User-installed packages (2):\npackage:com.example.app1\npackage:com.example.app2"
         );
     }
-
     #[test]
     fn test_list_user_packages_empty() {
         let result = list_user_packages_internal("device_123", |serial, args| {
@@ -478,7 +449,6 @@ mod tests {
         });
         assert_eq!(result, "User-installed packages (0):\n");
     }
-
     #[test]
     fn test_list_user_packages_failure() {
         let result = list_user_packages_internal("device_123", |serial, args| {
@@ -487,5 +457,67 @@ mod tests {
             Err("device offline".to_string())
         });
         assert_eq!(result, "List failed: device offline");
+    }
+    #[test]
+    fn test_full_backup_internal_default_path() {
+        let result = full_backup_internal("device_123", "", |serial, args| {
+            assert_eq!(serial, "device_123");
+            assert_eq!(
+                args,
+                &["backup", "-all", "-apk", "-shared", "-f", "foem_backup.ab"]
+            );
+            Ok("adb output".to_string())
+        });
+        assert_eq!(
+            result,
+            "Backup initiated to 'foem_backup.ab'.
+Confirm on device screen.
+adb output"
+        );
+    }
+
+    #[test]
+    fn test_full_backup_internal_custom_path() {
+        let result = full_backup_internal("device_123", "custom_backup.ab", |serial, args| {
+            assert_eq!(serial, "device_123");
+            assert_eq!(
+                args,
+                &[
+                    "backup",
+                    "-all",
+                    "-apk",
+                    "-shared",
+                    "-f",
+                    "custom_backup.ab"
+                ]
+            );
+            Ok("adb output".to_string())
+        });
+        assert_eq!(
+            result,
+            "Backup initiated to 'custom_backup.ab'.
+Confirm on device screen.
+adb output"
+        );
+    }
+
+    #[test]
+    fn test_full_backup_internal_failure() {
+        let result = full_backup_internal("device_123", "custom_backup.ab", |serial, args| {
+            assert_eq!(serial, "device_123");
+            assert_eq!(
+                args,
+                &[
+                    "backup",
+                    "-all",
+                    "-apk",
+                    "-shared",
+                    "-f",
+                    "custom_backup.ab"
+                ]
+            );
+            Err("device disconnected".to_string())
+        });
+        assert_eq!(result, "Backup failed: device disconnected");
     }
 }
