@@ -27,6 +27,10 @@ pub struct ExploitStep {
     pub payload: String,
     pub success_markers: Vec<String>,
     pub failure_markers: Vec<String>,
+    #[serde(default)]
+    pub retries: u8,
+    #[serde(default)]
+    pub timeout_ms: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -113,13 +117,28 @@ pub fn execute_goal(
             match execute_step(serial, step, diag_port_hint) {
                 Ok(out) => {
                     if step
+                        .failure_markers
+                        .iter()
+                        .any(|m| out.contains(m))
+                    {
+                        last_error =
+                            format!("Step {} reported failure markers:\n{}", recipe.name, out);
+                        continue;
+                    }
+
+                    if step
                         .success_markers
                         .iter()
                         .any(|m| out.contains(m))
                         || step.success_markers.is_empty()
                     {
                         kb.learn(fingerprint, step.clone());
-                        return format!("{} succeeded via {}:\n{}", goal_string(&goal), recipe.name, out);
+                        return format!(
+                            "{} succeeded via {}:\n{}",
+                            goal_string(&goal),
+                            recipe.name,
+                            out
+                        );
                     } else {
                         last_error = format!("No success markers matched:\n{}", out);
                     }
@@ -143,26 +162,64 @@ fn execute_step(
     step: &ExploitStep,
     diag_port_hint: Option<&str>,
 ) -> Result<String, String> {
-    match step.kind {
-        StepKind::AdbShell => exec::run("adb", &["-s", serial, "shell", &step.payload], "ADB shell"),
-        StepKind::Fastboot => exec::run("fastboot", &["-s", serial, &step.payload], "Fastboot"),
-        StepKind::AtCommand => {
-            let port_name = diag_port_hint
-                .or_else(|| autodetect_diag_port().as_deref())
-                .ok_or_else(|| "No diagnostic port available for AT command".to_string())?;
-            let mut port = open_diag_port(port_name)?;
-            send_at_command(&mut port, &step.payload)
-        }
-        StepKind::RawDiag => {
-            let port_name = diag_port_hint
-                .or_else(|| autodetect_diag_port().as_deref())
-                .ok_or_else(|| "No diagnostic port available for DIAG command".to_string())?;
-            let mut port = open_diag_port(port_name)?;
-            let bytes = hex::decode(step.payload.replace([' ', '\n', '\r'], ""))
-                .map_err(|e| format!("Hex decode failed: {}", e))?;
-            crate::features::repair::send_diag_bytes(&mut *port, &bytes)
+    let retries = step.retries.max(1) as usize;
+    let mut last_error = String::new();
+    for attempt in 0..retries {
+        let res = std::panic::catch_unwind(|| match step.kind {
+            StepKind::AdbShell => {
+                let timeout = step
+                    .timeout_ms
+                    .map(Duration::from_millis)
+                    .unwrap_or(exec::COMMAND_TIMEOUT);
+                exec::run_with_timeout(
+                    "adb",
+                    &["-s", serial, "shell", &step.payload],
+                    "ADB shell",
+                    timeout,
+                )
+            }
+            StepKind::Fastboot => {
+                let timeout = step
+                    .timeout_ms
+                    .map(Duration::from_millis)
+                    .unwrap_or(exec::COMMAND_TIMEOUT);
+                exec::run_with_timeout(
+                    "fastboot",
+                    &["-s", serial, &step.payload],
+                    "Fastboot",
+                    timeout,
+                )
+            }
+            StepKind::AtCommand => {
+                let port_name = diag_port_hint
+                    .or_else(|| autodetect_diag_port().as_deref())
+                    .ok_or_else(|| "No diagnostic port available for AT command".to_string())?;
+                let mut port = open_diag_port(port_name)?;
+                send_at_command(&mut port, &step.payload)
+            }
+            StepKind::RawDiag => {
+                let port_name = diag_port_hint
+                    .or_else(|| autodetect_diag_port().as_deref())
+                    .ok_or_else(|| "No diagnostic port available for DIAG command".to_string())?;
+                let mut port = open_diag_port(port_name)?;
+                let bytes = hex::decode(step.payload.replace([' ', '\n', '\r'], ""))
+                    .map_err(|e| format!("Hex decode failed: {}", e))?;
+                crate::features::repair::send_diag_bytes(&mut *port, &bytes)
+                    .map(|_| "DIAG bytes sent".to_string())
+            }
+        });
+
+        match res {
+            Ok(Ok(val)) => return Ok(val),
+            Ok(Err(e)) => last_error = e,
+            Err(_) => last_error = "Step panicked during execution".to_string(),
+        };
+
+        if attempt + 1 < retries {
+            std::thread::sleep(Duration::from_millis(150));
         }
     }
+    Err(last_error)
 }
 
 fn goal_string(goal: &FuzzGoal) -> String {
@@ -209,7 +266,7 @@ fn builtin_recipes() -> Vec<ExploitRecipe> {
     ]
 }
 
-fn autodetect_diag_port() -> Option<String> {
+pub fn autodetect_diag_port() -> Option<String> {
     if let Ok(ports) = serialport::available_ports() {
         for p in ports {
             if matches!(p.port_type, serialport::SerialPortType::UsbPort(_)) {

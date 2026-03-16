@@ -3,8 +3,7 @@
 /// These operations interact with critical device partitions and data.
 /// Manufacturer-specific methods are used where applicable.
 use super::{adb, adb_shell, Manufacturer};
-use crate::adaptive_engine::{execute_goal, fingerprint, FuzzGoal};
-use crate::exec::normalize_local_path;
+use crate::adaptive_engine::{autodetect_diag_port, execute_goal, fingerprint, FuzzGoal};
 
 use std::io::{Read, Write};
 use std::time::Duration;
@@ -323,6 +322,18 @@ pub fn open_diag_port(port_name: &str) -> Result<Box<dyn serialport::SerialPort>
             Err(format!("Diag Port Error:\n  {}", detail))
         }
     }
+}
+
+/// Send raw diagnostic bytes over an open port. Returns error on write/flush failure.
+pub fn send_diag_bytes(
+    port: &mut Box<dyn serialport::SerialPort>,
+    bytes: &[u8],
+) -> Result<(), String> {
+    port.write_all(bytes)
+        .map_err(|e| format!("Diag write failed: {}", e))?;
+    port.flush()
+        .map_err(|e| format!("Diag flush failed: {}", e))?;
+    Ok(())
 }
 
 fn query_device_identity(port: &mut Box<dyn serialport::SerialPort>, output: &mut String) {

@@ -5,7 +5,7 @@ pub mod hardware_test;
 pub mod network;
 pub mod repair;
 pub mod tools;
-pub mod adaptive_engine;
+pub mod ai_assistant;
 
 use crate::exec;
 
