@@ -182,18 +182,45 @@ pub fn check_mdm_status(serial: &str) -> String {
 /// Remove MDM profiles.
 pub fn remove_mdm(serial: &str) -> String {
     let mut output = String::from("MDM Removal:\n");
-    let cmds: &[(&str, &[&str])] = &[
-        ("Remove device owner", &["dpm", "remove-active-admin", "com.android.devicepolicy/.DeviceOwner"]),
-        ("Remove profile owner", &["dpm", "remove-active-admin", "com.android.devicepolicy/.ProfileOwner"]),
-        ("Clear device policy", &["rm", "-rf", "/data/system/device_policies.xml"]),
-        ("Clear device owner", &["rm", "-rf", "/data/system/device_owner_2.xml"]),
+    let cmds: &[(&str, &str)] = &[
+        ("Remove device owner", "dpm remove-active-admin com.android.devicepolicy/.DeviceOwner"),
+        ("Remove profile owner", "dpm remove-active-admin com.android.devicepolicy/.ProfileOwner"),
+        ("Clear device policy", "rm -rf /data/system/device_policies.xml"),
+        ("Clear device owner", "rm -rf /data/system/device_owner_2.xml"),
     ];
-    for (desc, args) in cmds {
-        match adb_shell(serial, args) {
-            Ok(_) => output.push_str(&format!("  {} -- done\n", desc)),
-            Err(_) => output.push_str(&format!("  {} -- failed (root may be required)\n", desc)),
+
+    let mut batched_cmd = String::new();
+    for (i, (_, cmd)) in cmds.iter().enumerate() {
+        batched_cmd.push_str(cmd);
+        batched_cmd.push_str(&format!("; echo B_MARKER_{}_$?; ", i));
+    }
+
+    match adb_shell(serial, &["sh", "-c", &batched_cmd]) {
+        Ok(result) => {
+            for (i, (desc, _)) in cmds.iter().enumerate() {
+                let marker_success = format!("B_MARKER_{}_0", i);
+                let marker_prefix = format!("B_MARKER_{}_", i);
+
+                // If the exact success marker is in the output, it succeeded.
+                if result.contains(&marker_success) {
+                    output.push_str(&format!("  {} -- done\n", desc));
+                } else if result.contains(&marker_prefix) {
+                    // It contains the marker but not with _0, so it failed.
+                    output.push_str(&format!("  {} -- failed (root may be required)\n", desc));
+                } else {
+                    // If marker is missing entirely, assume failure to be safe
+                    output.push_str(&format!("  {} -- failed (root may be required)\n", desc));
+                }
+            }
+        }
+        Err(_) => {
+            // If the entire adb_shell command failed
+            for (desc, _) in cmds {
+                output.push_str(&format!("  {} -- failed (root may be required)\n", desc));
+            }
         }
     }
+
     output.push_str("  Reboot required.\n");
     output
 }
