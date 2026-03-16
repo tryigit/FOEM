@@ -8,8 +8,63 @@
 use super::adb_shell;
 
 // -- FRP (Factory Reset Protection) Bypass --
+/// Execute multiple ADB shell commands in a single batched process to prevent N+1 overhead.
+/// Note: This executes via `sh -c` and delimits output with `B_MARKER_<exit_code>`.
+fn batch_adb_shell_commands<F>(serial: &str, cmds: &[&[&str]], mut handle_result: F)
+where
+    F: FnMut(&[&str], Result<String, String>),
+{
+    if cmds.is_empty() {
+        return;
+    }
+    let mut script = String::new();
+    for cmd in cmds {
+        let cmd_str = cmd.join(" ");
+        script.push_str(&format!(
+            "{} 2>&1; echo B_MARKER_$?;
+",
+            cmd_str
+        ));
+    }
+    match adb_shell(serial, &["sh", "-c", &script]) {
+        Ok(res) => {
+            let mut parts = res.split("B_MARKER_");
+            let mut prev_output = parts.next().unwrap_or("");
+            for (i, part) in parts.enumerate() {
+                if i >= cmds.len() {
+                    break;
+                }
+                let (code_str, next_out) = match part.find('\n') {
+                    Some(idx) => {
+                        let (c, rest) = part.split_at(idx);
+                        (c, &rest[1..]) // Skip the newline
+                    }
+                    None => (part, ""),
+                };
+                let code: i32 = code_str.trim().parse().unwrap_or(-1);
+                let out = prev_output.trim().to_string();
+                if code == 0 {
+                    handle_result(cmds[i], Ok(out));
+                } else {
+                    let err = if out.is_empty() {
+                        format!("exit code {}", code)
+                    } else {
+                        out
+                    };
+                    handle_result(cmds[i], Err(err));
+                }
+                prev_output = next_out;
+            }
+        }
+        Err(e) => {
+            // If the entire shell batch fails, mark all as failed
+            for cmd in cmds {
+                handle_result(cmd, Err(e.clone()));
+            }
+        }
+    }
+}
 
-/// Supported FRP bypass methods.
 pub enum FrpMethod {
     AdbBypass,
     SetupWizardSkip,
@@ -85,15 +140,13 @@ pub fn bypass_frp(serial: &str, method: &FrpMethod) -> String {
                     "com.google.android.gsf.login/.LoginActivity",
                 ],
             ];
-            for cmd in cmds {
-                match adb_shell(serial, cmd) {
-                    Ok(o) => output.push_str(&format!(
-                        "  OK: {}\n",
-                        if o.is_empty() { "(success)" } else { &o }
-                    )),
-                    Err(e) => output.push_str(&format!("  Failed: {}\n", e)),
-                }
-            }
+            batch_adb_shell_commands(serial, cmds, |_cmd, res| match res {
+                Ok(o) => output.push_str(&format!(
+                    "  OK: {}\n",
+                    if o.is_empty() { "(success)" } else { &o }
+                )),
+                Err(e) => output.push_str(&format!("  Failed: {}\n", e)),
+            });
         }
         FrpMethod::SetupWizardSkip => {
             let cmds: &[&[&str]] = &[
@@ -123,12 +176,10 @@ pub fn bypass_frp(serial: &str, method: &FrpMethod) -> String {
                     "android.intent.category.HOME",
                 ],
             ];
-            for cmd in cmds {
-                match adb_shell(serial, cmd) {
-                    Ok(_) => output.push_str("  Step completed.\n"),
-                    Err(e) => output.push_str(&format!("  Step failed: {}\n", e)),
-                }
-            }
+            batch_adb_shell_commands(serial, cmds, |_cmd, res| match res {
+                Ok(_) => output.push_str("  Step completed.\n"),
+                Err(e) => output.push_str(&format!("  Step failed: {}\n", e)),
+            });
         }
         FrpMethod::AccountManagerRemove => {
             let cmds: &[&[&str]] = &[
@@ -136,14 +187,10 @@ pub fn bypass_frp(serial: &str, method: &FrpMethod) -> String {
                 &["rm", "-rf", "/data/system/users/0/accounts_ce.db"],
                 &["rm", "-rf", "/data/system/sync/accounts.xml"],
             ];
-            for cmd in cmds {
-                match adb_shell(serial, cmd) {
-                    Ok(_) => output.push_str("  Removed account database.\n"),
-                    Err(_) => {
-                        output.push_str("  Account database removal failed (root required).\n")
-                    }
-                }
-            }
+            batch_adb_shell_commands(serial, cmds, |_cmd, res| match res {
+                Ok(_) => output.push_str("  Removed account database.\n"),
+                Err(_) => output.push_str("  Account database removal failed (root required).\n"),
+            });
         }
         FrpMethod::ContentProviderReset => {
             let cmds: &[&[&str]] = &[
@@ -160,12 +207,10 @@ pub fn bypass_frp(serial: &str, method: &FrpMethod) -> String {
                 &["settings", "put", "global", "device_provisioned", "1"],
                 &["settings", "put", "secure", "user_setup_complete", "1"],
             ];
-            for cmd in cmds {
-                match adb_shell(serial, cmd) {
-                    Ok(_) => output.push_str("  Setting applied.\n"),
-                    Err(e) => output.push_str(&format!("  Failed: {}\n", e)),
-                }
-            }
+            batch_adb_shell_commands(serial, cmds, |_cmd, res| match res {
+                Ok(_) => output.push_str("  Setting applied.\n"),
+                Err(e) => output.push_str(&format!("  Failed: {}\n", e)),
+            });
         }
     }
     output.push_str("  Reboot recommended.\n");
@@ -260,7 +305,7 @@ pub fn check_mdm_status(serial: &str) -> String {
 /// Remove MDM profiles.
 pub fn remove_mdm(serial: &str) -> String {
     let mut output = String::from("MDM Removal:\n");
-    let cmds: &[(&str, &[&str])] = &[
+    let mdm_cmds: &[(&str, &[&str])] = &[
         (
             "Remove device owner",
             &[
@@ -286,12 +331,18 @@ pub fn remove_mdm(serial: &str) -> String {
             &["rm", "-rf", "/data/system/device_owner_2.xml"],
         ),
     ];
-    for (desc, args) in cmds {
-        match adb_shell(serial, args) {
+    let extracted_cmds: Vec<&[&str]> = mdm_cmds.iter().map(|&(_, args)| args).collect();
+    batch_adb_shell_commands(serial, &extracted_cmds, |cmd, res| {
+        let desc = mdm_cmds
+            .iter()
+            .find(|&&(_, args)| args == cmd)
+            .map(|&(d, _)| d)
+            .unwrap_or("Unknown");
+        match res {
             Ok(_) => output.push_str(&format!("  {} -- done\n", desc)),
             Err(_) => output.push_str(&format!("  {} -- failed (root may be required)\n", desc)),
         }
-    }
+    });
     output.push_str("  Reboot required.\n");
     output
 }
@@ -308,12 +359,18 @@ pub fn bypass_knox(serial: &str) -> String {
         "com.sec.enterprise.knox.cloudmdm.smdms",
         "com.samsung.android.mdm",
     ];
-    for pkg in &packages {
-        match adb_shell(serial, &["pm", "uninstall", "-k", "--user", "0", pkg]) {
+    let cmds: Vec<Vec<&str>> = packages
+        .iter()
+        .map(|pkg| vec!["pm", "uninstall", "-k", "--user", "0", pkg])
+        .collect();
+    let cmd_refs: Vec<&[&str]> = cmds.iter().map(|v| v.as_slice()).collect();
+    batch_adb_shell_commands(serial, &cmd_refs, |cmd, res| {
+        let pkg = cmd.last().unwrap_or(&"unknown");
+        match res {
             Ok(_) => output.push_str(&format!("  Disabled: {}\n", pkg)),
             Err(_) => output.push_str(&format!("  Could not disable: {}\n", pkg)),
         }
-    }
+    });
     output.push_str("  Knox-related packages disabled for current user.\n");
     output.push_str("  Full removal may require root and factory reset.\n");
     output
@@ -322,7 +379,7 @@ pub fn bypass_knox(serial: &str) -> String {
 /// Remove Google account from device (for FRP preparation).
 pub fn remove_google_account(serial: &str) -> String {
     let mut output = String::from("Google Account Removal:\n");
-    let cmds: &[(&str, &[&str])] = &[
+    let acct_cmds: &[(&str, &[&str])] = &[
         (
             "Remove accounts DB",
             &["rm", "-f", "/data/system/users/0/accounts_de.db"],
@@ -334,12 +391,18 @@ pub fn remove_google_account(serial: &str) -> String {
         ("Clear GMS data", &["pm", "clear", "com.google.android.gms"]),
         ("Clear GSF data", &["pm", "clear", "com.google.android.gsf"]),
     ];
-    for (desc, args) in cmds {
-        match adb_shell(serial, args) {
+    let extracted_cmds: Vec<&[&str]> = acct_cmds.iter().map(|&(_, args)| args).collect();
+    batch_adb_shell_commands(serial, &extracted_cmds, |cmd, res| {
+        let desc = acct_cmds
+            .iter()
+            .find(|&&(_, args)| args == cmd)
+            .map(|&(d, _)| d)
+            .unwrap_or("Unknown");
+        match res {
             Ok(_) => output.push_str(&format!("  {} -- done\n", desc)),
             Err(_) => output.push_str(&format!("  {} -- failed (root required)\n", desc)),
         }
-    }
+    });
     output.push_str("  Reboot required.\n");
     output
 }
