@@ -294,7 +294,14 @@ pub fn get_processes(serial: &str) -> String {
 }
 /// Get memory information.
 pub fn get_memory_info(serial: &str) -> String {
-    match adb_shell(serial, &["cat", "/proc/meminfo"]) {
+    get_memory_info_internal(serial, adb_shell)
+}
+
+fn get_memory_info_internal<F>(serial: &str, adb_shell_fn: F) -> String
+where
+    F: Fn(&str, &[&str]) -> Result<String, String>,
+{
+    match adb_shell_fn(serial, &["cat", "/proc/meminfo"]) {
         Ok(val) => {
             let mut output = String::from("Memory Info:\n");
             for line in val.lines().take(10) {
@@ -627,5 +634,43 @@ adb output"
             Err("device offline".to_string())
         });
         assert_eq!(result, "CPU info failed: device offline");
+    }
+    #[test]
+    fn test_get_memory_info_success_short() {
+        let result = get_memory_info_internal("device_123", |serial, args| {
+            assert_eq!(serial, "device_123");
+            assert_eq!(args, &["cat", "/proc/meminfo"]);
+            Ok("MemTotal:        2048000 kB\nMemFree:          102400 kB".to_string())
+        });
+        assert_eq!(result, "Memory Info:\n  MemTotal:        2048000 kB\n  MemFree:          102400 kB\n");
+    }
+
+    #[test]
+    fn test_get_memory_info_success_long() {
+        let result = get_memory_info_internal("device_123", |serial, args| {
+            assert_eq!(serial, "device_123");
+            assert_eq!(args, &["cat", "/proc/meminfo"]);
+            let mut long_output = String::new();
+            for i in 0..15 {
+                long_output.push_str(&format!("Line {}\n", i));
+            }
+            Ok(long_output)
+        });
+
+        let mut expected = String::from("Memory Info:\n");
+        for i in 0..10 {
+            expected.push_str(&format!("  Line {}\n", i));
+        }
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_get_memory_info_failure() {
+        let result = get_memory_info_internal("device_123", |serial, args| {
+            assert_eq!(serial, "device_123");
+            assert_eq!(args, &["cat", "/proc/meminfo"]);
+            Err("device offline".to_string())
+        });
+        assert_eq!(result, "Memory info failed: device offline");
     }
 }
