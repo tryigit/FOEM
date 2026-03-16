@@ -96,16 +96,15 @@ pub fn bypass_frp(serial: &str, method: &FrpMethod) -> String {
             }
         }
         FrpMethod::ContentProviderReset => {
-            let cmds: &[&[&str]] = &[
-                &["content", "insert", "--uri", "content://settings/secure",
-                  "--bind", "name:s:user_setup_complete", "--bind", "value:s:1"],
-                &["settings", "put", "global", "device_provisioned", "1"],
-                &["settings", "put", "secure", "user_setup_complete", "1"],
-            ];
-            for cmd in cmds {
-                match adb_shell(serial, cmd) {
-                    Ok(_) => output.push_str("  Setting applied.\n"),
-                    Err(e) => output.push_str(&format!("  Failed: {}\n", e)),
+            let batched_cmd = "content insert --uri content://settings/secure --bind name:s:user_setup_complete --bind value:s:1; \
+                               settings put global device_provisioned 1; \
+                               settings put secure user_setup_complete 1";
+            match adb_shell(serial, &["sh", "-c", batched_cmd]) {
+                Ok(_) => {
+                    output.push_str("  Settings applied successfully.\n");
+                }
+                Err(e) => {
+                    output.push_str(&format!("  Failed to apply settings: {}\n", e));
                 }
             }
         }
