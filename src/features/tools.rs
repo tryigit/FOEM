@@ -137,10 +137,16 @@ pub fn list_system_packages(serial: &str) -> String {
 
 /// Disable a system app for the current user (no root required).
 pub fn disable_package(serial: &str, package: &str) -> String {
+    disable_package_internal(serial, package, adb_shell)
+}
+fn disable_package_internal<F>(serial: &str, package: &str, adb_shell_fn: F) -> String
+where
+    F: Fn(&str, &[&str]) -> Result<String, String>,
+{
     if package.is_empty() {
         return "Package name is required.".to_string();
     }
-    match adb_shell(serial, &["pm", "uninstall", "-k", "--user", "0", package]) {
+    match adb_shell_fn(serial, &["pm", "uninstall", "-k", "--user", "0", package]) {
         Ok(out) => format!("Disable '{}': {}", package, out),
         Err(e) => format!("Disable '{}' failed: {}", package, e),
     }
@@ -682,5 +688,47 @@ adb output"
             Err("device offline".to_string())
         });
         assert_eq!(result, "Memory info failed: device offline");
+    }
+
+    #[test]
+    fn test_disable_package_empty() {
+        let result = disable_package_internal("device_123", "", |_, _| {
+            panic!("Should not be called");
+        });
+        assert_eq!(result, "Package name is required.");
+    }
+
+    #[test]
+    fn test_disable_package_success() {
+        let package = "com.example.app";
+        let result = disable_package_internal("device_123", package, |serial, args| {
+            assert_eq!(serial, "device_123");
+            assert_eq!(
+                args,
+                &["pm", "uninstall", "-k", "--user", "0", "com.example.app"]
+            );
+            Ok("Success".to_string())
+        });
+        assert_eq!(
+            result,
+            format!("Disable '{}': Success", package)
+        );
+    }
+
+    #[test]
+    fn test_disable_package_failure() {
+        let package = "com.example.app";
+        let result = disable_package_internal("device_123", package, |serial, args| {
+            assert_eq!(serial, "device_123");
+            assert_eq!(
+                args,
+                &["pm", "uninstall", "-k", "--user", "0", "com.example.app"]
+            );
+            Err("error: not found".to_string())
+        });
+        assert_eq!(
+            result,
+            format!("Disable '{}' failed: error: not found", package)
+        );
     }
 }
