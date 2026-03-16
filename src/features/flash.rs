@@ -177,14 +177,6 @@ pub fn reboot_to(serial: &str, mode: &str) -> String {
 
 // -- Samsung Download Mode (Odin) --
 
-/// Check if device is in Samsung Download mode.
-pub fn check_download_mode(serial: &str) -> String {
-    match fastboot(serial, &["getvar", "product"]) {
-        Ok(val) => format!("Device in fastboot/download mode: {}", val),
-        Err(_) => "Device not detected in download/fastboot mode.".to_string(),
-    }
-}
-
 // -- MediaTek SP Flash --
 
 /// Enter MediaTek BROM/Preloader mode.

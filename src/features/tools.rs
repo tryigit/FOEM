@@ -186,15 +186,6 @@ pub fn take_screenshot(serial: &str, local_path: &str) -> String {
     }
 }
 
-/// Start screen recording on device.
-pub fn start_screen_record(serial: &str) -> String {
-    let device_path = "/sdcard/FOEM/screenrecord.mp4";
-    match adb_shell(serial, &["screenrecord", "--time-limit", "180", device_path]) {
-        Ok(out) => format!("Recording saved to device: {}\n{}", device_path, out),
-        Err(e) => format!("Screen recording failed: {}\nNote: Some devices restrict screen recording.", e),
-    }
-}
-
 // -- Device Reboot --
 
 /// Reboot the device to system.

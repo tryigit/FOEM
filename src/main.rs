@@ -1,9 +1,9 @@
 mod app;
 mod diagnostics;
-#[allow(dead_code)]
+
 mod features;
 mod license_text;
-#[allow(dead_code)]
+
 mod theme;
 mod update_manager;
 

@@ -19,7 +19,6 @@ pub const TERTIARY: egui::Color32 = egui::Color32::from_rgb(99, 99, 102);
 pub const ACCENT: egui::Color32 = egui::Color32::from_rgb(10, 132, 255);
 pub const DESTRUCTIVE: egui::Color32 = egui::Color32::from_rgb(255, 69, 58);
 pub const SUCCESS: egui::Color32 = egui::Color32::from_rgb(48, 209, 88);
-pub const WARNING: egui::Color32 = egui::Color32::from_rgb(255, 214, 10);
 
 // -- Dimensions --
 pub const SIDEBAR_WIDTH: f32 = 180.0;
