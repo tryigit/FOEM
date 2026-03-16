@@ -11,7 +11,10 @@ use std::time::Duration;
 // -- IMEI Management --
 
 /// Execute a batch of adb shell commands in one `sh -c` to avoid N+1 overhead.
-fn batch_shell(serial: &str, labeled_cmds: &[(&str, &str)]) -> Vec<(String, Result<String, String>)> {
+fn batch_shell(
+    serial: &str,
+    labeled_cmds: &[(&str, &str)],
+) -> Vec<(String, Result<String, String>)> {
     if labeled_cmds.is_empty() {
         return Vec::new();
     }
@@ -141,9 +144,10 @@ pub fn backup_imei(serial: &str) -> String {
 
 /// Write IMEI via AT command over a diagnostic port when available.
 pub fn write_imei(_serial: &str, imei: &str, manufacturer: &Manufacturer) -> String {
-    if imei.len() != 15 || !imei.chars().all(|c| c.is_ascii_digit()) {
-        return "Invalid IMEI. Must be exactly 15 digits.".to_string();
-    }
+    let imeis = match parse_imei_input(imei) {
+        Ok(v) => v,
+        Err(e) => return e,
+    };
     let diag_port = autodetect_diag_port();
     let port_name = match diag_port {
         Some(p) => p,
@@ -157,27 +161,86 @@ pub fn write_imei(_serial: &str, imei: &str, manufacturer: &Manufacturer) -> Str
         Err(e) => return e,
     };
 
-    let at_cmd = match manufacturer {
-        Manufacturer::Samsung => format!("AT+EGMR=1,7,\"{}\"", imei),
+    let commands = build_imei_write_commands(manufacturer, &imeis);
+    let mut output = format!("IMEI write command(s) sent on {}:\n", port_name);
+    for (slot, at_cmd) in commands.iter().enumerate() {
+        match send_at_command(&mut port, at_cmd) {
+            Ok(resp) => {
+                output.push_str(&format!(
+                    "  Slot {} command: {}\n  Response:\n{}\n",
+                    slot + 1,
+                    at_cmd,
+                    resp
+                ));
+            }
+            Err(e) => {
+                output.push_str(&format!(
+                    "  Slot {} command failed: {}\n  Error: {}\n",
+                    slot + 1,
+                    at_cmd,
+                    e
+                ));
+            }
+        }
+    }
+    output
+}
+
+fn parse_imei_input(input: &str) -> Result<Vec<String>, String> {
+    let imeis: Vec<String> = input
+        .split(|c: char| c == ',' || c == ';' || c.is_whitespace())
+        .filter_map(|piece| {
+            let trimmed = piece.trim();
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed.to_string())
+            }
+        })
+        .collect();
+    if imeis.is_empty() {
+        return Err("Invalid IMEI. Enter one or two IMEI values.".to_string());
+    }
+    if imeis.len() > 2 {
+        return Err("Invalid IMEI input. Enter at most two IMEI values.".to_string());
+    }
+    if imeis
+        .iter()
+        .any(|v| v.len() != 15 || !v.chars().all(|c| c.is_ascii_digit()))
+    {
+        return Err("Invalid IMEI. Each IMEI must be exactly 15 digits.".to_string());
+    }
+    Ok(imeis)
+}
+
+fn build_imei_write_commands(manufacturer: &Manufacturer, imeis: &[String]) -> Vec<String> {
+    if imeis.len() == 2 {
+        return match manufacturer {
+            Manufacturer::Google | Manufacturer::OnePlus | Manufacturer::Motorola => vec![
+                format!("AT+CGSN={}", imeis[0]),
+                format!("AT+CGSN=1,{}", imeis[1]),
+            ],
+            _ => vec![
+                format!("AT+EGMR=1,7,\"{}\"", imeis[0]),
+                format!("AT+EGMR=1,10,\"{}\"", imeis[1]),
+            ],
+        };
+    }
+
+    let primary = match manufacturer {
+        Manufacturer::Samsung => format!("AT+EGMR=1,7,\"{}\"", imeis[0]),
         Manufacturer::Xiaomi
         | Manufacturer::Oppo
         | Manufacturer::Realme
         | Manufacturer::Vivo
         | Manufacturer::Huawei
-        | Manufacturer::Honor => format!("AT+EGMR=1,10,\"{}\"", imei),
+        | Manufacturer::Honor => format!("AT+EGMR=1,10,\"{}\"", imeis[0]),
         Manufacturer::Google | Manufacturer::OnePlus | Manufacturer::Motorola => {
-            format!("AT+CGSN={}", imei)
+            format!("AT+CGSN={}", imeis[0])
         }
-        _ => format!("AT+EGMR=1,7,\"{}\"", imei),
+        _ => format!("AT+EGMR=1,7,\"{}\"", imeis[0]),
     };
-
-    match send_at_command(&mut port, &at_cmd) {
-        Ok(resp) => format!(
-            "IMEI write command sent on {}:\n{}\nResponse:\n{}",
-            port_name, at_cmd, resp
-        ),
-        Err(e) => format!("IMEI write failed to send: {}", e),
-    }
+    vec![primary]
 }
 
 // -- Diagnostic Serial Port Communication --
@@ -811,4 +874,53 @@ pub fn enable_diag_port(serial: &str, manufacturer: &Manufacturer) -> String {
     // Use manufacturer hint as part of fingerprint to increase specificity
     let fp = format!("{}|{}", fp, manufacturer.name());
     execute_goal(serial, FuzzGoal::EnableDiagPort, &fp, None)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{build_imei_write_commands, parse_imei_input};
+    use crate::features::Manufacturer;
+
+    #[test]
+    fn parse_single_imei() {
+        let parsed = parse_imei_input("123456789012345").expect("single imei should parse");
+        assert_eq!(parsed, vec!["123456789012345".to_string()]);
+    }
+
+    #[test]
+    fn parse_dual_imei_with_comma() {
+        let parsed =
+            parse_imei_input("123456789012345,234567890123456").expect("dual imei should parse");
+        assert_eq!(
+            parsed,
+            vec!["123456789012345".to_string(), "234567890123456".to_string()]
+        );
+    }
+
+    #[test]
+    fn parse_rejects_more_than_two_imeis() {
+        let err = parse_imei_input("123456789012345,234567890123456,345678901234567")
+            .expect_err("more than two imeis should fail");
+        assert!(err.contains("at most two"));
+    }
+
+    #[test]
+    fn build_commands_includes_second_slot_when_present() {
+        let imeis = vec!["123456789012345".to_string(), "234567890123456".to_string()];
+        let commands = build_imei_write_commands(&Manufacturer::Samsung, &imeis);
+        assert_eq!(commands.len(), 2);
+        assert!(commands[0].contains("AT+EGMR=1,7"));
+        assert!(commands[1].contains("AT+EGMR=1,10"));
+        assert!(commands[0].contains("123456789012345"));
+        assert!(commands[1].contains("234567890123456"));
+    }
+
+    #[test]
+    fn build_commands_dual_imei_uses_two_slots_for_xiaomi() {
+        let imeis = vec!["123456789012345".to_string(), "234567890123456".to_string()];
+        let commands = build_imei_write_commands(&Manufacturer::Xiaomi, &imeis);
+        assert_eq!(commands.len(), 2);
+        assert!(commands[0].contains("AT+EGMR=1,7"));
+        assert!(commands[1].contains("AT+EGMR=1,10"));
+    }
 }

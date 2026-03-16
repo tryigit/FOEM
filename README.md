@@ -30,13 +30,13 @@
 
 ## Overview
 
-**FOEM** is a free, cross-platform application designed to remove manufacturer-imposed restrictions on mobile devices such as Bootloader (BL) locks. Built for **freedom of software** and **academic research**, FOEM gives users complete control over their own hardware.
+**FOEM** is a free, cross-platform toolkit for mobile device maintenance, diagnostics, repair, and firmware operations. It is built for **right-to-repair**, **independent security research**, and **owner-controlled device management**.
 
-Once you purchase a device, you should have full authority over it. FOEM breaks down artificial barriers safely and efficiently.
+The project focuses on practical workflows (bootloader management, repair tooling, flashing, diagnostics, and automation) while keeping the software open and accessible.
 
 ## Our Mission
 
-We will prevent phone repair shops from charging fees for software through dealerships. This is a completely free application. FOEM is designed to give you back control of your device without hidden costs or gatekeeping.
+FOEM aims to provide professional-grade mobile service capabilities without paywalls, hidden subscriptions, or vendor lock-in. Device owners and independent technicians should be able to maintain and recover their hardware using transparent tools.
 
 ## Key Features
 
@@ -50,7 +50,7 @@ We will prevent phone repair shops from charging fees for software through deale
 
 ### Device Repair
 
-- **IMEI Management** -- Read, backup, and write IMEI numbers using AT commands, service calls, and manufacturer-specific diagnostic methods
+- **IMEI Management** -- Read IMEI 1/IMEI 2, back up modem identity data, and write one or two IMEI values (dual-SIM capable devices) using dedicated IMEI 1 + IMEI 2 input slots and diagnostic AT workflows
 - **GMS Repair** -- Diagnose, clear cache, and restore Google Mobile Services (GMS, GSF, Play Store, Setup Wizard)
 - **EFS Backup and Restore** -- Protect critical EFS partition data that stores IMEI, calibration, and radio configuration
 - **NV Data Management** -- Backup and restore non-volatile data partitions (modemst1, modemst2, fsg, fsc)
@@ -110,14 +110,14 @@ We will prevent phone repair shops from charging fees for software through deale
 
 ## AI Agent Assistant
 
-FOEM includes an integrated AI Agent Assistant designed to enhance your workflow and provide intelligent support. The AI agent is capable of:
+FOEM includes an integrated AI Agent Assistant panel in the left sidebar (`AI Agent`). The assistant is designed to accelerate troubleshooting and routine engineering tasks:
 
-- **Bug Fixing:** Automatically detecting and suggesting fixes for code issues and runtime errors.
-- **Feature Implementation:** Generating code snippets and assisting with the development of new features based on natural language prompts.
-- **Codebase Navigation:** Helping you understand complex project structures and quickly locate specific functions or files.
-- **EDL Tools Support:** Providing guidance and automated assistance for Emergency Download (EDL) mode operations, including flashing via Qualcomm Sahara/Firehose protocols, generating programmer files, and partition management.
+- **Bug triage and fix suggestions** for repeatable issues
+- **Feature planning support** with implementation-oriented prompts
+- **Command generation** for ADB/Fastboot and service workflows
+- **EDL tooling guidance** for Qualcomm-based recovery tasks
 
-The AI Assistant acts as a pair-programmer, significantly reducing development time and lowering the barrier to entry for complex device repair tasks.
+You can configure provider/model settings, use advanced controls (temperature + vision), attach context files, and keep conversation history inside the app.
 
 ## Design Philosophy
 
@@ -151,6 +151,8 @@ The application includes a built-in update checker that queries the latest relea
     <img src="https://img.shields.io/badge/Download-Latest_Release-blue?style=for-the-badge&logo=github&logoColor=white" alt="Latest Release">
   </a>
 </p>
+
+Pre-1.0.0 versions (for example `v0.0.1`) are published as **beta pre-releases**. Push a semantic version tag (such as `v0.0.2`) to trigger a release build and GitHub release artifact publication.
 
 ## Getting Started
 
@@ -204,6 +206,7 @@ FOEM/
   .github/
     workflows/
       build.yml              -- CI build for Windows and Linux with artifact upload
+      release.yml            -- Tag-based beta/stable release publication workflow
   README.md
 ```
 
