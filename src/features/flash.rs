@@ -2,7 +2,6 @@
 ///
 /// Supports Qualcomm EDL (9008), MediaTek BROM/SP Flash,
 /// Samsung Download/Odin mode, and standard Fastboot flashing.
-
 use super::{adb, adb_shell, fastboot, Manufacturer};
 
 // -- EDL (Emergency Download) Mode --
@@ -46,10 +45,28 @@ pub fn flash_edl(_serial: &str, programmer_path: &str) -> String {
 
 /// Available fastboot partitions for flashing.
 pub const FASTBOOT_PARTITIONS: &[&str] = &[
-    "boot", "recovery", "system", "vendor", "dtbo", "vbmeta",
-    "super", "userdata", "cache", "modem", "radio",
-    "aboot", "sbl1", "rpm", "tz", "hyp", "keymaster",
-    "cmnlib", "cmnlib64", "devcfg", "dsp", "mdtp",
+    "boot",
+    "recovery",
+    "system",
+    "vendor",
+    "dtbo",
+    "vbmeta",
+    "super",
+    "userdata",
+    "cache",
+    "modem",
+    "radio",
+    "aboot",
+    "sbl1",
+    "rpm",
+    "tz",
+    "hyp",
+    "keymaster",
+    "cmnlib",
+    "cmnlib64",
+    "devcfg",
+    "dsp",
+    "mdtp",
 ];
 
 /// Flash an image to a specific partition via fastboot.
@@ -59,7 +76,10 @@ pub fn flash_partition(serial: &str, partition: &str, image_path: &str) -> Strin
     }
     match fastboot(serial, &["flash", partition, image_path]) {
         Ok(out) => format!("Flash {} result:\n{}", partition, out),
-        Err(e) => format!("Flash {} failed: {}\nEnsure device is in fastboot mode.", partition, e),
+        Err(e) => format!(
+            "Flash {} failed: {}\nEnsure device is in fastboot mode.",
+            partition, e
+        ),
     }
 }
 
@@ -76,7 +96,16 @@ pub fn flash_vbmeta_disabled(serial: &str, image_path: &str) -> String {
     if image_path.is_empty() {
         return "vbmeta path required. Use stock vbmeta.img.".to_string();
     }
-    match fastboot(serial, &["--disable-verity", "--disable-verification", "flash", "vbmeta", image_path]) {
+    match fastboot(
+        serial,
+        &[
+            "--disable-verity",
+            "--disable-verification",
+            "flash",
+            "vbmeta",
+            image_path,
+        ],
+    ) {
         Ok(out) => format!("vbmeta flash (verification disabled):\n{}", out),
         Err(e) => format!("vbmeta flash failed: {}", e),
     }
@@ -91,7 +120,10 @@ pub fn flash_recovery(serial: &str, recovery_path: &str) -> String {
     }
     match fastboot(serial, &["flash", "recovery", recovery_path]) {
         Ok(out) => format!("Recovery flash result:\n{}", out),
-        Err(e) => format!("Recovery flash failed: {}\nSome A/B devices use: fastboot flash boot <recovery.img>", e),
+        Err(e) => format!(
+            "Recovery flash failed: {}\nSome A/B devices use: fastboot flash boot <recovery.img>",
+            e
+        ),
     }
 }
 
@@ -170,7 +202,11 @@ pub fn reboot_to(serial: &str, mode: &str) -> String {
         _ => Err(format!("Unknown reboot mode: {}", mode)),
     };
     match result {
-        Ok(out) => format!("Reboot to '{}': {}", mode, if out.is_empty() { "OK" } else { &out }),
+        Ok(out) => format!(
+            "Reboot to '{}': {}",
+            mode,
+            if out.is_empty() { "OK" } else { &out }
+        ),
         Err(e) => format!("Reboot to '{}' failed: {}", mode, e),
     }
 }
@@ -190,19 +226,15 @@ pub fn check_download_mode(serial: &str) -> String {
 /// Enter MediaTek BROM/Preloader mode.
 pub fn enter_brom_mode(serial: &str) -> String {
     match adb_shell(serial, &["reboot", "bootloader"]) {
-        Ok(_) => {
-            "MediaTek BROM Mode:\n\
+        Ok(_) => "MediaTek BROM Mode:\n\
              Device rebooting to preloader/BROM.\n\
              For manual entry: Power off, hold Vol Up + connect USB.\n\
              Device should appear as MediaTek USB Port."
-                .to_string()
-        }
-        Err(_) => {
-            "MediaTek BROM Mode:\n\
+            .to_string(),
+        Err(_) => "MediaTek BROM Mode:\n\
              Could not reboot via ADB.\n\
              Manual method: Power off, hold Vol Up + Vol Down + connect USB."
-                .to_string()
-        }
+            .to_string(),
     }
 }
 
@@ -234,7 +266,10 @@ pub fn install_magisk(serial: &str, path: &str) -> String {
     } else if path.ends_with(".zip") {
         match adb(serial, &["sideload", path]) {
             Ok(out) => format!("Magisk ZIP sideload:\n{}", out),
-            Err(e) => format!("Magisk sideload failed (ensure device is in ADB sideload mode): {}", e),
+            Err(e) => format!(
+                "Magisk sideload failed (ensure device is in ADB sideload mode): {}",
+                e
+            ),
         }
     } else if path.ends_with(".img") {
         match fastboot(serial, &["flash", "boot", path]) {
@@ -259,7 +294,10 @@ pub fn install_kernelsu(serial: &str, path: &str) -> String {
     } else if path.ends_with(".zip") {
         match adb(serial, &["sideload", path]) {
             Ok(out) => format!("KernelSU AnyKernel3 ZIP sideload:\n{}", out),
-            Err(e) => format!("KernelSU sideload failed (ensure device is in ADB sideload mode): {}", e),
+            Err(e) => format!(
+                "KernelSU sideload failed (ensure device is in ADB sideload mode): {}",
+                e
+            ),
         }
     } else if path.ends_with(".img") {
         match fastboot(serial, &["flash", "boot", path]) {

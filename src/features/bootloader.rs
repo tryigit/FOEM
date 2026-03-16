@@ -9,14 +9,16 @@
 /// Motorola: Unlock code from manufacturer portal
 /// Sony: Unlock code from developer portal
 /// Others: Standard fastboot OEM unlock
-
 use super::{adb_shell, fastboot, Manufacturer};
 
 /// Check current bootloader lock status via fastboot.
 pub fn check_status(serial: &str) -> String {
     match fastboot(serial, &["getvar", "unlocked"]) {
         Ok(out) => format!("Bootloader status:\n{}", out),
-        Err(e) => format!("Failed to check BL status: {}\nDevice may not be in fastboot mode.", e),
+        Err(e) => format!(
+            "Failed to check BL status: {}\nDevice may not be in fastboot mode.",
+            e
+        ),
     }
 }
 
@@ -37,15 +39,13 @@ pub fn check_oem_unlock_setting(serial: &str) -> String {
 /// Unlock bootloader using manufacturer-appropriate method.
 pub fn unlock(serial: &str, manufacturer: &Manufacturer) -> String {
     match manufacturer {
-        Manufacturer::Samsung => {
-            "Samsung bootloader unlock:\n\
+        Manufacturer::Samsung => "Samsung bootloader unlock:\n\
              1. Enable OEM Unlock in Developer Options.\n\
              2. Boot into Download mode (Vol Down + Power).\n\
              3. Long-press Vol Up to enter unlock mode.\n\
              4. Confirm unlock. Device will factory reset.\n\
              Note: Knox counter will be tripped permanently."
-                .to_string()
-        }
+            .to_string(),
         Manufacturer::Xiaomi => {
             "Xiaomi bootloader unlock:\n\
              1. Apply for unlock permission at en.miui.com/unlock.\n\
@@ -55,27 +55,21 @@ pub fn unlock(serial: &str, manufacturer: &Manufacturer) -> String {
                 .to_string()
             // In a full implementation: fastboot(serial, &["oem", "unlock"])
         }
-        Manufacturer::Huawei | Manufacturer::Honor => {
-            "Huawei/Honor bootloader unlock:\n\
+        Manufacturer::Huawei | Manufacturer::Honor => "Huawei/Honor bootloader unlock:\n\
              Official unlock codes are no longer provided by Huawei.\n\
              Third-party unlock methods may be available for some models.\n\
              Attempting fastboot unlock..."
-                .to_string()
-        }
-        Manufacturer::Motorola => {
-            "Motorola bootloader unlock:\n\
+            .to_string(),
+        Manufacturer::Motorola => "Motorola bootloader unlock:\n\
              1. Get unlock code from motorola.com/unlocking.\n\
              2. Run: fastboot oem unlock <CODE>\n\
              Attempting standard unlock..."
-                .to_string()
-        }
-        Manufacturer::Sony => {
-            "Sony bootloader unlock:\n\
+            .to_string(),
+        Manufacturer::Sony => "Sony bootloader unlock:\n\
              1. Get unlock code from developer.sony.com/unlock.\n\
              2. Run: fastboot oem unlock 0x<CODE>\n\
              Note: DRM keys will be lost (camera quality may degrade)."
-                .to_string()
-        }
+            .to_string(),
         _ => {
             // Standard fastboot unlock for Google, OnePlus, and others
             match fastboot(serial, &["flashing", "unlock"]) {
@@ -156,7 +150,6 @@ pub fn manufacturer_notes(manufacturer: &Manufacturer) -> &'static str {
         }
     }
 }
-
 
 /// Attempt to root the device even with a locked bootloader.
 /// This will try `adb root`. If it fails, it provides an informative message

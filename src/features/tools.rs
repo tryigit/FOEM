@@ -1,6 +1,5 @@
 /// ADB utility tools: shell, logcat, file operations, reboot,
 /// backup/restore, APK management, bloatware removal, screenshots.
-
 use super::{adb, adb_shell};
 
 // -- ADB Shell --
@@ -10,8 +9,7 @@ pub fn execute_shell(serial: &str, command: &str) -> String {
     if command.is_empty() {
         return "No command entered.".to_string();
     }
-    let args: Vec<&str> = command.split_whitespace().collect();
-    match adb_shell(serial, &args) {
+    match adb_shell(serial, &["sh", "-c", command]) {
         Ok(out) => {
             if out.is_empty() {
                 "(command returned no output)".to_string()
@@ -153,9 +151,16 @@ pub fn enable_package(serial: &str, package: &str) -> String {
 
 /// Full device backup via ADB backup.
 pub fn full_backup(serial: &str, backup_path: &str) -> String {
-    let path = if backup_path.is_empty() { "foem_backup.ab" } else { backup_path };
+    let path = if backup_path.is_empty() {
+        "foem_backup.ab"
+    } else {
+        backup_path
+    };
     match adb(serial, &["backup", "-all", "-apk", "-shared", "-f", path]) {
-        Ok(out) => format!("Backup initiated to '{}'.\nConfirm on device screen.\n{}", path, out),
+        Ok(out) => format!(
+            "Backup initiated to '{}'.\nConfirm on device screen.\n{}",
+            path, out
+        ),
         Err(e) => format!("Backup failed: {}", e),
     }
 }
@@ -166,7 +171,10 @@ pub fn full_restore(serial: &str, backup_path: &str) -> String {
         return "Backup file path is required.".to_string();
     }
     match adb(serial, &["restore", backup_path]) {
-        Ok(out) => format!("Restore initiated from '{}'.\nConfirm on device screen.\n{}", backup_path, out),
+        Ok(out) => format!(
+            "Restore initiated from '{}'.\nConfirm on device screen.\n{}",
+            backup_path, out
+        ),
         Err(e) => format!("Restore failed: {}", e),
     }
 }
@@ -176,7 +184,11 @@ pub fn full_restore(serial: &str, backup_path: &str) -> String {
 /// Take a device screenshot and pull it to local machine.
 pub fn take_screenshot(serial: &str, local_path: &str) -> String {
     let device_path = "/sdcard/FOEM/screenshot.png";
-    let local = if local_path.is_empty() { "screenshot.png" } else { local_path };
+    let local = if local_path.is_empty() {
+        "screenshot.png"
+    } else {
+        local_path
+    };
     match adb_shell(serial, &["screencap", "-p", device_path]) {
         Ok(_) => match adb(serial, &["pull", device_path, local]) {
             Ok(out) => format!("Screenshot saved to '{}'.\n{}", local, out),
@@ -189,9 +201,15 @@ pub fn take_screenshot(serial: &str, local_path: &str) -> String {
 /// Start screen recording on device.
 pub fn start_screen_record(serial: &str) -> String {
     let device_path = "/sdcard/FOEM/screenrecord.mp4";
-    match adb_shell(serial, &["screenrecord", "--time-limit", "180", device_path]) {
+    match adb_shell(
+        serial,
+        &["screenrecord", "--time-limit", "180", device_path],
+    ) {
         Ok(out) => format!("Recording saved to device: {}\n{}", device_path, out),
-        Err(e) => format!("Screen recording failed: {}\nNote: Some devices restrict screen recording.", e),
+        Err(e) => format!(
+            "Screen recording failed: {}\nNote: Some devices restrict screen recording.",
+            e
+        ),
     }
 }
 
@@ -224,9 +242,10 @@ pub fn reboot_bootloader(serial: &str) -> String {
 /// Enable developer options by simulating build number taps.
 pub fn enable_developer_options(serial: &str) -> String {
     // Open About Phone
-    let _ = adb_shell(serial, &[
-        "am", "start", "-a", "android.settings.DEVICE_INFO_SETTINGS",
-    ]);
+    let _ = adb_shell(
+        serial,
+        &["am", "start", "-a", "android.settings.DEVICE_INFO_SETTINGS"],
+    );
     "Developer Options:\n\
      Opened device info settings.\n\
      Tap 'Build Number' 7 times to enable Developer Options.\n\
@@ -282,14 +301,17 @@ pub fn get_cpu_info(serial: &str) -> String {
     }
 }
 
-
 /// Start screen mirroring using scrcpy.
 pub fn start_scrcpy(serial: &str) -> String {
     match std::process::Command::new("scrcpy")
         .arg("-s")
         .arg(serial)
-        .spawn() {
+        .spawn()
+    {
         Ok(_) => format!("Launched scrcpy for device {}", serial),
-        Err(e) => format!("Failed to launch scrcpy: {}\nIs scrcpy installed on your system?", e),
+        Err(e) => format!(
+            "Failed to launch scrcpy: {}\nIs scrcpy installed on your system?",
+            e
+        ),
     }
 }
