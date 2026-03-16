@@ -271,7 +271,14 @@ pub fn get_uptime(serial: &str) -> String {
 
 /// Get running processes.
 pub fn get_processes(serial: &str) -> String {
-    match adb_shell(serial, &["ps", "-A"]) {
+    get_processes_internal(serial, adb_shell)
+}
+
+fn get_processes_internal<F>(serial: &str, adb_shell_fn: F) -> String
+where
+    F: Fn(&str, &[&str]) -> Result<String, String>,
+{
+    match adb_shell_fn(serial, &["ps", "-A"]) {
         Ok(val) => {
             let count = val.lines().count();
             let summary = if val.len() > 2000 { &val[..2000] } else { &val };
@@ -345,10 +352,19 @@ mod tests {
         let package = "com.example.app";
         let result = enable_package_internal("device_123", package, |serial, args| {
             assert_eq!(serial, "device_123");
-            assert_eq!(args, &["cmd", "package", "install-existing", "com.example.app"]);
+            assert_eq!(
+                args,
+                &["cmd", "package", "install-existing", "com.example.app"]
+            );
             Ok("Package com.example.app installed for user: 0".to_string())
         });
-        assert_eq!(result, format!("Enable '{}': Package com.example.app installed for user: 0", package));
+        assert_eq!(
+            result,
+            format!(
+                "Enable '{}': Package com.example.app installed for user: 0",
+                package
+            )
+        );
     }
 
     #[test]
@@ -356,12 +372,17 @@ mod tests {
         let package = "com.example.app";
         let result = enable_package_internal("device_123", package, |serial, args| {
             assert_eq!(serial, "device_123");
-            assert_eq!(args, &["cmd", "package", "install-existing", "com.example.app"]);
+            assert_eq!(
+                args,
+                &["cmd", "package", "install-existing", "com.example.app"]
+            );
             Err("error: device not found".to_string())
         });
-        assert_eq!(result, format!("Enable '{}' failed: error: device not found", package));
+        assert_eq!(
+            result,
+            format!("Enable '{}' failed: error: device not found", package)
+        );
     }
-
 
     #[test]
     fn test_start_scrcpy_with_cmd_success() {
@@ -388,5 +409,66 @@ mod tests {
             "Expected troubleshooting hint, got: {}",
             result
         );
+    }
+
+    #[test]
+    fn test_get_processes_internal_success() {
+        let serial = "test_device";
+        let mock_output = "USER           PID  PPID     VSZ    RSS WCHAN  ADDR S NAME\n\
+root             1     0   22312   4100 0         0 S init\n\
+root             2     0       0      0 0         0 S [kthreadd]\n\
+root             3     2       0      0 0         0 S [rcu_gp]";
+        let expected_summary = mock_output;
+
+        let result = get_processes_internal(serial, |s, args| {
+            assert_eq!(s, "test_device");
+            assert_eq!(args, &["ps", "-A"]);
+            Ok(mock_output.to_string())
+        });
+
+        let expected = format!("Running processes ({}):\n{}\n...", 4, expected_summary);
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_get_processes_internal_truncation() {
+        let serial = "test_device";
+        // Create a string longer than 2000 characters
+        let mut mock_output = String::new();
+        mock_output.push_str("USER           PID  PPID     VSZ    RSS WCHAN  ADDR S NAME\n");
+        for i in 1..250 {
+            mock_output.push_str(&format!(
+                "root             {}     0   22312   4100 0         0 S process_name_{}\n",
+                i, i
+            ));
+        }
+
+        let line_count = mock_output.lines().count();
+        let expected_summary = &mock_output[..2000];
+
+        let result = get_processes_internal(serial, |s, args| {
+            assert_eq!(s, "test_device");
+            assert_eq!(args, &["ps", "-A"]);
+            Ok(mock_output.clone())
+        });
+
+        let expected = format!(
+            "Running processes ({}):\n{}\n...",
+            line_count, expected_summary
+        );
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_get_processes_internal_failure() {
+        let serial = "test_device";
+
+        let result = get_processes_internal(serial, |s, args| {
+            assert_eq!(s, "test_device");
+            assert_eq!(args, &["ps", "-A"]);
+            Err("error: device not found".to_string())
+        });
+
+        assert_eq!(result, "Process list failed: error: device not found");
     }
 }
