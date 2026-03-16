@@ -31,9 +31,20 @@ where
 
 /// Capture logcat output (limited to recent lines).
 pub fn capture_logcat(serial: &str, lines: usize) -> String {
+    capture_logcat_internal(serial, lines, adb)
+}
+
+fn capture_logcat_internal<F>(serial: &str, lines: usize, adb_fn: F) -> String
+where
+    F: Fn(&str, &[&str]) -> Result<String, String>,
+{
     let line_count = format!("{}", lines);
-    match adb(serial, &["logcat", "-d", "-t", &line_count]) {
-        Ok(out) => format!("Logcat (last {} lines):\n{}", lines, out),
+    match adb_fn(serial, &["logcat", "-d", "-t", &line_count]) {
+        Ok(out) => format!(
+            "Logcat (last {} lines):
+{}",
+            lines, out
+        ),
         Err(e) => format!("Logcat failed: {}", e),
     }
 }
@@ -730,5 +741,25 @@ adb output"
             result,
             format!("Disable '{}' failed: error: not found", package)
         );
+    }
+
+    #[test]
+    fn test_capture_logcat_success() {
+        let result = capture_logcat_internal("device1", 50, |serial, args| {
+            assert_eq!(serial, "device1");
+            assert_eq!(args, &["logcat", "-d", "-t", "50"]);
+            Ok("log line 1\nlog line 2".to_string())
+        });
+        assert_eq!(result, "Logcat (last 50 lines):\nlog line 1\nlog line 2");
+    }
+
+    #[test]
+    fn test_capture_logcat_failure() {
+        let result = capture_logcat_internal("device1", 50, |serial, args| {
+            assert_eq!(serial, "device1");
+            assert_eq!(args, &["logcat", "-d", "-t", "50"]);
+            Err("device offline".to_string())
+        });
+        assert_eq!(result, "Logcat failed: device offline");
     }
 }
