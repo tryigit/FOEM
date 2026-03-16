@@ -195,20 +195,22 @@ fn execute_step(
                 )
             }
             StepKind::AtCommand => {
+                let autodetected = autodetect_diag_port();
                 let port_name = diag_port_hint
-                    .or_else(|| autodetect_diag_port().as_deref())
+                    .or_else(|| autodetected.as_deref())
                     .ok_or_else(|| "No diagnostic port available for AT command".to_string())?;
                 let mut port = open_diag_port(port_name)?;
                 send_at_command(&mut port, &step.payload)
             }
             StepKind::RawDiag => {
+                let autodetected = autodetect_diag_port();
                 let port_name = diag_port_hint
-                    .or_else(|| autodetect_diag_port().as_deref())
+                    .or_else(|| autodetected.as_deref())
                     .ok_or_else(|| "No diagnostic port available for DIAG command".to_string())?;
                 let mut port = open_diag_port(port_name)?;
                 let bytes = hex::decode(step.payload.replace([' ', '\n', '\r'], ""))
                     .map_err(|e| format!("Hex decode failed: {}", e))?;
-                crate::features::repair::send_diag_bytes(&mut *port, &bytes)
+                crate::features::repair::send_diag_bytes(&mut port, &bytes)
                     .map(|_| format!("Sent {} diag bytes", bytes.len()))
             }
         });
@@ -246,6 +248,8 @@ fn builtin_recipes() -> Vec<ExploitRecipe> {
                 payload: "setprop sys.usb.config diag,adb".into(),
                 success_markers: vec![],
                 failure_markers: vec!["Permission denied".into()],
+                retries: 0,
+                timeout_ms: None,
             }],
         },
         ExploitRecipe {
@@ -257,6 +261,8 @@ fn builtin_recipes() -> Vec<ExploitRecipe> {
                     .into(),
                 success_markers: vec![],
                 failure_markers: vec![],
+                retries: 0,
+                timeout_ms: None,
             }],
         },
         ExploitRecipe {
@@ -267,6 +273,8 @@ fn builtin_recipes() -> Vec<ExploitRecipe> {
                 payload: "AT+DIAG=1".into(),
                 success_markers: vec!["OK".into()],
                 failure_markers: vec!["ERROR".into()],
+                retries: 0,
+                timeout_ms: None,
             }],
         },
     ]
