@@ -344,6 +344,20 @@ impl FOEMApp {
                     self.log = "Connect a device first.".into();
                 }
             }
+            if btn(ui, "Bypass Bootloader Unlock (Pre-Feb)") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::bootloader::bypass_unlock(s);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
+            if btn(ui, "Attempt Locked Root") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::bootloader::attempt_locked_root(s);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
             if btn(ui, "Attempt Locked Root") {
                 if let Ok(s) = self.require_device() {
                     self.log = features::bootloader::attempt_locked_root(s);
