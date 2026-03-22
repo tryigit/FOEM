@@ -810,8 +810,8 @@ pub fn check_baseband(serial: &str) -> String {
 /// Attempt baseband repair by clearing modem cache.
 pub fn repair_baseband(serial: &str) -> String {
     let mut output = String::from("Baseband Repair:\n");
-    let _ = adb_shell(serial, &["setprop", "persist.sys.modem.diag", ",default"]);
-    match adb_shell(serial, &["rm", "-rf", "/cache/modem_*"]) {
+    let script = "setprop persist.sys.modem.diag ,default; rm -rf /cache/modem_*";
+    match adb_shell(serial, &["sh", "-c", script]) {
         Ok(_) => output.push_str("  Cleared modem cache.\n"),
         Err(_) => output.push_str("  Modem cache clear failed (root may be required).\n"),
     }
