@@ -110,3 +110,36 @@ pub fn normalize_local_path(path: &str) -> String {
 pub fn normalize_remote_path(path: &str) -> String {
     path.replace('\\', "/")
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs::File;
+    use std::io::Write;
+
+    #[test]
+    fn test_normalize_local_path_empty() {
+        assert_eq!(normalize_local_path(""), "");
+    }
+
+    #[test]
+    fn test_normalize_local_path_non_existent() {
+        let input = "a\\b/c";
+        let expected = input.replace(['\\', '/'], std::path::MAIN_SEPARATOR_STR);
+        assert_eq!(normalize_local_path(input), expected);
+    }
+
+    #[test]
+    fn test_normalize_local_path_existing() {
+        let dir = std::env::temp_dir();
+        let file_path = dir.join("test_file.txt");
+        let mut file = File::create(&file_path).unwrap();
+        writeln!(file, "hello").unwrap();
+
+        // Use string path representation to match behavior
+        let input_path = file_path.to_str().unwrap();
+        let canonical_expected = file_path.canonicalize().unwrap().to_string_lossy().into_owned();
+
+        assert_eq!(normalize_local_path(input_path), canonical_expected);
+    }
+}
