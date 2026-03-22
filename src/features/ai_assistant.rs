@@ -263,15 +263,19 @@ fn endpoint(settings: &AiSettings) -> String {
 
 fn auth_header(settings: &AiSettings) -> Option<(String, String)> {
     match settings.provider {
-        Provider::OpenRouter | Provider::OpenAI => {
-            Some(("Authorization".into(), format!("Bearer {}", settings.api_key)))
-        }
+        Provider::OpenRouter | Provider::OpenAI => Some((
+            "Authorization".into(),
+            format!("Bearer {}", settings.api_key),
+        )),
         Provider::Gemini => None, // key is in query param above
         Provider::Local => {
             if settings.api_key.is_empty() {
                 None
             } else {
-                Some(("Authorization".into(), format!("Bearer {}", settings.api_key)))
+                Some((
+                    "Authorization".into(),
+                    format!("Bearer {}", settings.api_key),
+                ))
             }
         }
     }
