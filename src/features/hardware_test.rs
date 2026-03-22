@@ -330,13 +330,34 @@ pub fn test_storage(serial: &str) -> String {
 /// Test USB connection status.
 pub fn test_usb(serial: &str) -> String {
     let mut output = String::from("USB Status:\n");
-    match adb_shell(serial, &["getprop", "sys.usb.state"]) {
-        Ok(val) => output.push_str(&format!("  USB mode: {}\n", val)),
-        Err(_) => output.push_str("  USB mode: unknown\n"),
-    }
-    match adb_shell(serial, &["getprop", "sys.usb.controller"]) {
-        Ok(val) if !val.is_empty() => output.push_str(&format!("  Controller: {}\n", val)),
-        _ => {}
+    let script = "getprop sys.usb.state; getprop sys.usb.controller";
+    match adb_shell(serial, &["sh", "-c", script]) {
+        Ok(res) => {
+            let mut lines = res.lines();
+
+            // First part: USB state
+            if let Some(state) = lines.next() {
+                let val = state.trim();
+                if !val.is_empty() {
+                    output.push_str(&format!("  USB mode: {}\n", val));
+                } else {
+                    output.push_str("  USB mode: unknown\n");
+                }
+            } else {
+                output.push_str("  USB mode: unknown\n");
+            }
+
+            // Second part: USB controller
+            if let Some(controller) = lines.next() {
+                let val = controller.trim();
+                if !val.is_empty() {
+                    output.push_str(&format!("  Controller: {}\n", val));
+                }
+            }
+        }
+        Err(_) => {
+            output.push_str("  USB mode: unknown\n");
+        }
     }
     output
 }
