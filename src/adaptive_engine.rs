@@ -78,7 +78,9 @@ impl KnowledgeBase {
 
 fn kb_path() -> PathBuf {
     if let Ok(home) = std::env::var("HOME") {
-        return PathBuf::from(home).join(".foem").join("learned_methods.json");
+        return PathBuf::from(home)
+            .join(".foem")
+            .join("learned_methods.json");
     }
     if let Ok(profile) = std::env::var("USERPROFILE") {
         return PathBuf::from(profile)
@@ -89,12 +91,7 @@ fn kb_path() -> PathBuf {
 }
 
 pub fn fingerprint(model: &str, release: &str, platform: &str) -> String {
-    format!(
-        "{}|{}|{}",
-        model.trim(),
-        release.trim(),
-        platform.trim()
-    )
+    format!("{}|{}|{}", model.trim(), release.trim(), platform.trim())
 }
 
 pub fn execute_goal(
@@ -116,20 +113,13 @@ pub fn execute_goal(
         for step in &recipe.steps {
             match execute_step(serial, step, diag_port_hint) {
                 Ok(out) => {
-                    if step
-                        .failure_markers
-                        .iter()
-                        .any(|m| out.contains(m))
-                    {
+                    if step.failure_markers.iter().any(|m| out.contains(m)) {
                         last_error =
                             format!("Step {} reported failure markers:\n{}", recipe.name, out);
                         continue;
                     }
 
-                    if step
-                        .success_markers
-                        .iter()
-                        .any(|m| out.contains(m))
+                    if step.success_markers.iter().any(|m| out.contains(m))
                         || step.success_markers.is_empty()
                     {
                         kb.learn(fingerprint, step.clone());

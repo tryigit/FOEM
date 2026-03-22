@@ -1,3 +1,4 @@
+pub mod ai_assistant;
 /// Feature modules for FOEM.
 pub mod bootloader;
 pub mod flash;
@@ -5,7 +6,6 @@ pub mod hardware_test;
 pub mod network;
 pub mod repair;
 pub mod tools;
-pub mod ai_assistant;
 
 use crate::exec;
 
