@@ -46,38 +46,84 @@ pub fn battery_stats(serial: &str) -> String {
 /// Test display by launching display test activities.
 pub fn test_display(serial: &str) -> String {
     let mut output = String::from("Display Test:\n");
-    match adb_shell(serial, &["wm", "size"]) {
-        Ok(val) => output.push_str(&format!("  Resolution: {}\n", val)),
-        Err(_) => output.push_str("  Resolution: unknown\n"),
-    }
-    match adb_shell(serial, &["wm", "density"]) {
-        Ok(val) => output.push_str(&format!("  Density: {}\n", val)),
-        Err(_) => output.push_str("  Density: unknown\n"),
-    }
-    match adb_shell(serial, &["dumpsys", "display"]) {
-        Ok(val) => {
-            for line in val.lines() {
-                let trimmed = line.trim();
-                if trimmed.contains("mPhysicalDisplayInfo")
-                    || trimmed.contains("mBaseDisplayInfo")
-                    || trimmed.contains("fps")
-                {
-                    output.push_str(&format!("  {}\n", trimmed));
+    let script = "wm size 2>&1; echo B_MARKER_$?; \
+                  wm density 2>&1; echo B_MARKER_$?; \
+                  dumpsys display 2>&1; echo B_MARKER_$?; \
+                  getevent -lp 2>&1; echo B_MARKER_$?;";
+    match adb_shell(serial, &["sh", "-c", script]) {
+        Ok(res) => {
+            let mut results = Vec::new();
+            let mut remaining = res.as_str();
+            for _ in 0..4 {
+                if let Some(pos) = remaining.find("B_MARKER_") {
+                    let out = remaining[..pos].trim_end().to_string();
+                    remaining = &remaining[pos + "B_MARKER_".len()..];
+                    let status: String = remaining
+                        .chars()
+                        .take_while(|c| c.is_ascii_digit())
+                        .collect();
+                    remaining = &remaining[status.len()..];
+                    if remaining.starts_with("\r\n") {
+                        remaining = &remaining[2..];
+                    } else if remaining.starts_with('\n') {
+                        remaining = &remaining[1..];
+                    }
+                    if status == "0" {
+                        results.push(Ok(out));
+                    } else {
+                        results.push(Err(()));
+                    }
+                } else {
+                    results.push(Err(()));
                 }
             }
+
+            // 1. wm size
+            match results.get(0).unwrap_or(&Err(())) {
+                Ok(val) => output.push_str(&format!("  Resolution: {}\n", val)),
+                Err(_) => output.push_str("  Resolution: unknown\n"),
+            }
+
+            // 2. wm density
+            match results.get(1).unwrap_or(&Err(())) {
+                Ok(val) => output.push_str(&format!("  Density: {}\n", val)),
+                Err(_) => output.push_str("  Density: unknown\n"),
+            }
+
+            // 3. dumpsys display
+            match results.get(2).unwrap_or(&Err(())) {
+                Ok(val) => {
+                    for line in val.lines() {
+                        let trimmed = line.trim();
+                        if trimmed.contains("mPhysicalDisplayInfo")
+                            || trimmed.contains("mBaseDisplayInfo")
+                            || trimmed.contains("fps")
+                        {
+                            output.push_str(&format!("  {}\n", trimmed));
+                        }
+                    }
+                }
+                Err(_) => output.push_str("  Display info not available.\n"),
+            }
+
+            // 4. getevent -lp
+            match results.get(3).unwrap_or(&Err(())) {
+                Ok(val) => {
+                    let touch_count = val.matches("ABS_MT_POSITION").count();
+                    output.push_str(&format!(
+                        "  Touch input devices: {} axes found\n",
+                        touch_count
+                    ));
+                }
+                Err(_) => output.push_str("  Touch info not available.\n"),
+            }
         }
-        Err(_) => output.push_str("  Display info not available.\n"),
-    }
-    // Touch test
-    match adb_shell(serial, &["getevent", "-lp"]) {
-        Ok(val) => {
-            let touch_count = val.matches("ABS_MT_POSITION").count();
-            output.push_str(&format!(
-                "  Touch input devices: {} axes found\n",
-                touch_count
-            ));
+        Err(_) => {
+            output.push_str("  Resolution: unknown\n");
+            output.push_str("  Density: unknown\n");
+            output.push_str("  Display info not available.\n");
+            output.push_str("  Touch info not available.\n");
         }
-        Err(_) => output.push_str("  Touch info not available.\n"),
     }
     output
 }
