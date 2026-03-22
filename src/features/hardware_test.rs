@@ -6,17 +6,514 @@ use super::adb_shell;
 
 /// Run all available hardware tests.
 pub fn run_all(serial: &str) -> String {
-    let mut output = String::from("Full Hardware Diagnostics:\n");
-    output.push_str(&format!("\n{}", check_battery(serial)));
-    output.push_str(&format!("\n{}", test_sensors(serial)));
-    output.push_str(&format!("\n{}", test_display(serial)));
-    output.push_str(&format!("\n{}", test_audio(serial)));
-    output.push_str(&format!("\n{}", test_connectivity(serial)));
-    output.push_str(&format!("\n{}", test_cameras(serial)));
-    output.push_str(&format!("\n{}", test_biometrics(serial)));
-    output.push_str(&format!("\n{}", test_storage(serial)));
-    output.push_str(&format!("\n{}", test_usb(serial)));
-    output.push_str(&format!("\n{}", test_telephony(serial)));
+    let mut output = String::from(
+        "Full Hardware Diagnostics:
+",
+    );
+
+    // Batch all commands
+    let commands = [
+        // Battery
+        "dumpsys battery 2>/dev/null",
+        "dumpsys batterystats --checkin 2>/dev/null",
+        // Sensors
+        "dumpsys sensorservice 2>/dev/null",
+        // Display
+        "wm size 2>/dev/null",
+        "wm density 2>/dev/null",
+        "dumpsys display 2>/dev/null",
+        "getevent -lp 2>/dev/null",
+        // Audio
+        "dumpsys audio 2>/dev/null",
+        "media volume --show 2>/dev/null",
+        // Connectivity
+        "dumpsys wifi 2>/dev/null",
+        "dumpsys bluetooth_manager 2>/dev/null",
+        "dumpsys location 2>/dev/null",
+        "dumpsys nfc 2>/dev/null",
+        // Cameras
+        "dumpsys media.camera 2>/dev/null",
+        // Biometrics
+        "dumpsys fingerprint 2>/dev/null",
+        "dumpsys face 2>/dev/null",
+        // Storage
+        "df -h 2>/dev/null",
+        "sm get-primary-storage-uuid 2>/dev/null",
+        // USB
+        "getprop sys.usb.state 2>/dev/null",
+        "getprop sys.usb.controller 2>/dev/null",
+        // Telephony
+        "getprop gsm.sim.state 2>/dev/null",
+        "getprop gsm.sim.operator.alpha 2>/dev/null",
+        "getprop gsm.network.type 2>/dev/null",
+        "getprop gsm.nitz.time 2>/dev/null",
+        "getprop gsm.current.phone-type 2>/dev/null",
+        "getprop gsm.defaultpdpcontext.active 2>/dev/null",
+    ];
+
+    let mut script = String::new();
+    for cmd in &commands {
+        script.push_str(&format!(
+            "{}; echo B_MARKER_FOEM_$?;
+",
+            cmd
+        ));
+    }
+
+    match adb_shell(serial, &["sh", "-c", &script]) {
+        Ok(res) => {
+            let mut parts = Vec::new();
+            let mut current_part = String::new();
+            let mut current_status = 0;
+
+            for line in res.lines() {
+                if let Some(stripped) = line.strip_prefix("B_MARKER_FOEM_") {
+                    if let Ok(status) = stripped.parse::<i32>() {
+                        parts.push((current_part.trim_end().to_string(), status));
+                        current_part.clear();
+                        current_status = status;
+                        continue;
+                    }
+                }
+                current_part.push_str(line);
+                current_part.push('\n');
+            }
+
+            // If the output ended without a marker (shouldn't happen), add the last part
+            if !current_part.is_empty() {
+                parts.push((current_part.trim_end().to_string(), current_status));
+            }
+
+            // Ensure we have enough parts
+            while parts.len() < commands.len() {
+                parts.push((String::new(), 1)); // Default to failure
+            }
+
+            // -- Battery --
+            output.push_str(
+                "
+Battery Status:
+",
+            );
+            if parts[0].1 == 0 {
+                output.push_str(&format!(
+                    "{}
+",
+                    parts[0].0
+                ));
+            } else {
+                output.push_str(&format!(
+                    "Battery check failed: exit status {}
+",
+                    parts[0].1
+                ));
+            }
+
+            if parts[1].1 == 0 {
+                let val = &parts[1].0;
+                let summary = if val.len() > 500 { &val[..500] } else { val };
+                output.push_str(&format!(
+                    "Battery Statistics (summary):
+{}
+",
+                    summary
+                ));
+            } else {
+                output.push_str(&format!(
+                    "Battery stats failed: exit status {}
+",
+                    parts[1].1
+                ));
+            }
+
+            // -- Sensors --
+            if parts[2].1 == 0 {
+                output.push_str(
+                    "
+Sensor Report:
+",
+                );
+                let mut count = 0;
+                for line in parts[2].0.lines() {
+                    let trimmed = line.trim();
+                    if trimmed.starts_with('{')
+                        || trimmed.contains("name=")
+                        || trimmed.contains("vendor=")
+                    {
+                        output.push_str(&format!(
+                            "  {}
+",
+                            trimmed
+                        ));
+                        count += 1;
+                        if count > 30 {
+                            output.push_str(
+                                "  ... (truncated)
+",
+                            );
+                            break;
+                        }
+                    }
+                }
+                if count == 0 {
+                    output.push_str(
+                        "  No sensor data available.
+",
+                    );
+                }
+            } else {
+                output.push_str(&format!(
+                    "
+Sensor test failed: exit status {}
+",
+                    parts[2].1
+                ));
+            }
+
+            // -- Display --
+            output.push_str(
+                "
+Display Test:
+",
+            );
+            if parts[3].1 == 0 {
+                output.push_str(&format!(
+                    "  Resolution: {}
+",
+                    parts[3].0
+                ));
+            } else {
+                output.push_str(
+                    "  Resolution: unknown
+",
+                );
+            }
+
+            if parts[4].1 == 0 {
+                output.push_str(&format!(
+                    "  Density: {}
+",
+                    parts[4].0
+                ));
+            } else {
+                output.push_str(
+                    "  Density: unknown
+",
+                );
+            }
+
+            if parts[5].1 == 0 {
+                for line in parts[5].0.lines() {
+                    let trimmed = line.trim();
+                    if trimmed.contains("mPhysicalDisplayInfo")
+                        || trimmed.contains("mBaseDisplayInfo")
+                        || trimmed.contains("fps")
+                    {
+                        output.push_str(&format!(
+                            "  {}
+",
+                            trimmed
+                        ));
+                    }
+                }
+            } else {
+                output.push_str(
+                    "  Display info not available.
+",
+                );
+            }
+
+            if parts[6].1 == 0 {
+                let touch_count = parts[6].0.matches("ABS_MT_POSITION").count();
+                output.push_str(&format!(
+                    "  Touch input devices: {} axes found
+",
+                    touch_count
+                ));
+            } else {
+                output.push_str(
+                    "  Touch info not available.
+",
+                );
+            }
+
+            // -- Audio --
+            output.push_str(
+                "
+Audio Test:
+",
+            );
+            if parts[7].1 == 0 {
+                for line in parts[7].0.lines().take(30) {
+                    let trimmed = line.trim();
+                    if trimmed.contains("Stream")
+                        || trimmed.contains("speaker")
+                        || trimmed.contains("SPEAKER")
+                        || trimmed.contains("volume")
+                    {
+                        output.push_str(&format!(
+                            "  {}
+",
+                            trimmed
+                        ));
+                    }
+                }
+            } else {
+                output.push_str(
+                    "  Audio dump not available.
+",
+                );
+            }
+
+            if parts[8].1 == 0 {
+                output.push_str(
+                    "  Volume UI triggered.
+",
+                );
+            }
+
+            // -- Connectivity --
+            output.push_str(
+                "
+Connectivity Test:
+",
+            );
+            if parts[9].1 == 0 {
+                let enabled = parts[9].0.contains("Wi-Fi is enabled");
+                output.push_str(&format!(
+                    "  WiFi: {}
+",
+                    if enabled {
+                        "enabled"
+                    } else {
+                        "disabled/unknown"
+                    }
+                ));
+            } else {
+                output.push_str(
+                    "  WiFi: check failed
+",
+                );
+            }
+
+            if parts[10].1 == 0 {
+                let enabled = parts[10].0.contains("enabled: true");
+                output.push_str(&format!(
+                    "  Bluetooth: {}
+",
+                    if enabled {
+                        "enabled"
+                    } else {
+                        "disabled/unknown"
+                    }
+                ));
+            } else {
+                output.push_str(
+                    "  Bluetooth: check failed
+",
+                );
+            }
+
+            if parts[11].1 == 0 {
+                let has_gps = parts[11].0.contains("gps") || parts[11].0.contains("GPS");
+                output.push_str(&format!(
+                    "  GPS: {}
+",
+                    if has_gps { "available" } else { "not detected" }
+                ));
+            } else {
+                output.push_str(
+                    "  GPS: check failed
+",
+                );
+            }
+
+            if parts[12].1 == 0 {
+                let has_nfc = parts[12].0.contains("mState=") || parts[12].0.contains("NFC");
+                output.push_str(&format!(
+                    "  NFC: {}
+",
+                    if has_nfc { "available" } else { "not detected" }
+                ));
+            } else {
+                output.push_str(
+                    "  NFC: not available
+",
+                );
+            }
+
+            // -- Cameras --
+            if parts[13].1 == 0 {
+                output.push_str(
+                    "
+Camera Report:
+",
+                );
+                let cam_count = parts[13].0.matches("Camera ID").count();
+                output.push_str(&format!(
+                    "  Cameras detected: {}
+",
+                    cam_count
+                ));
+                for line in parts[13].0.lines() {
+                    let trimmed = line.trim();
+                    if trimmed.contains("Camera ID") || trimmed.contains("facing") {
+                        output.push_str(&format!(
+                            "  {}
+",
+                            trimmed
+                        ));
+                    }
+                }
+            } else {
+                output.push_str(&format!(
+                    "
+Camera test failed: exit status {}
+",
+                    parts[13].1
+                ));
+            }
+
+            // -- Biometrics --
+            output.push_str(
+                "
+Biometrics Test:
+",
+            );
+            if parts[14].1 == 0 {
+                let has_fp = parts[14].0.contains("HAL") || parts[14].0.contains("fingerprint");
+                output.push_str(&format!(
+                    "  Fingerprint: {}
+",
+                    if has_fp {
+                        "sensor detected"
+                    } else {
+                        "not available"
+                    }
+                ));
+            } else {
+                output.push_str(
+                    "  Fingerprint: check failed
+",
+                );
+            }
+
+            if parts[15].1 == 0 {
+                let has_face = !parts[15].0.is_empty() && !parts[15].0.contains("not found");
+                output.push_str(&format!(
+                    "  Face Unlock: {}
+",
+                    if has_face {
+                        "available"
+                    } else {
+                        "not available"
+                    }
+                ));
+            } else {
+                output.push_str(
+                    "  Face Unlock: not available
+",
+                );
+            }
+
+            // -- Storage --
+            output.push_str(
+                "
+Storage Report:
+",
+            );
+            if parts[16].1 == 0 {
+                for line in parts[16].0.lines().take(10) {
+                    output.push_str(&format!(
+                        "  {}
+",
+                        line
+                    ));
+                }
+            } else {
+                output.push_str(
+                    "  Storage info not available.
+",
+                );
+            }
+
+            if parts[17].1 == 0 {
+                output.push_str(&format!(
+                    "  Primary storage UUID: {}
+",
+                    parts[17].0
+                ));
+            }
+
+            // -- USB --
+            output.push_str(
+                "
+USB Status:
+",
+            );
+            if parts[18].1 == 0 {
+                output.push_str(&format!(
+                    "  USB mode: {}
+",
+                    parts[18].0
+                ));
+            } else {
+                output.push_str(
+                    "  USB mode: unknown
+",
+                );
+            }
+
+            if parts[19].1 == 0 && !parts[19].0.is_empty() {
+                output.push_str(&format!(
+                    "  Controller: {}
+",
+                    parts[19].0
+                ));
+            }
+
+            // -- Telephony --
+            output.push_str(
+                "
+Telephony Status:
+",
+            );
+            let labels = [
+                "SIM state",
+                "Operator",
+                "Network type",
+                "Signal strength",
+                "Phone type",
+                "Data state",
+            ];
+
+            for (i, label) in labels.iter().enumerate() {
+                let p_idx = 20 + i;
+                if parts[p_idx].1 == 0 && !parts[p_idx].0.trim().is_empty() {
+                    output.push_str(&format!(
+                        "  {}: {}
+",
+                        label,
+                        parts[p_idx].0.trim()
+                    ));
+                } else {
+                    output.push_str(&format!(
+                        "  {}: --
+",
+                        label
+                    ));
+                }
+            }
+        }
+        Err(e) => {
+            output.push_str(&format!(
+                "Hardware diagnostics failed to execute: {}
+",
+                e
+            ));
+        }
+    }
+
     output
 }
 
