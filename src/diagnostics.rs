@@ -51,8 +51,8 @@ impl DeviceDiagnostics {
     /// Retrieve basic device properties via ADB getprop, batched to avoid N+1 shell calls.
     pub fn get_device_info(&self) -> BTreeMap<String, String> {
         let mut info = BTreeMap::new();
-        let serial = match &self.device_serial {
-            Some(s) => s.clone(),
+        let serial = match self.device_serial.as_deref() {
+            Some(s) => s,
             None => {
                 info.insert(
                     "error".to_string(),
@@ -76,7 +76,7 @@ impl DeviceDiagnostics {
             script.push_str(&format!("getprop {} 2>&1; echo B_MARKER_$?;\n", prop));
         }
 
-        match Self::run_cmd("adb", &["-s", &serial, "shell", "sh", "-c", &script]) {
+        match Self::run_cmd("adb", &["-s", serial, "shell", "sh", "-c", &script]) {
             Ok(output) => {
                 let mut parts = output.split("B_MARKER_");
                 let mut prev = parts.next().unwrap_or("").to_string();
