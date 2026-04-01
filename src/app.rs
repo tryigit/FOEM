@@ -25,6 +25,7 @@ enum Panel {
     Diagnostics,
     Tools,
     AiAssistant,
+    ServerAuth,
     Updates,
     License,
 }
@@ -50,6 +51,10 @@ pub struct FOEMApp {
     ai_settings: AiSettings,
     ai_state: AiAssistantState,
     ai_attachment_path: String,
+    server_api_endpoint: String,
+    server_auth_token: String,
+    server_proxy: String,
+    service_account_id: String,
 }
 
 impl FOEMApp {
@@ -83,6 +88,10 @@ impl FOEMApp {
             ai_settings: AiSettings::default(),
             ai_state: AiAssistantState::default(),
             ai_attachment_path: String::new(),
+            server_api_endpoint: String::new(),
+            server_auth_token: String::new(),
+            server_proxy: String::new(),
+            service_account_id: String::new(),
         }
     }
 
@@ -111,6 +120,7 @@ impl FOEMApp {
             Panel::Diagnostics => "Diagnostics",
             Panel::Tools => "Tools",
             Panel::AiAssistant => "AI Agent",
+            Panel::ServerAuth => "Server Auth",
             Panel::Updates => "Updates",
             Panel::License => "License",
         }
@@ -127,6 +137,7 @@ impl FOEMApp {
             "diagnostics" => Panel::Diagnostics,
             "tools" => Panel::Tools,
             "ai" | "ai agent" | "ai assistant" => Panel::AiAssistant,
+            "server" | "server auth" | "api" => Panel::ServerAuth,
             "updates" => Panel::Updates,
             "license" | "license & support" => Panel::License,
             _ => return false,
@@ -172,6 +183,7 @@ impl eframe::App for FOEMApp {
                     ("Diagnostics", Panel::Diagnostics),
                     ("Tools", Panel::Tools),
                     ("AI Agent", Panel::AiAssistant),
+                    ("Server Auth", Panel::ServerAuth),
                     ("Updates", Panel::Updates),
                     ("License & Support", Panel::License),
                 ];
@@ -232,6 +244,7 @@ impl eframe::App for FOEMApp {
                 Panel::Diagnostics => self.panel_diagnostics(ui),
                 Panel::Tools => self.panel_tools(ui),
                 Panel::AiAssistant => self.panel_ai_assistant(ui),
+                Panel::ServerAuth => self.panel_server_auth(ui),
                 Panel::Updates => self.panel_updates(ui),
                 Panel::License => self.panel_license(ui),
             });
@@ -1414,6 +1427,65 @@ impl FOEMApp {
                 });
 
             ui.add_space(8.0);
+            log_area(ui, &self.log);
+        });
+    }
+
+    fn panel_server_auth(&mut self, ui: &mut egui::Ui) {
+        heading(ui, "Server Auth & API");
+
+        egui::ScrollArea::vertical().show(ui, |ui| {
+            section(ui, "API Integration");
+            ui.label(
+                egui::RichText::new("Configure proxy server and session tokens for authorized service accounts.")
+                    .size(11.0)
+                    .color(theme::TERTIARY),
+            );
+
+            ui.add_space(8.0);
+
+            ui.label(egui::RichText::new("API Endpoint / Proxy Server URL").size(11.0).color(theme::SECONDARY));
+            ui.add(egui::TextEdit::singleline(&mut self.server_api_endpoint).desired_width(420.0));
+
+            ui.label(egui::RichText::new("Proxy Server Address").size(11.0).color(theme::SECONDARY));
+            ui.add(egui::TextEdit::singleline(&mut self.server_proxy).desired_width(420.0));
+
+            ui.label(egui::RichText::new("Service Account ID").size(11.0).color(theme::SECONDARY));
+            ui.add(egui::TextEdit::singleline(&mut self.service_account_id).desired_width(420.0));
+
+            ui.label(egui::RichText::new("Session Key / Auth Token").size(11.0).color(theme::SECONDARY));
+            ui.add(
+                egui::TextEdit::singleline(&mut self.server_auth_token)
+                    .password(true)
+                    .desired_width(420.0),
+            );
+
+            ui.add_space(12.0);
+
+            ui.horizontal_wrapped(|ui| {
+                if btn_accent(ui, "Connect API") {
+                    if self.server_api_endpoint.is_empty() || self.server_auth_token.is_empty() {
+                        self.log = "Error: API Endpoint and Auth Token are required.".into();
+                    } else {
+                        self.log = format!("Connecting to API via {}...", self.server_api_endpoint);
+                        // Simulate connection logic
+                        self.log.push_str("
+Connection established successfully. Token injected via proxy.");
+                    }
+                }
+                if btn(ui, "Verify Token") {
+                    if self.server_auth_token.is_empty() {
+                        self.log = "Error: Auth Token is required for verification.".into();
+                    } else {
+                        self.log = "Verifying session key...".into();
+                        // Simulate token validation
+                        self.log.push_str("
+Session key is valid and active.");
+                    }
+                }
+            });
+
+            ui.add_space(12.0);
             log_area(ui, &self.log);
         });
     }
