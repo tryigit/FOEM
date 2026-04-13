@@ -110,3 +110,18 @@ impl DeviceDiagnostics {
         info
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_device_info_no_device() {
+        let diagnostics = DeviceDiagnostics::new();
+        let info = diagnostics.get_device_info();
+        assert_eq!(
+            info.get("error").unwrap(),
+            "No device detected. Please connect and authorize USB debugging."
+        );
+    }
+}
