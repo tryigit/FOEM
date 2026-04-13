@@ -194,7 +194,7 @@ pub fn attempt_locked_root(serial: &str) -> String {
 
 /// Exploit security vulnerability in some devices (e.g. 8 Elite Gen 5) to bypass bootloader unlock restrictions.
 /// This method only works for devices without the February security patch.
-pub fn bypass_unlock(serial: &str) -> String {
+pub fn bypass_unlock(serial: &str, payload_path: &str) -> String {
     let mut log = String::new();
 
     log.push_str("Switching to bootloader...\n");
@@ -221,13 +221,13 @@ pub fn bypass_unlock(serial: &str) -> String {
     let _ = super::fastboot(serial, &["continue"]);
     std::thread::sleep(std::time::Duration::from_secs(15));
 
-    log.push_str("Pushing gbl_efi_unlock.efi to /data/local/tmp/...\n");
+    log.push_str(&format!("Pushing {} to /data/local/tmp/gbl_efi_unlock.efi...\n", payload_path));
     match super::adb(
         serial,
         &[
             "push",
-            "D:\\unlock\\data\\mqsas\\gbl_efi_unlock.efi",
-            "/data/local/tmp",
+            payload_path,
+            "/data/local/tmp/gbl_efi_unlock.efi",
         ],
     ) {
         Ok(out) => log.push_str(&format!("Result: {}\n", out)),
