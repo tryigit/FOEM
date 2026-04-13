@@ -7,7 +7,7 @@ use base64::Engine;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::fs;
-use std::path::Path;
+use std::path::{Component, Path};
 
 /// Supported API providers (OpenAI compatible).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -127,6 +127,9 @@ impl AiAssistantState {
             return Err("Attachment path is empty.".into());
         }
         let p = Path::new(path);
+        if p.components().any(|c| matches!(c, Component::ParentDir)) {
+            return Err("Directory traversal is not allowed.".into());
+        }
         let name = p
             .file_name()
             .and_then(|s| s.to_str())
@@ -365,4 +368,28 @@ pub fn send_chat(
     state.attachments.clear();
     state.input.clear();
     Ok(content)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_add_attachment_from_path_traversal() {
+        let mut state = AiAssistantState::default();
+        let traversal_path = "src/features/../../Cargo.toml";
+        let result = state.add_attachment_from_path(traversal_path);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), "Directory traversal is not allowed.");
+    }
+
+    #[test]
+    fn test_add_attachment_from_path_legitimate() {
+        let mut state = AiAssistantState::default();
+        // Assuming Cargo.toml exists in root
+        let result = state.add_attachment_from_path("Cargo.toml");
+        assert!(result.is_ok());
+        assert!(!state.attachments.is_empty());
+        assert_eq!(state.attachments[0].name, "Cargo.toml");
+    }
 }
