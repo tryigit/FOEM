@@ -1437,23 +1437,41 @@ impl FOEMApp {
         egui::ScrollArea::vertical().show(ui, |ui| {
             section(ui, "API Integration");
             ui.label(
-                egui::RichText::new("Configure proxy server and session tokens for authorized service accounts.")
-                    .size(11.0)
-                    .color(theme::TERTIARY),
+                egui::RichText::new(
+                    "Configure proxy server and session tokens for authorized service accounts.",
+                )
+                .size(11.0)
+                .color(theme::TERTIARY),
             );
 
             ui.add_space(8.0);
 
-            ui.label(egui::RichText::new("API Endpoint / Proxy Server URL").size(11.0).color(theme::SECONDARY));
+            ui.label(
+                egui::RichText::new("API Endpoint / Proxy Server URL")
+                    .size(11.0)
+                    .color(theme::SECONDARY),
+            );
             ui.add(egui::TextEdit::singleline(&mut self.server_api_endpoint).desired_width(420.0));
 
-            ui.label(egui::RichText::new("Proxy Server Address").size(11.0).color(theme::SECONDARY));
+            ui.label(
+                egui::RichText::new("Proxy Server Address")
+                    .size(11.0)
+                    .color(theme::SECONDARY),
+            );
             ui.add(egui::TextEdit::singleline(&mut self.server_proxy).desired_width(420.0));
 
-            ui.label(egui::RichText::new("Service Account ID").size(11.0).color(theme::SECONDARY));
+            ui.label(
+                egui::RichText::new("Service Account ID")
+                    .size(11.0)
+                    .color(theme::SECONDARY),
+            );
             ui.add(egui::TextEdit::singleline(&mut self.service_account_id).desired_width(420.0));
 
-            ui.label(egui::RichText::new("Session Key / Auth Token").size(11.0).color(theme::SECONDARY));
+            ui.label(
+                egui::RichText::new("Session Key / Auth Token")
+                    .size(11.0)
+                    .color(theme::SECONDARY),
+            );
             ui.add(
                 egui::TextEdit::singleline(&mut self.server_auth_token)
                     .password(true)
@@ -1469,8 +1487,10 @@ impl FOEMApp {
                     } else {
                         self.log = format!("Connecting to API via {}...", self.server_api_endpoint);
                         // Simulate connection logic
-                        self.log.push_str("
-Connection established successfully. Token injected via proxy.");
+                        self.log.push_str(
+                            "
+Connection established successfully. Token injected via proxy.",
+                        );
                     }
                 }
                 if btn(ui, "Verify Token") {
@@ -1479,8 +1499,10 @@ Connection established successfully. Token injected via proxy.");
                     } else {
                         self.log = "Verifying session key...".into();
                         // Simulate token validation
-                        self.log.push_str("
-Session key is valid and active.");
+                        self.log.push_str(
+                            "
+Session key is valid and active.",
+                        );
                     }
                 }
             });
