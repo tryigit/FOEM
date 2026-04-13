@@ -19,18 +19,18 @@ where
     }
     let mut script = String::new();
     for cmd in cmds {
-        let quoted_args: Vec<String> = cmd.iter().map(|arg| {
-            if arg.is_empty() {
-                "''".to_string()
-            } else {
-                format!("'{}'", arg.replace('\'', "'\\''"))
-            }
-        }).collect();
+        let quoted_args: Vec<String> = cmd
+            .iter()
+            .map(|arg| {
+                if arg.is_empty() {
+                    "''".to_string()
+                } else {
+                    format!("'{}'", arg.replace('\'', "'\\''"))
+                }
+            })
+            .collect();
         let cmd_str = quoted_args.join(" ");
-        script.push_str(&format!(
-            "{} 2>&1; echo B_MARKER_$?;\n",
-            cmd_str
-        ));
+        script.push_str(&format!("{} 2>&1; echo B_MARKER_$?;\n", cmd_str));
     }
     match adb_shell(serial, &["sh", "-c", &script]) {
         Ok(res) => {

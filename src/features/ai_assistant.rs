@@ -300,12 +300,12 @@ pub fn send_chat(
                 ChatRole::User => "user".into(),
                 ChatRole::Assistant => "assistant".into(),
             },
-            content: Some(json!([{"type": "text", "text": msg.content.clone()}])),
+            content: Some(json!([{"type": "text", "text": &msg.content}])),
         });
     }
 
     // Combine current input with attachments
-    let mut content_blocks = vec![json!({"type": "text", "text": state.input.clone()})];
+    let mut content_blocks = vec![json!({"type": "text", "text": &state.input})];
     for att in &state.attachments {
         match att.kind {
             AttachmentKind::Text => {

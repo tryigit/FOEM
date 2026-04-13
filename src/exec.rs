@@ -138,7 +138,11 @@ mod tests {
 
         // Use string path representation to match behavior
         let input_path = file_path.to_str().unwrap();
-        let canonical_expected = file_path.canonicalize().unwrap().to_string_lossy().into_owned();
+        let canonical_expected = file_path
+            .canonicalize()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
 
         assert_eq!(normalize_local_path(input_path), canonical_expected);
     }
