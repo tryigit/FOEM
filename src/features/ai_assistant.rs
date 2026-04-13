@@ -366,3 +366,16 @@ pub fn send_chat(
     state.input.clear();
     Ok(content)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_provider_label() {
+        assert_eq!(Provider::OpenRouter.label(), "OpenRouter");
+        assert_eq!(Provider::OpenAI.label(), "OpenAI");
+        assert_eq!(Provider::Gemini.label(), "Gemini");
+        assert_eq!(Provider::Local.label(), "Local / Custom");
+    }
+}
