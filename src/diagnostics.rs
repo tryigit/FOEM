@@ -110,3 +110,21 @@ impl DeviceDiagnostics {
         info
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_connected_device_none() {
+        let diag = DeviceDiagnostics::new();
+        assert_eq!(diag.connected_device(), None);
+    }
+
+    #[test]
+    fn test_connected_device_some() {
+        let mut diag = DeviceDiagnostics::new();
+        diag.device_serial = Some("12345ABC".to_string());
+        assert_eq!(diag.connected_device(), Some("12345ABC"));
+    }
+}
