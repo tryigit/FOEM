@@ -142,4 +142,17 @@ mod tests {
 
         assert_eq!(normalize_local_path(input_path), canonical_expected);
     }
+
+    #[test]
+    fn test_normalize_local_path_invalid_chars() {
+        // Test with invalid path characters (like null byte)
+        let invalid_path = "invalid\0path\x01\x02";
+        let expected = invalid_path.replace(['\\', '/'], std::path::MAIN_SEPARATOR_STR);
+        assert_eq!(normalize_local_path(invalid_path), expected);
+
+        // Test with very long path
+        let long_path = "a/b\\c".repeat(1000);
+        let expected_long = long_path.replace(['\\', '/'], std::path::MAIN_SEPARATOR_STR);
+        assert_eq!(normalize_local_path(&long_path), expected_long);
+    }
 }
