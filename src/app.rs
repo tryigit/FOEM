@@ -43,6 +43,7 @@ pub struct FOEMApp {
     adb_command: String,
     nck_input: String,
     flash_path: String,
+    payload_path: String,
     partition_idx: usize,
     package_filter: String,
     remote_path: String,
@@ -80,6 +81,7 @@ impl FOEMApp {
             adb_command: String::new(),
             nck_input: String::new(),
             flash_path: String::new(),
+            payload_path: String::new(),
             partition_idx: 0,
             package_filter: String::new(),
             remote_path: String::new(),
@@ -425,13 +427,19 @@ impl FOEMApp {
                     self.log = "Connect a device first.".into();
                 }
             }
-            if btn(ui, "Bypass Bootloader Unlock (Pre-Feb)") {
-                if let Ok(s) = self.require_device() {
-                    self.log = features::bootloader::bypass_unlock(s);
-                } else {
-                    self.log = "Connect a device first.".into();
+            ui.horizontal(|ui| {
+                ui.label("Payload Path:");
+                ui.add(egui::TextEdit::singleline(&mut self.payload_path).desired_width(150.0));
+                if btn(ui, "Bypass Bootloader Unlock (Pre-Feb)") {
+                    if self.payload_path.is_empty() {
+                        self.log = "Please provide the payload path first.".into();
+                    } else if let Ok(s) = self.require_device() {
+                        self.log = features::bootloader::bypass_unlock(s, &self.payload_path);
+                    } else {
+                        self.log = "Connect a device first.".into();
+                    }
                 }
-            }
+            });
             if btn(ui, "Attempt Locked Root") {
                 if let Ok(s) = self.require_device() {
                     self.log = features::bootloader::attempt_locked_root(s);
