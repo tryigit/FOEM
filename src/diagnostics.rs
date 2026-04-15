@@ -19,8 +19,20 @@ impl DeviceDiagnostics {
     }
 
     /// Run a command and return its stdout, with a short timeout to avoid UI hangs.
+    #[cfg(not(test))]
     fn run_cmd(program: &str, args: &[&str]) -> Result<String, String> {
         exec::run_with_timeout(program, args, "Diagnostics command failed", COMMAND_TIMEOUT)
+    }
+
+    #[cfg(test)]
+    fn run_cmd(program: &str, args: &[&str]) -> Result<String, String> {
+        tests::MOCK_RUN_CMD.with(|mock| {
+            if let Some(f) = &*mock.borrow() {
+                f(program, args)
+            } else {
+                exec::run_with_timeout(program, args, "Diagnostics command failed", COMMAND_TIMEOUT)
+            }
+        })
     }
 
     /// Check whether ADB is reachable.
@@ -114,6 +126,11 @@ impl DeviceDiagnostics {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::cell::RefCell;
+
+    thread_local! {
+        pub static MOCK_RUN_CMD: RefCell<Option<Box<dyn Fn(&str, &[&str]) -> Result<String, String>>>> = RefCell::new(None);
+    }
 
     #[test]
     fn test_new() {
@@ -129,6 +146,34 @@ mod tests {
         assert_eq!(
             info.get("error").unwrap(),
             "No device detected. Please connect and authorize USB debugging."
+        );
+    }
+
+    #[test]
+    fn test_get_device_info_run_cmd_error() {
+        let mut diagnostics = DeviceDiagnostics::new();
+        diagnostics.device_serial = Some("test_serial".to_string());
+
+        MOCK_RUN_CMD.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, _args| {
+                if program == "adb" {
+                    Err("mocked error".to_string())
+                } else {
+                    Ok("".to_string())
+                }
+            }));
+        });
+
+        let info = diagnostics.get_device_info();
+
+        MOCK_RUN_CMD.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+
+        assert!(info.contains_key("error"));
+        assert_eq!(
+            info.get("error").unwrap(),
+            "Unable to query properties: mocked error"
         );
     }
 }
