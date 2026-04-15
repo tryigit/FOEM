@@ -135,4 +135,15 @@ mod tests {
             assert!(!name.is_empty(), "Manufacturer name should not be empty");
         }
     }
+
+    #[test]
+    fn test_manufacturer_platform_hint() {
+        assert_eq!(Manufacturer::Samsung.platform_hint(), "Exynos / Qualcomm");
+        assert_eq!(Manufacturer::Google.platform_hint(), "Google Tensor / Qualcomm");
+
+        for manufacturer in Manufacturer::ALL {
+            let hint = manufacturer.platform_hint();
+            assert!(!hint.is_empty(), "Manufacturer platform hint should not be empty");
+        }
+    }
 }
