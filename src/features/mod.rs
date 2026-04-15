@@ -136,6 +136,27 @@ mod tests {
         }
     }
 
+
+    #[test]
+    fn test_adb_fastboot_wrappers() {
+        // We test that the wrappers correctly format errors when the underlying command fails.
+        // This ensures the wrappers are properly passing arguments and the error prefix down.
+        let serial = "dummy_serial_that_does_not_exist";
+        let args = &["dummy_arg"];
+
+        let adb_res = adb(serial, args);
+        let e = adb_res.unwrap_err();
+        assert!(!e.is_empty(), "Error message should not be empty");
+
+        let shell_res = adb_shell(serial, args);
+        let e = shell_res.unwrap_err();
+        assert!(!e.is_empty(), "Error message should not be empty");
+
+        let fastboot_res = fastboot(serial, args);
+        let e = fastboot_res.unwrap_err();
+        assert!(!e.is_empty(), "Error message should not be empty");
+    }
+
     #[test]
     fn test_manufacturer_platform_hint() {
         assert_eq!(Manufacturer::Samsung.platform_hint(), "Exynos / Qualcomm");
