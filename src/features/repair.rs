@@ -888,13 +888,14 @@ mod tests {
     }
 
     #[test]
-    fn parse_dual_imei_with_comma() {
+    fn parse_dual_imei_with_comma() -> Result<(), Box<dyn std::error::Error>> {
         let parsed =
-            parse_imei_input("123456789012345,234567890123456").expect("dual imei should parse");
+            parse_imei_input("123456789012345,234567890123456")?;
         assert_eq!(
             parsed,
             vec!["123456789012345".to_string(), "234567890123456".to_string()]
         );
+        Ok(())
     }
 
     #[test]
