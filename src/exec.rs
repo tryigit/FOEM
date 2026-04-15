@@ -130,16 +130,17 @@ mod tests {
     }
 
     #[test]
-    fn test_normalize_local_path_existing() {
+    fn test_normalize_local_path_existing() -> Result<(), Box<dyn std::error::Error>> {
         let dir = std::env::temp_dir();
         let file_path = dir.join("test_file.txt");
-        let mut file = File::create(&file_path).unwrap();
-        writeln!(file, "hello").unwrap();
+        let mut file = File::create(&file_path)?;
+        writeln!(file, "hello")?;
 
         // Use string path representation to match behavior
-        let input_path = file_path.to_str().unwrap();
-        let canonical_expected = file_path.canonicalize().unwrap().to_string_lossy().into_owned();
+        let input_path = file_path.to_str().ok_or_else(|| io::Error::new(io::ErrorKind::Other, "invalid path"))?;
+        let canonical_expected = file_path.canonicalize()?.to_string_lossy().into_owned();
 
         assert_eq!(normalize_local_path(input_path), canonical_expected);
+        Ok(())
     }
 }
