@@ -882,9 +882,10 @@ mod tests {
     use crate::features::Manufacturer;
 
     #[test]
-    fn parse_single_imei() {
-        let parsed = parse_imei_input("123456789012345").expect("single imei should parse");
+    fn parse_single_imei() -> Result<(), Box<dyn std::error::Error>> {
+        let parsed = parse_imei_input("123456789012345")?;
         assert_eq!(parsed, vec!["123456789012345".to_string()]);
+        Ok(())
     }
 
     #[test]
