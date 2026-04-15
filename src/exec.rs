@@ -77,8 +77,30 @@ pub fn run_with_timeout(
     }
 }
 
+#[cfg(test)]
+thread_local! {
+    static MOCK_RUN_IMPL: std::cell::RefCell<Option<Box<dyn Fn(&str, &[&str], &str) -> Result<String, String>>>> = std::cell::RefCell::new(None);
+}
+
+#[cfg(not(test))]
 pub fn run(program: &str, args: &[&str], error_prefix: &str) -> Result<String, String> {
     run_with_timeout(program, args, error_prefix, COMMAND_TIMEOUT)
+}
+
+#[cfg(test)]
+pub fn run(program: &str, args: &[&str], error_prefix: &str) -> Result<String, String> {
+    let mut mock_result = None;
+    MOCK_RUN_IMPL.with(|mock| {
+        if let Some(f) = mock.borrow().as_ref() {
+            mock_result = Some(f(program, args, error_prefix));
+        }
+    });
+
+    if let Some(result) = mock_result {
+        result
+    } else {
+        run_with_timeout(program, args, error_prefix, COMMAND_TIMEOUT)
+    }
 }
 
 pub fn run_with_serial(
@@ -113,6 +135,58 @@ pub fn normalize_remote_path(path: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn test_run_with_serial_prepends_args() {
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args, error_prefix| {
+                assert_eq!(program, "test_prog");
+                assert_eq!(args, &["-s", "SERIAL123", "arg1", "arg2"]);
+                assert_eq!(error_prefix, "test_error");
+                Ok("success".to_string())
+            }));
+        });
+
+        let result = run_with_serial("test_prog", "SERIAL123", &["arg1", "arg2"], "test_error");
+        assert_eq!(result, Ok("success".to_string()));
+
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+    }
+
+    #[test]
+    fn test_run_with_serial_empty_args() {
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args, _error_prefix| {
+                assert_eq!(program, "adb");
+                assert_eq!(args, &["-s", "1234"]);
+                Ok("".to_string())
+            }));
+        });
+
+        let result = run_with_serial("adb", "1234", &[], "err");
+        assert_eq!(result, Ok("".to_string()));
+
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+    }
+
+    #[test]
+    fn test_run_with_serial_propagates_error() {
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|_, _, _| Err("mock error".to_string())));
+        });
+
+        let result = run_with_serial("adb", "1234", &[], "err");
+        assert_eq!(result, Err("mock error".to_string()));
+
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+    }
+
     use super::*;
     use std::fs::File;
     use std::io::Write;

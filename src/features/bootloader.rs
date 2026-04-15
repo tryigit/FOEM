@@ -221,14 +221,13 @@ pub fn bypass_unlock(serial: &str, payload_path: &str) -> String {
     let _ = super::fastboot(serial, &["continue"]);
     std::thread::sleep(std::time::Duration::from_secs(15));
 
-    log.push_str(&format!("Pushing {} to /data/local/tmp/gbl_efi_unlock.efi...\n", payload_path));
+    log.push_str(&format!(
+        "Pushing {} to /data/local/tmp/gbl_efi_unlock.efi...\n",
+        payload_path
+    ));
     match super::adb(
         serial,
-        &[
-            "push",
-            payload_path,
-            "/data/local/tmp/gbl_efi_unlock.efi",
-        ],
+        &["push", payload_path, "/data/local/tmp/gbl_efi_unlock.efi"],
     ) {
         Ok(out) => log.push_str(&format!("Result: {}\n", out)),
         Err(e) => log.push_str(&format!("Error: {}\n", e)),
