@@ -116,6 +116,13 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_new() {
+        let diagnostics = DeviceDiagnostics::new();
+        assert_eq!(diagnostics.device_serial, None);
+        assert_eq!(diagnostics.connected_device(), None);
+    }
+
+    #[test]
     fn test_get_device_info_no_device() {
         let diagnostics = DeviceDiagnostics::new();
         let info = diagnostics.get_device_info();
