@@ -176,4 +176,133 @@ mod tests {
             "Unable to query properties: mocked error"
         );
     }
+
+    #[test]
+    fn test_detect_device_success() {
+        let mut diagnostics = DeviceDiagnostics::new();
+
+        MOCK_RUN_CMD.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args| {
+                if program == "adb" && args == ["devices"] {
+                    Ok("List of devices attached
+XYZ123456    device
+".to_string())
+                } else {
+                    Ok("".to_string())
+                }
+            }));
+        });
+
+        let result = diagnostics.detect_device();
+
+        MOCK_RUN_CMD.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+
+        assert_eq!(result, Ok(Some("XYZ123456".to_string())));
+        assert_eq!(diagnostics.connected_device(), Some("XYZ123456"));
+    }
+
+    #[test]
+    fn test_detect_device_none() {
+        let mut diagnostics = DeviceDiagnostics::new();
+
+        MOCK_RUN_CMD.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args| {
+                if program == "adb" && args == ["devices"] {
+                    Ok("List of devices attached
+
+".to_string())
+                } else {
+                    Ok("".to_string())
+                }
+            }));
+        });
+
+        let result = diagnostics.detect_device();
+
+        MOCK_RUN_CMD.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+
+        assert_eq!(result, Ok(None));
+        assert_eq!(diagnostics.connected_device(), None);
+    }
+
+    #[test]
+    fn test_detect_device_unauthorized() {
+        let mut diagnostics = DeviceDiagnostics::new();
+
+        MOCK_RUN_CMD.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args| {
+                if program == "adb" && args == ["devices"] {
+                    Ok("List of devices attached
+XYZ123456    unauthorized
+".to_string())
+                } else {
+                    Ok("".to_string())
+                }
+            }));
+        });
+
+        let result = diagnostics.detect_device();
+
+        MOCK_RUN_CMD.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+
+        assert_eq!(result, Ok(None));
+        assert_eq!(diagnostics.connected_device(), None);
+    }
+
+    #[test]
+    fn test_detect_device_multiple() {
+        let mut diagnostics = DeviceDiagnostics::new();
+
+        MOCK_RUN_CMD.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args| {
+                if program == "adb" && args == ["devices"] {
+                    Ok("List of devices attached
+dev1    offline
+dev2    device
+".to_string())
+                } else {
+                    Ok("".to_string())
+                }
+            }));
+        });
+
+        let result = diagnostics.detect_device();
+
+        MOCK_RUN_CMD.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+
+        assert_eq!(result, Ok(Some("dev2".to_string())));
+        assert_eq!(diagnostics.connected_device(), Some("dev2"));
+    }
+
+    #[test]
+    fn test_detect_device_error() {
+        let mut diagnostics = DeviceDiagnostics::new();
+
+        MOCK_RUN_CMD.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args| {
+                if program == "adb" && args == ["devices"] {
+                    Err("adb not found".to_string())
+                } else {
+                    Ok("".to_string())
+                }
+            }));
+        });
+
+        let result = diagnostics.detect_device();
+
+        MOCK_RUN_CMD.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+
+        assert_eq!(result, Err("adb not found".to_string()));
+        assert_eq!(diagnostics.connected_device(), None);
+    }
 }
