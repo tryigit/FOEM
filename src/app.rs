@@ -1283,7 +1283,11 @@ impl FOEMApp {
                     );
                 });
             ui.add_space(6.0);
-            ui.label(egui::RichText::new("Model").size(11.0).color(theme::SECONDARY));
+            ui.label(
+                egui::RichText::new("Model")
+                    .size(11.0)
+                    .color(theme::SECONDARY),
+            );
             ui.add(egui::TextEdit::singleline(&mut self.ai_settings.model).desired_width(320.0));
             ui.label(
                 egui::RichText::new("API Key (for Local provider, leave empty if not needed)")
@@ -1296,14 +1300,21 @@ impl FOEMApp {
                     .desired_width(420.0),
             );
             if self.ai_settings.provider == Provider::Local {
-                ui.label(egui::RichText::new("Local Endpoint").size(11.0).color(theme::SECONDARY));
+                ui.label(
+                    egui::RichText::new("Local Endpoint")
+                        .size(11.0)
+                        .color(theme::SECONDARY),
+                );
                 ui.add(
                     egui::TextEdit::singleline(&mut self.ai_settings.custom_endpoint)
                         .desired_width(420.0),
                 );
             }
             section(ui, "Advanced");
-            ui.checkbox(&mut self.ai_settings.vision_enabled, "Enable vision/image analysis");
+            ui.checkbox(
+                &mut self.ai_settings.vision_enabled,
+                "Enable vision/image analysis",
+            );
             ui.add(
                 egui::Slider::new(&mut self.ai_settings.temperature, 0.0..=1.0)
                     .text("Temperature")
@@ -1315,128 +1326,139 @@ impl FOEMApp {
                     .color(theme::TERTIARY),
             );
 
-            section(ui, "Attachment");
-            ui.horizontal_wrapped(|ui| {
-                ui.add(
-                    egui::TextEdit::singleline(&mut self.ai_attachment_path).desired_width(420.0),
-                );
-                if btn(ui, "Attach File") {
-                    match self
-                        .ai_state
-                        .add_attachment_from_path(self.ai_attachment_path.trim())
-                    {
-                        Ok(()) => {
-                            self.log = format!(
-                                "Attachment added. Total attachments: {}",
-                                self.ai_state.attachments.len()
-                            );
-                            self.ai_attachment_path.clear();
-                        }
-                        Err(e) => {
-                            self.log = e;
-                        }
-                    }
-                }
-            });
-
-            section(ui, "Chat");
-            ui.add(
-                egui::TextEdit::multiline(&mut self.ai_state.input)
-                    .desired_rows(4)
-                    .desired_width(f32::INFINITY)
-                    .hint_text("Ask the AI agent for repair steps, diagnostics help, or command suggestions..."),
-            );
-            ui.horizontal_wrapped(|ui| {
-                if btn_accent(ui, "Send to AI") {
-                    if self.ai_state.input.trim().is_empty() {
-                        self.log = "Please enter a prompt first.".into();
-                    } else {
-                        let telemetry = TelemetrySnapshot {
-                            active_panel: self.panel_name().to_string(),
-                            recent_actions: vec![self.log.clone()],
-                            device_summary: self
-                                .serial()
-                                .map(|s| format!("Connected device: {}", s))
-                                .unwrap_or_else(|| "No device connected".to_string()),
-                        };
-                        let user_input = self.ai_state.input.clone();
-                        self.ai_state.push_user_message(user_input);
-                        match ai_assistant::send_chat(
-                            &mut self.ai_state,
-                            &self.ai_settings,
-                            telemetry,
-                        ) {
-                            Ok(resp) => {
-                                if let Some(target) = self.ai_state.last_action_target.clone() {
-                                    if self.navigate_to_panel(&target) {
-                                        self.log = format!(
-                                            "AI Response:\n{}\n\nAI navigated to panel: {}",
-                                            resp, target
-                                        );
-                                    } else {
-                                        self.log = format!(
-                                            "AI Response:\n{}\n\nAI requested unknown panel: {}",
-                                            resp, target
-                                        );
-                                    }
-                                } else {
-                                    self.log = format!("AI Response:\n{}", resp);
-                                }
-                                self.ai_state.last_error = None;
-                            }
-                            Err(e) => {
-                                self.log = format!("AI request failed: {}", e);
-                                self.ai_state.last_error = Some(e);
-                            }
-                        }
-                    }
-                }
-                if btn(ui, "Clear Conversation") {
-                    self.ai_state = AiAssistantState::default();
-                    self.log = "AI conversation cleared.".into();
-                }
-                if btn(ui, "Clear Detected Commands") {
-                    self.ai_state.pending_commands.clear();
-                    self.log = "Detected command list cleared.".into();
-                }
-            });
+            self.render_ai_attachment_section(ui);
+            self.render_ai_input_section(ui);
 
             if !self.ai_state.pending_commands.is_empty() {
                 section(ui, "Detected Commands");
                 for cmd in &self.ai_state.pending_commands {
-                    ui.label(egui::RichText::new(cmd).monospace().size(11.0).color(theme::FG));
+                    ui.label(
+                        egui::RichText::new(cmd)
+                            .monospace()
+                            .size(11.0)
+                            .color(theme::FG),
+                    );
                 }
             }
 
-            section(ui, "Conversation");
-            egui::Frame::none()
-                .fill(theme::CARD_BG)
-                .rounding(theme::ROUNDING)
-                .inner_margin(theme::CARD_PADDING)
-                .show(ui, |ui| {
-                    egui::ScrollArea::vertical()
-                        .max_height(240.0)
-                        .id_salt("ai_history_scroll")
-                        .show(ui, |ui| {
-                            for msg in &self.ai_state.history {
-                                let role = match msg.role {
-                                    ai_assistant::ChatRole::System => "System",
-                                    ai_assistant::ChatRole::User => "You",
-                                    ai_assistant::ChatRole::Assistant => "AI",
-                                };
-                                ui.label(
-                                    egui::RichText::new(format!("{}: {}", role, msg.content))
-                                        .size(11.0)
-                                        .color(theme::SECONDARY),
-                                );
-                                ui.add_space(4.0);
-                            }
-                        });
-                });
+            self.render_ai_conversation_section(ui);
 
             ui.add_space(8.0);
             log_area(ui, &self.log);
         });
+    }
+
+    fn render_ai_attachment_section(&mut self, ui: &mut egui::Ui) {
+        section(ui, "Attachment");
+        ui.horizontal_wrapped(|ui| {
+            ui.add(egui::TextEdit::singleline(&mut self.ai_attachment_path).desired_width(420.0));
+            if btn(ui, "Attach File") {
+                match self
+                    .ai_state
+                    .add_attachment_from_path(self.ai_attachment_path.trim())
+                {
+                    Ok(()) => {
+                        self.log = format!(
+                            "Attachment added. Total attachments: {}",
+                            self.ai_state.attachments.len()
+                        );
+                        self.ai_attachment_path.clear();
+                    }
+                    Err(e) => {
+                        self.log = e;
+                    }
+                }
+            }
+        });
+    }
+
+    fn render_ai_input_section(&mut self, ui: &mut egui::Ui) {
+        section(ui, "Chat");
+        ui.add(
+            egui::TextEdit::multiline(&mut self.ai_state.input)
+                .desired_rows(4)
+                .desired_width(f32::INFINITY)
+                .hint_text("Ask the AI agent for repair steps, diagnostics help, or command suggestions..."),
+        );
+        ui.horizontal_wrapped(|ui| {
+            if btn_accent(ui, "Send to AI") {
+                if self.ai_state.input.trim().is_empty() {
+                    self.log = "Please enter a prompt first.".into();
+                } else {
+                    let telemetry = TelemetrySnapshot {
+                        active_panel: self.panel_name().to_string(),
+                        recent_actions: vec![self.log.clone()],
+                        device_summary: self
+                            .serial()
+                            .map(|s| format!("Connected device: {}", s))
+                            .unwrap_or_else(|| "No device connected".to_string()),
+                    };
+                    let user_input = self.ai_state.input.clone();
+                    self.ai_state.push_user_message(user_input);
+                    match ai_assistant::send_chat(&mut self.ai_state, &self.ai_settings, telemetry)
+                    {
+                        Ok(resp) => {
+                            if let Some(target) = self.ai_state.last_action_target.clone() {
+                                if self.navigate_to_panel(&target) {
+                                    self.log = format!(
+                                        "AI Response:\n{}\n\nAI navigated to panel: {}",
+                                        resp, target
+                                    );
+                                } else {
+                                    self.log = format!(
+                                        "AI Response:\n{}\n\nAI requested unknown panel: {}",
+                                        resp, target
+                                    );
+                                }
+                            } else {
+                                self.log = format!("AI Response:\n{}", resp);
+                            }
+                            self.ai_state.last_error = None;
+                        }
+                        Err(e) => {
+                            self.log = format!("AI request failed: {}", e);
+                            self.ai_state.last_error = Some(e);
+                        }
+                    }
+                }
+            }
+            if btn(ui, "Clear Conversation") {
+                self.ai_state = AiAssistantState::default();
+                self.log = "AI conversation cleared.".into();
+            }
+            if btn(ui, "Clear Detected Commands") {
+                self.ai_state.pending_commands.clear();
+                self.log = "Detected command list cleared.".into();
+            }
+        });
+    }
+
+    fn render_ai_conversation_section(&mut self, ui: &mut egui::Ui) {
+        section(ui, "Conversation");
+        egui::Frame::none()
+            .fill(theme::CARD_BG)
+            .rounding(theme::ROUNDING)
+            .inner_margin(theme::CARD_PADDING)
+            .show(ui, |ui| {
+                egui::ScrollArea::vertical()
+                    .max_height(240.0)
+                    .id_salt("ai_history_scroll")
+                    .show(ui, |ui| {
+                        for msg in &self.ai_state.history {
+                            let role = match msg.role {
+                                ai_assistant::ChatRole::System => "System",
+                                ai_assistant::ChatRole::User => "You",
+                                ai_assistant::ChatRole::Assistant => "AI",
+                            };
+                            ui.label(
+                                egui::RichText::new(format!("{}: {}", role, msg.content))
+                                    .size(11.0)
+                                    .color(theme::SECONDARY),
+                            );
+                            ui.add_space(4.0);
+                        }
+                    });
+            });
     }
 
     fn panel_server_auth(&mut self, ui: &mut egui::Ui) {
@@ -1445,23 +1467,41 @@ impl FOEMApp {
         egui::ScrollArea::vertical().show(ui, |ui| {
             section(ui, "API Integration");
             ui.label(
-                egui::RichText::new("Configure proxy server and session tokens for authorized service accounts.")
-                    .size(11.0)
-                    .color(theme::TERTIARY),
+                egui::RichText::new(
+                    "Configure proxy server and session tokens for authorized service accounts.",
+                )
+                .size(11.0)
+                .color(theme::TERTIARY),
             );
 
             ui.add_space(8.0);
 
-            ui.label(egui::RichText::new("API Endpoint / Proxy Server URL").size(11.0).color(theme::SECONDARY));
+            ui.label(
+                egui::RichText::new("API Endpoint / Proxy Server URL")
+                    .size(11.0)
+                    .color(theme::SECONDARY),
+            );
             ui.add(egui::TextEdit::singleline(&mut self.server_api_endpoint).desired_width(420.0));
 
-            ui.label(egui::RichText::new("Proxy Server Address").size(11.0).color(theme::SECONDARY));
+            ui.label(
+                egui::RichText::new("Proxy Server Address")
+                    .size(11.0)
+                    .color(theme::SECONDARY),
+            );
             ui.add(egui::TextEdit::singleline(&mut self.server_proxy).desired_width(420.0));
 
-            ui.label(egui::RichText::new("Service Account ID").size(11.0).color(theme::SECONDARY));
+            ui.label(
+                egui::RichText::new("Service Account ID")
+                    .size(11.0)
+                    .color(theme::SECONDARY),
+            );
             ui.add(egui::TextEdit::singleline(&mut self.service_account_id).desired_width(420.0));
 
-            ui.label(egui::RichText::new("Session Key / Auth Token").size(11.0).color(theme::SECONDARY));
+            ui.label(
+                egui::RichText::new("Session Key / Auth Token")
+                    .size(11.0)
+                    .color(theme::SECONDARY),
+            );
             ui.add(
                 egui::TextEdit::singleline(&mut self.server_auth_token)
                     .password(true)
@@ -1477,8 +1517,10 @@ impl FOEMApp {
                     } else {
                         self.log = format!("Connecting to API via {}...", self.server_api_endpoint);
                         // Simulate connection logic
-                        self.log.push_str("
-Connection established successfully. Token injected via proxy.");
+                        self.log.push_str(
+                            "
+Connection established successfully. Token injected via proxy.",
+                        );
                     }
                 }
                 if btn(ui, "Verify Token") {
@@ -1487,8 +1529,10 @@ Connection established successfully. Token injected via proxy.");
                     } else {
                         self.log = "Verifying session key...".into();
                         // Simulate token validation
-                        self.log.push_str("
-Session key is valid and active.");
+                        self.log.push_str(
+                            "
+Session key is valid and active.",
+                        );
                     }
                 }
             });
