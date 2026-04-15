@@ -120,3 +120,19 @@ pub fn adb_shell(serial: &str, args: &[&str]) -> Result<String, String> {
     full_args.extend_from_slice(args);
     adb(serial, &full_args)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_manufacturer_name() {
+        assert_eq!(Manufacturer::Samsung.name(), "Samsung");
+        assert_eq!(Manufacturer::Xiaomi.name(), "Xiaomi");
+
+        for manufacturer in Manufacturer::ALL {
+            let name = manufacturer.name();
+            assert!(!name.is_empty(), "Manufacturer name should not be empty");
+        }
+    }
+}
