@@ -630,30 +630,33 @@ pub fn test_display(serial: &str) -> String {
 /// Test device sensors.
 pub fn test_sensors(serial: &str) -> String {
     match adb_shell(serial, &["dumpsys", "sensorservice"]) {
-        Ok(val) => {
-            let mut output = String::from("Sensor Report:\n");
-            let mut count = 0;
-            for line in val.lines() {
-                let trimmed = line.trim();
-                if trimmed.starts_with('{')
-                    || trimmed.contains("name=")
-                    || trimmed.contains("vendor=")
-                {
-                    output.push_str(&format!("  {}\n", trimmed));
-                    count += 1;
-                    if count > 30 {
-                        output.push_str("  ... (truncated)\n");
-                        break;
-                    }
-                }
-            }
-            if count == 0 {
-                output.push_str("  No sensor data available.\n");
-            }
-            output
-        }
+        Ok(val) => parse_sensor_report(&val),
         Err(e) => format!("Sensor test failed: {}", e),
     }
+}
+
+fn parse_sensor_report(val: &str) -> String {
+    use std::fmt::Write;
+    let mut output = String::from("Sensor Report:\n");
+    let mut count = 0;
+
+    for line in val.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with('{') || trimmed.contains("name=") || trimmed.contains("vendor=") {
+            let _ = writeln!(output, "  {}", trimmed);
+            count += 1;
+            if count > 30 {
+                let _ = writeln!(output, "  ... (truncated)");
+                break;
+            }
+        }
+    }
+
+    if count == 0 {
+        let _ = writeln!(output, "  No sensor data available.");
+    }
+
+    output
 }
 
 // -- Audio --
