@@ -110,15 +110,17 @@ pub fn check_frp_status(serial: &str) -> String {
         ("Google account", &["dumpsys", "account"][..]),
     ];
     let mut output = String::from("FRP Status:\n");
-    for (label, args) in &checks {
-        match adb_shell(serial, args) {
+    let cmd_refs: Vec<&[&str]> = checks.iter().map(|&(_, args)| args).collect();
+    batch_adb_shell_commands(serial, &cmd_refs, |i, _cmd, res| {
+        let label = checks.get(i).map(|&(l, _)| l).unwrap_or("Unknown");
+        match res {
             Ok(val) => {
                 let summary = if val.len() > 120 { &val[..120] } else { &val };
-                output.push_str(&format!("  {}: {}\n", label, summary));
+                let _ = std::fmt::Write::write_fmt(&mut output, format_args!("  {}: {}\n", label, summary));
             }
-            Err(e) => output.push_str(&format!("  {}: error ({})\n", label, e)),
+            Err(e) => { let _ = std::fmt::Write::write_fmt(&mut output, format_args!("  {}: error ({})\n", label, e)); },
         }
-    }
+    });
     output
 }
 
