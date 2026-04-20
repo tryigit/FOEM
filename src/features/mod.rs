@@ -136,7 +136,6 @@ mod tests {
         }
     }
 
-
     #[test]
     fn test_adb_fastboot_wrappers() {
         // We test that the wrappers correctly format errors when the underlying command fails.

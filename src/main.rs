@@ -2,10 +2,8 @@ mod adaptive_engine;
 mod app;
 mod diagnostics;
 mod exec;
-#[allow(dead_code)]
 mod features;
 mod license_text;
-#[allow(dead_code)]
 mod theme;
 mod update_manager;
 
