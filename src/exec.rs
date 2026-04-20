@@ -130,7 +130,7 @@ pub fn normalize_local_path(path: &str) -> String {
 }
 
 pub fn normalize_remote_path(path: &str) -> String {
-    path.replace('\\', "/")
+    path.replace('\\', "/").trim_end_matches('/').to_string()
 }
 
 #[cfg(test)]
@@ -229,5 +229,15 @@ mod tests {
         let long_path = "a/b\\c".repeat(1000);
         let expected_long = long_path.replace(['\\', '/'], std::path::MAIN_SEPARATOR_STR);
         assert_eq!(normalize_local_path(&long_path), expected_long);
+    }
+
+    #[test]
+    fn test_normalize_remote_path() {
+        assert_eq!(normalize_remote_path("a\\b\\c"), "a/b/c");
+        assert_eq!(normalize_remote_path("a/b\\c"), "a/b/c");
+        assert_eq!(normalize_remote_path("a/b/"), "a/b");
+        assert_eq!(normalize_remote_path("a/b"), "a/b");
+        assert_eq!(normalize_remote_path(""), "");
+        assert_eq!(normalize_remote_path("/"), "");
     }
 }
