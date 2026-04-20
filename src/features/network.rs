@@ -91,35 +91,11 @@ impl FrpMethod {
 
 /// Check if FRP is active on the device.
 pub fn check_frp_status(serial: &str) -> String {
-    let checks = [
-        (
-            "FRP active",
-            &[
-                "content",
-                "query",
-                "--uri",
-                "content://settings/secure",
-                "--where",
-                "name='user_setup_complete'",
-            ][..],
-        ),
-        (
-            "Setup wizard",
-            &["pm", "list", "packages", "com.google.android.setupwizard"][..],
-        ),
-        ("Google account", &["dumpsys", "account"][..]),
-    ];
-    let mut output = String::from("FRP Status:\n");
-    for (label, args) in &checks {
-        match adb_shell(serial, args) {
-            Ok(val) => {
-                let summary = if val.len() > 120 { &val[..120] } else { &val };
-                output.push_str(&format!("  {}: {}\n", label, summary));
-            }
-            Err(e) => output.push_str(&format!("  {}: error ({})\n", label, e)),
-        }
+    match crate::exec::run_with_serial("adb", serial, &["shell", "settings", "get", "secure", "user_setup_complete"], "Failed to check FRP") {
+        Ok(res) if res.trim() == "0" => "[FRP]: ENABLED (Setup not complete)\n".into(),
+        Ok(_) => "[FRP]: Disabled or Setup Complete\n".into(),
+        Err(e) => format!("[FRP]: Error checking status - {}\n", e),
     }
-    output
 }
 
 /// Bypass FRP using the specified method.
@@ -403,4 +379,64 @@ pub fn remove_google_account(serial: &str) -> String {
     });
     output.push_str("  Reboot required.\n");
     output
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_check_frp_status_enabled() {
+        crate::exec::MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args, _error_prefix| {
+                assert_eq!(program, "adb");
+                assert_eq!(args, &["-s", "test_serial", "shell", "settings", "get", "secure", "user_setup_complete"]);
+                Ok("0\n".to_string())
+            }));
+        });
+
+        let result = check_frp_status("test_serial");
+        assert_eq!(result, "[FRP]: ENABLED (Setup not complete)\n");
+
+        crate::exec::MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+    }
+
+    #[test]
+    fn test_check_frp_status_disabled() {
+        crate::exec::MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args, _error_prefix| {
+                assert_eq!(program, "adb");
+                assert_eq!(args, &["-s", "test_serial", "shell", "settings", "get", "secure", "user_setup_complete"]);
+                Ok("1\n".to_string())
+            }));
+        });
+
+        let result = check_frp_status("test_serial");
+        assert_eq!(result, "[FRP]: Disabled or Setup Complete\n");
+
+        crate::exec::MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+    }
+
+    #[test]
+    fn test_check_frp_status_error() {
+        crate::exec::MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args, error_prefix| {
+                assert_eq!(program, "adb");
+                assert_eq!(args, &["-s", "test_serial", "shell", "settings", "get", "secure", "user_setup_complete"]);
+                assert_eq!(error_prefix, "Failed to check FRP");
+                Err("device not found".to_string())
+            }));
+        });
+
+        let result = check_frp_status("test_serial");
+        assert_eq!(result, "[FRP]: Error checking status - device not found\n");
+
+        crate::exec::MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+    }
 }
