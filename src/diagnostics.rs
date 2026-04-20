@@ -186,7 +186,8 @@ mod tests {
                 if program == "adb" && args == ["devices"] {
                     Ok("List of devices attached
 XYZ123456    device
-".to_string())
+"
+                    .to_string())
                 } else {
                     Ok("".to_string())
                 }
@@ -212,7 +213,8 @@ XYZ123456    device
                 if program == "adb" && args == ["devices"] {
                     Ok("List of devices attached
 
-".to_string())
+"
+                    .to_string())
                 } else {
                     Ok("".to_string())
                 }
@@ -238,7 +240,8 @@ XYZ123456    device
                 if program == "adb" && args == ["devices"] {
                     Ok("List of devices attached
 XYZ123456    unauthorized
-".to_string())
+"
+                    .to_string())
                 } else {
                     Ok("".to_string())
                 }
@@ -265,7 +268,8 @@ XYZ123456    unauthorized
                     Ok("List of devices attached
 dev1    offline
 dev2    device
-".to_string())
+"
+                    .to_string())
                 } else {
                     Ok("".to_string())
                 }
