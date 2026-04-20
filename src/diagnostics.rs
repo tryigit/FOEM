@@ -144,8 +144,8 @@ mod tests {
         let diagnostics = DeviceDiagnostics::new();
         let info = diagnostics.get_device_info();
         assert_eq!(
-            info.get("error").unwrap(),
-            "No device detected. Please connect and authorize USB debugging."
+            info.get("error").map(|s| s.as_str()),
+            Some("No device detected. Please connect and authorize USB debugging.")
         );
     }
 
@@ -172,8 +172,8 @@ mod tests {
 
         assert!(info.contains_key("error"));
         assert_eq!(
-            info.get("error").unwrap(),
-            "Unable to query properties: mocked error"
+            info.get("error").map(|s| s.as_str()),
+            Some("Unable to query properties: mocked error")
         );
     }
 
