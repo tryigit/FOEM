@@ -117,16 +117,11 @@ pub fn run_with_serial(
 }
 
 pub fn normalize_local_path(path: &str) -> String {
-    if path.is_empty() {
-        return String::new();
+    let expanded = shellexpand::tilde(path).into_owned();
+    match std::fs::canonicalize(&expanded) {
+        Ok(p) => p.to_string_lossy().into_owned(),
+        Err(_) => expanded,
     }
-    let candidate = Path::new(path);
-    if candidate.exists() {
-        if let Ok(canonical) = candidate.canonicalize() {
-            return canonical.to_string_lossy().into_owned();
-        }
-    }
-    path.replace(['\\', '/'], std::path::MAIN_SEPARATOR_STR)
 }
 
 pub fn normalize_remote_path(path: &str) -> String {
@@ -192,6 +187,45 @@ mod tests {
     use std::io::Write;
 
     #[test]
+    fn test_normalize_local_path_symlink_cycle() -> Result<(), Box<dyn std::error::Error>> {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::symlink;
+            let dir = std::env::temp_dir();
+            let link1 = dir.join("link1_cycle");
+            let link2 = dir.join("link2_cycle");
+
+            let _ = std::fs::remove_file(&link1);
+            let _ = std::fs::remove_file(&link2);
+
+            symlink(&link2, &link1)?;
+            symlink(&link1, &link2)?;
+
+            let input_path = link1.to_str().ok_or("Invalid UTF-8 in path")?;
+            // Canonicalize fails on symlink loop, so it falls back to the expanded string.
+            assert_eq!(normalize_local_path(input_path), input_path);
+
+            let _ = std::fs::remove_file(&link1);
+            let _ = std::fs::remove_file(&link2);
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_normalize_local_path_unc_paths() {
+        let unc_path = r"\\server\share\file.txt";
+        // Canonicalize will fail on a non-existent UNC path, fallback is just the input string (or expanded)
+        assert_eq!(normalize_local_path(unc_path), unc_path);
+    }
+
+    #[test]
+    fn test_normalize_local_path_tilde() {
+        let tilde_path = "~/some_non_existent_file.txt";
+        let expected = shellexpand::tilde(tilde_path).into_owned();
+        assert_eq!(normalize_local_path(tilde_path), expected);
+    }
+
+    #[test]
     fn test_normalize_local_path_empty() {
         assert_eq!(normalize_local_path(""), "");
     }
@@ -199,7 +233,7 @@ mod tests {
     #[test]
     fn test_normalize_local_path_non_existent() {
         let input = "a\\b/c";
-        let expected = input.replace(['\\', '/'], std::path::MAIN_SEPARATOR_STR);
+        let expected = shellexpand::tilde(input).into_owned();
         assert_eq!(normalize_local_path(input), expected);
     }
 
@@ -222,12 +256,12 @@ mod tests {
     fn test_normalize_local_path_invalid_chars() {
         // Test with invalid path characters (like null byte)
         let invalid_path = "invalid\0path\x01\x02";
-        let expected = invalid_path.replace(['\\', '/'], std::path::MAIN_SEPARATOR_STR);
+        let expected = shellexpand::tilde(invalid_path).into_owned();
         assert_eq!(normalize_local_path(invalid_path), expected);
 
         // Test with very long path
         let long_path = "a/b\\c".repeat(1000);
-        let expected_long = long_path.replace(['\\', '/'], std::path::MAIN_SEPARATOR_STR);
+        let expected_long = shellexpand::tilde(&long_path).into_owned();
         assert_eq!(normalize_local_path(&long_path), expected_long);
     }
 
