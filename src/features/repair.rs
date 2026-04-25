@@ -122,6 +122,59 @@ pub fn read_imei(serial: &str) -> String {
     output
 }
 
+/// Open Xiaomi Modem Test Board (MTB) menu using secret code broadcast
+pub fn open_xiaomi_mtb(serial: &str) -> String {
+    let mut output = String::from(
+        "Opening Xiaomi MTB Menu (*#*#663368378#*#*)...
+",
+    );
+
+    // Method 1: Broadcast secret code (Best method for Android 8+)
+    let _ = adb_shell(
+        serial,
+        &[
+            "am",
+            "broadcast",
+            "-a",
+            "android.provider.Telephony.SECRET_CODE",
+            "-d",
+            "android_secret_code://663368378",
+        ],
+    );
+
+    // Method 2: Launch com.xiaomi.mtb activity directly
+    let _ = adb_shell(
+        serial,
+        &[
+            "am",
+            "start",
+            "-n",
+            "com.xiaomi.mtb/com.xiaomi.mtb.MainActivity",
+        ],
+    );
+
+    // Method 3: Call via dialer just in case
+    let _ = adb_shell(
+        serial,
+        &[
+            "am",
+            "start",
+            "-a",
+            "android.intent.action.DIAL",
+            "-d",
+            "tel:%2A%23%2A%23663368378%23%2A%23%2A",
+        ],
+    );
+
+    output.push_str(
+        "Executed launch commands.
+Check the device screen for the MTB/Modem Test interface.
+",
+    );
+
+    output
+}
+
 /// Backup IMEI data (EFS-based) to device storage.
 pub fn backup_imei(serial: &str) -> String {
     let backup_path = "/sdcard/FOEM/imei_backup";

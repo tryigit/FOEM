@@ -13,8 +13,19 @@ use super::{adb_shell, fastboot, Manufacturer};
 
 /// Check current bootloader lock status via fastboot.
 pub fn check_status(serial: &str) -> String {
-    match crate::exec::run_with_serial("fastboot", serial, &["getvar", "unlocked"], "Failed to get unlock status") {
-        Ok(res) => if res.contains("unlocked: yes") { "Unlocked".into() } else { "Locked".into() },
+    match crate::exec::run_with_serial(
+        "fastboot",
+        serial,
+        &["getvar", "unlocked"],
+        "Failed to get unlock status",
+    ) {
+        Ok(res) => {
+            if res.contains("unlocked: yes") {
+                "Unlocked".into()
+            } else {
+                "Locked".into()
+            }
+        }
         Err(e) => e,
     }
 }
