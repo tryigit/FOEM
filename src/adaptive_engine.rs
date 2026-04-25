@@ -187,7 +187,7 @@ fn execute_step(
             StepKind::AtCommand => {
                 let autodetected = autodetect_diag_port();
                 let port_name = diag_port_hint
-                    .or_else(|| autodetected.as_deref())
+                    .or(autodetected.as_deref())
                     .ok_or_else(|| "No diagnostic port available for AT command".to_string())?;
                 let mut port = open_diag_port(port_name)?;
                 send_at_command(&mut port, &step.payload)
@@ -195,7 +195,7 @@ fn execute_step(
             StepKind::RawDiag => {
                 let autodetected = autodetect_diag_port();
                 let port_name = diag_port_hint
-                    .or_else(|| autodetected.as_deref())
+                    .or(autodetected.as_deref())
                     .ok_or_else(|| "No diagnostic port available for DIAG command".to_string())?;
                 let mut port = open_diag_port(port_name)?;
                 let bytes = hex::decode(step.payload.replace([' ', '\n', '\r'], ""))

@@ -576,7 +576,7 @@ pub fn test_display(serial: &str) -> String {
             }
 
             // 1. wm size
-            match results.get(0).unwrap_or(&Err(())) {
+            match results.first().unwrap_or(&Err(())) {
                 Ok(val) => output.push_str(&format!("  Resolution: {}\n", val)),
                 Err(_) => output.push_str("  Resolution: unknown\n"),
             }
@@ -901,4 +901,109 @@ pub fn test_telephony(serial: &str) -> String {
     }
 
     output
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::exec::MOCK_RUN_IMPL;
+
+    #[test]
+    fn test_connectivity_check() {
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(
+                |cmd: &str, args: &[&str], _: &str| -> Result<String, String> {
+                    if cmd != "adb" {
+                        return Err("Expected adb".to_string());
+                    }
+
+                    // Matches `adb_shell(serial, &["dumpsys", <service>])`
+                    // run_with_serial prepends: ["-s", <serial>]
+                    // and adb_shell appends: ["shell", "dumpsys", <service>]
+                    // Total args: ["-s", serial, "shell", "dumpsys", <service>]
+                    if args.len() >= 5 && args[2] == "shell" && args[3] == "dumpsys" {
+                        let dump_target = args[4];
+                        match dump_target {
+                            "wifi" => Ok("Wi-Fi is enabled".to_string()),
+                            "bluetooth_manager" => Ok("enabled: true".to_string()),
+                            "location" => Ok("Provider gps is enabled".to_string()),
+                            "nfc" => Ok("mState=on".to_string()),
+                            _ => Err("Unknown dumpsys target".to_string()),
+                        }
+                    } else {
+                        Err("Invalid arguments for adb shell".to_string())
+                    }
+                },
+            ));
+        });
+
+        let output = test_connectivity("DEVICE123");
+
+        assert!(output.contains("WiFi: enabled"));
+        assert!(output.contains("Bluetooth: enabled"));
+        assert!(output.contains("GPS: available"));
+        assert!(output.contains("NFC: available"));
+
+        // Clean up mock
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+    }
+
+    #[test]
+    fn test_connectivity_disabled() {
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(
+                |_cmd: &str, args: &[&str], _: &str| -> Result<String, String> {
+                    if args.len() >= 5 && args[2] == "shell" && args[3] == "dumpsys" {
+                        let dump_target = args[4];
+                        match dump_target {
+                            "wifi" => Ok("Wi-Fi is disabled".to_string()),
+                            "bluetooth_manager" => Ok("enabled: false".to_string()),
+                            "location" => Ok("Provider none".to_string()),
+                            "nfc" => Ok("None".to_string()),
+                            _ => Err("Unknown".to_string()),
+                        }
+                    } else {
+                        Err("Invalid args".to_string())
+                    }
+                },
+            ));
+        });
+
+        let output = test_connectivity("DEVICE123");
+
+        assert!(output.contains("WiFi: disabled/unknown"));
+        assert!(output.contains("Bluetooth: disabled/unknown"));
+        assert!(output.contains("GPS: not detected"));
+        assert!(output.contains("NFC: not detected"));
+
+        // Clean up mock
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+    }
+
+    #[test]
+    fn test_connectivity_error() {
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(
+                |_: &str, _: &[&str], _: &str| -> Result<String, String> {
+                    Err("adb error".to_string())
+                },
+            ));
+        });
+
+        let output = test_connectivity("DEVICE123");
+
+        assert!(output.contains("WiFi: check failed"));
+        assert!(output.contains("Bluetooth: check failed"));
+        assert!(output.contains("GPS: check failed"));
+        assert!(output.contains("NFC: not available"));
+
+        // Clean up mock
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+    }
 }
