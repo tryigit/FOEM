@@ -9,19 +9,11 @@ use crate::exec::normalize_local_path;
 
 /// Reboot device into EDL mode (Qualcomm 9008).
 pub fn enter_edl_mode(serial: &str) -> String {
-    if let Ok(out) = adb(serial, &["reboot", "edl"]) {
-        return format!("EDL Mode:\n  ADB reboot edl -- success\n  {}\n  Device should appear as Qualcomm HS-USB QDLoader 9008.", out);
+    match crate::exec::run_with_serial("adb", serial, &["reboot", "edl"], "Failed to reboot to EDL")
+    {
+        Ok(res) => format!("EDL reboot initiated:\n{}", res),
+        Err(e) => e,
     }
-    if let Ok(out) = adb_shell(serial, &["reboot", "edl"]) {
-        return format!("EDL Mode:\n  ADB shell reboot edl -- success\n  {}\n  Device should appear as Qualcomm HS-USB QDLoader 9008.", out);
-    }
-    if let Ok(out) = fastboot(serial, &["oem", "edl"]) {
-        return format!("EDL Mode:\n  Fastboot reboot edl -- success\n  {}\n  Device should appear as Qualcomm HS-USB QDLoader 9008.", out);
-    }
-    "EDL Mode:\n  All methods failed.\n  \
-     Manual method: Hold Vol Up + Vol Down while connecting USB cable.\n  \
-     Some devices require a test-point short on the motherboard."
-        .to_string()
 }
 
 /// Flash via EDL using a firehose programmer.
@@ -313,5 +305,45 @@ pub fn install_kernelsu(serial: &str, path: &str) -> String {
         }
     } else {
         "Unsupported file type. Use .apk, .zip, or .img.".to_string()
+    }
+}
+#[cfg(test)]
+mod tests {
+    use crate::exec::MOCK_RUN_IMPL;
+    use crate::features::flash::enter_edl_mode;
+
+    #[test]
+    fn test_enter_edl_mode_success() {
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args, error_prefix| {
+                assert_eq!(program, "adb");
+                assert_eq!(args, &["-s", "SERIAL123", "reboot", "edl"]);
+                assert_eq!(error_prefix, "Failed to reboot to EDL");
+                Ok("Device rebooting to EDL...".to_string())
+            }));
+        });
+
+        let result = enter_edl_mode("SERIAL123");
+        assert_eq!(result, "EDL reboot initiated:\nDevice rebooting to EDL...");
+
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+    }
+
+    #[test]
+    fn test_enter_edl_mode_failure() {
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|_, _, _| {
+                Err("Failed to reboot to EDL: error".to_string())
+            }));
+        });
+
+        let result = enter_edl_mode("SERIAL123");
+        assert_eq!(result, "Failed to reboot to EDL: error");
+
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
     }
 }
