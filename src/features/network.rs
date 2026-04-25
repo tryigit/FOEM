@@ -116,9 +116,17 @@ pub fn check_frp_status(serial: &str) -> String {
         match res {
             Ok(val) => {
                 let summary = if val.len() > 120 { &val[..120] } else { &val };
-                let _ = std::fmt::Write::write_fmt(&mut output, format_args!("  {}: {}\n", label, summary));
+                let _ = std::fmt::Write::write_fmt(
+                    &mut output,
+                    format_args!("  {}: {}\n", label, summary),
+                );
             }
-            Err(e) => { let _ = std::fmt::Write::write_fmt(&mut output, format_args!("  {}: error ({})\n", label, e)); },
+            Err(e) => {
+                let _ = std::fmt::Write::write_fmt(
+                    &mut output,
+                    format_args!("  {}: error ({})\n", label, e),
+                );
+            }
         }
     });
     output
@@ -405,4 +413,95 @@ pub fn remove_google_account(serial: &str) -> String {
     });
     output.push_str("  Reboot required.\n");
     output
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::exec::MOCK_RUN_IMPL;
+
+    #[test]
+    fn test_bypass_frp_adb_bypass() {
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args, _error_prefix| {
+                if program == "adb" && args.len() > 3 && args[2] == "shell" {
+                    return Ok("B_MARKER_0\nB_MARKER_0\nB_MARKER_0\n".to_string());
+                }
+                Ok("".to_string())
+            }));
+        });
+
+        let output = bypass_frp("dummy_serial", &FrpMethod::AdbBypass);
+        assert!(output.contains("FRP Bypass (method: ADB Bypass):"));
+        assert!(output.contains("OK: (success)"));
+        assert!(output.contains("Reboot recommended."));
+
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+    }
+
+    #[test]
+    fn test_bypass_frp_setup_wizard_skip() {
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args, _error_prefix| {
+                if program == "adb" && args.len() > 3 && args[2] == "shell" {
+                    return Ok("B_MARKER_0\nB_MARKER_0\nB_MARKER_0\n".to_string());
+                }
+                Ok("".to_string())
+            }));
+        });
+
+        let output = bypass_frp("dummy_serial", &FrpMethod::SetupWizardSkip);
+        assert!(output.contains("FRP Bypass (method: Setup Wizard Skip):"));
+        assert!(output.contains("Step completed."));
+        assert!(output.contains("Reboot recommended."));
+
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+    }
+
+    #[test]
+    fn test_bypass_frp_account_manager_remove() {
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args, _error_prefix| {
+                if program == "adb" && args.len() > 3 && args[2] == "shell" {
+                    return Ok("B_MARKER_0\nB_MARKER_0\nB_MARKER_0\n".to_string());
+                }
+                Ok("".to_string())
+            }));
+        });
+
+        let output = bypass_frp("dummy_serial", &FrpMethod::AccountManagerRemove);
+        println!("Output: {:?}", output);
+        assert!(output.contains("FRP Bypass (method: Account Manager Remove):"));
+        assert!(output.contains("Removed account database."));
+        assert!(output.contains("Reboot recommended."));
+
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+    }
+
+    #[test]
+    fn test_bypass_frp_content_provider_reset() {
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args, _error_prefix| {
+                if program == "adb" && args.len() > 3 && args[2] == "shell" {
+                    return Ok("B_MARKER_0\nB_MARKER_0\nB_MARKER_0\n".to_string());
+                }
+                Ok("".to_string())
+            }));
+        });
+
+        let output = bypass_frp("dummy_serial", &FrpMethod::ContentProviderReset);
+        assert!(output.contains("FRP Bypass (method: Content Provider Reset):"));
+        assert!(output.contains("Setting applied."));
+        assert!(output.contains("Reboot recommended."));
+
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+    }
 }
