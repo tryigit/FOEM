@@ -13,12 +13,9 @@ use super::{adb_shell, fastboot, Manufacturer};
 
 /// Check current bootloader lock status via fastboot.
 pub fn check_status(serial: &str) -> String {
-    match fastboot(serial, &["getvar", "unlocked"]) {
-        Ok(out) => format!("Bootloader status:\n{}", out),
-        Err(e) => format!(
-            "Failed to check BL status: {}\nDevice may not be in fastboot mode.",
-            e
-        ),
+    match crate::exec::run_with_serial("fastboot", serial, &["getvar", "unlocked"], "Failed to get unlock status") {
+        Ok(res) => if res.contains("unlocked: yes") { "Unlocked".into() } else { "Locked".into() },
+        Err(e) => e,
     }
 }
 
@@ -278,4 +275,68 @@ pub fn bypass_unlock(serial: &str, payload_path: &str) -> String {
     log.push_str("Done.");
 
     log
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::exec::MOCK_RUN_IMPL;
+
+    #[test]
+    fn test_check_status_success() {
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args, error_prefix| {
+                assert_eq!(program, "fastboot");
+
+                assert_eq!(args, &["-s", "SERIAL123", "getvar", "unlocked"]);
+                assert_eq!(error_prefix, "Failed to get unlock status");
+                Ok("unlocked: yes".to_string())
+            }));
+        });
+
+        let result = check_status("SERIAL123");
+        assert_eq!(result, "Unlocked");
+
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+    }
+
+    #[test]
+    fn test_check_status_locked() {
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args, error_prefix| {
+                assert_eq!(program, "fastboot");
+                assert_eq!(args, &["-s", "SERIAL123", "getvar", "unlocked"]);
+                assert_eq!(error_prefix, "Failed to get unlock status");
+                Ok("unlocked: no".to_string())
+            }));
+        });
+
+        let result = check_status("SERIAL123");
+        assert_eq!(result, "Locked");
+
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+    }
+
+    #[test]
+    fn test_check_status_failure() {
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args, error_prefix| {
+                assert_eq!(program, "fastboot");
+                assert_eq!(args, &["-s", "SERIAL123", "getvar", "unlocked"]);
+                assert_eq!(error_prefix, "Failed to get unlock status");
+                Err("fastboot error".to_string())
+            }));
+        });
+
+        let result = check_status("SERIAL123");
+        assert_eq!(result, "fastboot error");
+
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+    }
 }
