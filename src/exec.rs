@@ -79,7 +79,7 @@ pub fn run_with_timeout(
 
 #[cfg(test)]
 thread_local! {
-    static MOCK_RUN_IMPL: std::cell::RefCell<Option<Box<dyn Fn(&str, &[&str], &str) -> Result<String, String>>>> = std::cell::RefCell::new(None);
+    pub static MOCK_RUN_IMPL: std::cell::RefCell<Option<Box<dyn Fn(&str, &[&str], &str) -> Result<String, String>>>> = std::cell::RefCell::new(None);
 }
 
 #[cfg(not(test))]

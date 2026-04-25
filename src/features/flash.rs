@@ -315,3 +315,96 @@ pub fn install_kernelsu(serial: &str, path: &str) -> String {
         "Unsupported file type. Use .apk, .zip, or .img.".to_string()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_install_magisk_apk() {
+        crate::exec::MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args, _error_prefix| {
+                assert_eq!(program, "adb");
+                let mut path = "/path/to/magisk.apk".to_string();
+                if cfg!(windows) {
+                    path = r"\path\to\magisk.apk".to_string();
+                }
+                assert_eq!(args[2..], ["install", "-r", "-d", &path]);
+                Ok("Success".to_string())
+            }));
+        });
+
+        let mut path = "/path/to/magisk.apk".to_string();
+        if cfg!(windows) {
+            path = r"\path\to\magisk.apk".to_string();
+        }
+        let out = install_magisk("SERIAL123", &path);
+        assert!(out.contains("Success"));
+
+        crate::exec::MOCK_RUN_IMPL.with(|mock| { *mock.borrow_mut() = None; });
+    }
+
+    #[test]
+    fn test_install_magisk_zip() {
+        crate::exec::MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args, _error_prefix| {
+                assert_eq!(program, "adb");
+                let mut path = "/path/to/magisk.zip".to_string();
+                if cfg!(windows) {
+                    path = r"\path\to\magisk.zip".to_string();
+                }
+                assert_eq!(args[2..], ["sideload", &path]);
+                Ok("Success".to_string())
+            }));
+        });
+
+        let mut path = "/path/to/magisk.zip".to_string();
+        if cfg!(windows) {
+            path = r"\path\to\magisk.zip".to_string();
+        }
+        let out = install_magisk("SERIAL123", &path);
+        assert!(out.contains("Success"));
+
+        crate::exec::MOCK_RUN_IMPL.with(|mock| { *mock.borrow_mut() = None; });
+    }
+
+    #[test]
+    fn test_install_magisk_img() {
+        crate::exec::MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args, _error_prefix| {
+                assert_eq!(program, "fastboot");
+                let mut path = "/path/to/magisk.img".to_string();
+                if cfg!(windows) {
+                    path = r"\path\to\magisk.img".to_string();
+                }
+                assert_eq!(args[2..], ["flash", "boot", &path]);
+                Ok("Success".to_string())
+            }));
+        });
+
+        let mut path = "/path/to/magisk.img".to_string();
+        if cfg!(windows) {
+            path = r"\path\to\magisk.img".to_string();
+        }
+        let out = install_magisk("SERIAL123", &path);
+        assert!(out.contains("Success"));
+
+        crate::exec::MOCK_RUN_IMPL.with(|mock| { *mock.borrow_mut() = None; });
+    }
+
+    #[test]
+    fn test_install_magisk_unsupported() {
+        let mut path = "/path/to/magisk.txt".to_string();
+        if cfg!(windows) {
+            path = r"\path\to\magisk.txt".to_string();
+        }
+        let out = install_magisk("SERIAL123", &path);
+        assert_eq!(out, "Unsupported file type. Use .apk, .zip, or .img.");
+    }
+
+    #[test]
+    fn test_install_magisk_empty() {
+        let out = install_magisk("SERIAL123", "");
+        assert_eq!(out, "Magisk file path required. Provide .apk (Manager), .zip (Sideload), or .img (Patched Boot).");
+    }
+}
