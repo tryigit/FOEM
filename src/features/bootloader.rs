@@ -279,3 +279,58 @@ pub fn bypass_unlock(serial: &str, payload_path: &str) -> String {
 
     log
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::exec::MOCK_RUN_IMPL;
+
+    #[test]
+    fn test_unlock_google_success() {
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, _args, _error_prefix| {
+                assert_eq!(program, "fastboot");
+                Ok("flashing unlock success".to_string())
+            }));
+        });
+
+        let result = unlock("serial123", &Manufacturer::Google);
+        assert!(result.contains("flashing unlock success"));
+
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+    }
+
+    #[test]
+    fn test_unlock_oneplus_failure() {
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|_, _, _| {
+                Err("Unlock failed error".to_string())
+            }));
+        });
+
+        let result = unlock("serial123", &Manufacturer::OnePlus);
+        assert!(result.contains("Unlock failed error"));
+
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+    }
+
+    #[test]
+    fn test_unlock_unsupported() {
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|_, _, _| {
+                Ok("Unsupported mechanism".to_string())
+            }));
+        });
+
+        let result = unlock("serial123", &Manufacturer::Asus);
+        assert!(result.contains("Unsupported"));
+
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+    }
+}
