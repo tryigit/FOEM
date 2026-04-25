@@ -317,8 +317,8 @@ pub fn install_kernelsu(serial: &str, path: &str) -> String {
 }
 #[cfg(test)]
 mod tests {
-    use crate::features::flash::erase_partition;
     use crate::exec::MOCK_RUN_IMPL;
+    use crate::features::flash::erase_partition;
 
     #[test]
     fn test_erase_partition_success() {
@@ -331,7 +331,10 @@ mod tests {
         });
 
         let result = erase_partition("12345", "userdata");
-        assert_eq!(result, "Erase userdata result:\nerasing 'userdata'...\nOKAY [  0.123s]");
+        assert_eq!(
+            result,
+            "Erase userdata result:\nerasing 'userdata'...\nOKAY [  0.123s]"
+        );
 
         MOCK_RUN_IMPL.with(|mock| {
             *mock.borrow_mut() = None;
