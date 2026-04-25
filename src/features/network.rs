@@ -116,9 +116,17 @@ pub fn check_frp_status(serial: &str) -> String {
         match res {
             Ok(val) => {
                 let summary = if val.len() > 120 { &val[..120] } else { &val };
-                let _ = std::fmt::Write::write_fmt(&mut output, format_args!("  {}: {}\n", label, summary));
+                let _ = std::fmt::Write::write_fmt(
+                    &mut output,
+                    format_args!("  {}: {}\n", label, summary),
+                );
             }
-            Err(e) => { let _ = std::fmt::Write::write_fmt(&mut output, format_args!("  {}: error ({})\n", label, e)); },
+            Err(e) => {
+                let _ = std::fmt::Write::write_fmt(
+                    &mut output,
+                    format_args!("  {}: error ({})\n", label, e),
+                );
+            }
         }
     });
     output
