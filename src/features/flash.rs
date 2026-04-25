@@ -315,3 +315,44 @@ pub fn install_kernelsu(serial: &str, path: &str) -> String {
         "Unsupported file type. Use .apk, .zip, or .img.".to_string()
     }
 }
+#[cfg(test)]
+mod tests {
+    use crate::features::flash::erase_partition;
+    use crate::exec::MOCK_RUN_IMPL;
+
+    #[test]
+    fn test_erase_partition_success() {
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args, _error_prefix| {
+                assert_eq!(program, "fastboot");
+                assert_eq!(args, &["-s", "12345", "erase", "userdata"]);
+                Ok("erasing 'userdata'...\nOKAY [  0.123s]".to_string())
+            }));
+        });
+
+        let result = erase_partition("12345", "userdata");
+        assert_eq!(result, "Erase userdata result:\nerasing 'userdata'...\nOKAY [  0.123s]");
+
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+    }
+
+    #[test]
+    fn test_erase_partition_failure() {
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args, _error_prefix| {
+                assert_eq!(program, "fastboot");
+                assert_eq!(args, &["-s", "12345", "erase", "system"]);
+                Err("fastboot error".to_string())
+            }));
+        });
+
+        let result = erase_partition("12345", "system");
+        assert_eq!(result, "Erase system failed: fastboot error");
+
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+    }
+}
