@@ -280,3 +280,23 @@ pub fn autodetect_diag_port() -> Option<String> {
     }
     None
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_fingerprint() {
+        assert_eq!(fingerprint("ModelX", "10.0", "arm64"), "ModelX|10.0|arm64");
+    }
+
+    #[test]
+    fn test_fingerprint_with_whitespace() {
+        assert_eq!(fingerprint("  ModelX  ", " 10.0 ", "  arm64  "), "ModelX|10.0|arm64");
+    }
+
+    #[test]
+    fn test_fingerprint_empty_strings() {
+        assert_eq!(fingerprint("", "", ""), "||");
+    }
+}
