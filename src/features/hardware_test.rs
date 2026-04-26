@@ -3,6 +3,7 @@
 /// Battery, screen, sensors, camera, audio, connectivity,
 /// biometrics, USB, vibration, and general hardware tests.
 use super::adb_shell;
+use std::fmt::Write;
 
 /// Run all available hardware tests.
 pub fn run_all(serial: &str) -> String {
@@ -53,11 +54,7 @@ pub fn run_all(serial: &str) -> String {
 
     let mut script = String::new();
     for cmd in &commands {
-        script.push_str(&format!(
-            "{}; echo B_MARKER_FOEM_$?;
-",
-            cmd
-        ));
+        let _ = writeln!(script, "{}; echo B_MARKER_FOEM_$?", cmd);
     }
 
     match adb_shell(serial, &["sh", "-c", &script]) {
@@ -879,7 +876,7 @@ pub fn test_telephony(serial: &str) -> String {
     // Batch all getprop commands into a single shell execution
     let mut script = String::new();
     for (_, prop) in &props {
-        script.push_str(&format!("getprop {}; ", prop));
+        let _ = write!(script, "getprop {}; ", prop);
     }
 
     match adb_shell(serial, &["sh", "-c", &script]) {
