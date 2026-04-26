@@ -253,24 +253,17 @@ fn endpoint(settings: &AiSettings) -> String {
     match settings.provider {
         Provider::OpenRouter => "https://openrouter.ai/api/v1/chat/completions".into(),
         Provider::OpenAI => "https://api.openai.com/v1/chat/completions".into(),
-        Provider::Gemini => {
-            // OpenAI-compatible bridge endpoint for Gemini (v1beta)
-            format!(
-                "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions?key={}",
-                settings.api_key
-            )
-        }
+        Provider::Gemini => "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions".into(),
         Provider::Local => settings.custom_endpoint.clone(),
     }
 }
 
 fn auth_header(settings: &AiSettings) -> Option<(String, String)> {
     match settings.provider {
-        Provider::OpenRouter | Provider::OpenAI => Some((
+        Provider::OpenRouter | Provider::OpenAI | Provider::Gemini => Some((
             "Authorization".into(),
             format!("Bearer {}", settings.api_key),
         )),
-        Provider::Gemini => None, // key is in query param above
         Provider::Local => {
             if settings.api_key.is_empty() {
                 None
