@@ -1,6 +1,7 @@
 /// ADB utility tools: shell, logcat, file operations, reboot,
 /// backup/restore, APK management, bloatware removal, screenshots.
 use super::{adb, adb_shell};
+use std::fmt::Write;
 use crate::exec::{normalize_local_path, normalize_remote_path};
 use std::fmt::Write;
 
@@ -348,7 +349,7 @@ where
         Ok(val) => {
             let mut output = String::from("Memory Info:\n");
             for line in val.lines().take(10) {
-                output.push_str(&format!("  {}\n", line));
+                let _ = writeln!(output, "  {}", line);
             }
             output
         }
