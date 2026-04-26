@@ -76,7 +76,21 @@ impl KnowledgeBase {
     }
 }
 
+
+#[cfg(test)]
+thread_local! {
+    pub static MOCK_KB_PATH: std::cell::RefCell<Option<std::path::PathBuf>> = std::cell::RefCell::new(None);
+}
+
 fn kb_path() -> PathBuf {
+    #[cfg(test)]
+    {
+        let mock = MOCK_KB_PATH.with(|m| m.borrow().clone());
+        if let Some(p) = mock {
+            return p;
+        }
+    }
+
     if let Ok(home) = std::env::var("HOME") {
         return PathBuf::from(home)
             .join(".foem")
@@ -279,4 +293,90 @@ pub fn autodetect_diag_port() -> Option<String> {
         }
     }
     None
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::env;
+
+    struct MockGuard;
+    impl Drop for MockGuard {
+        fn drop(&mut self) {
+            MOCK_KB_PATH.with(|m| *m.borrow_mut() = None);
+        }
+    }
+
+    #[test]
+    fn test_load_empty() -> Result<(), Box<dyn std::error::Error>> {
+        let temp_dir = env::temp_dir().join("foem_test_empty");
+        let _ = fs::remove_dir_all(&temp_dir);
+        fs::create_dir_all(&temp_dir)?;
+
+        let file_path = temp_dir.join("learned_methods.json");
+        MOCK_KB_PATH.with(|m| *m.borrow_mut() = Some(file_path.clone()));
+        let _guard = MockGuard;
+
+        // This targets the KnowledgeBase::load() function
+        let kb = KnowledgeBase::load();
+
+        // Assert the state returned in KnowledgeBase::load is correctly empty fallback
+        assert!(kb.learned.is_empty());
+
+        let _ = fs::remove_dir_all(&temp_dir);
+        Ok(())
+    }
+
+    #[test]
+    fn test_load_existing() -> Result<(), Box<dyn std::error::Error>> {
+        let temp_dir = env::temp_dir().join("foem_test_existing");
+        let _ = fs::remove_dir_all(&temp_dir);
+        fs::create_dir_all(&temp_dir)?;
+
+        let file_path = temp_dir.join("learned_methods.json");
+        MOCK_KB_PATH.with(|m| *m.borrow_mut() = Some(file_path.clone()));
+        let _guard = MockGuard;
+
+        let json_data = r#"{
+            "learned": {
+                "fingerprint1": {
+                    "kind": "AdbShell",
+                    "payload": "echo 1",
+                    "success_markers": [],
+                    "failure_markers": [],
+                    "retries": 0,
+                    "timeout_ms": null
+                }
+            }
+        }"#;
+        fs::write(&file_path, json_data)?;
+
+        let kb = KnowledgeBase::load();
+        assert_eq!(kb.learned.len(), 1);
+        assert!(kb.learned.contains_key("fingerprint1"));
+
+        let _ = fs::remove_dir_all(&temp_dir);
+        Ok(())
+    }
+
+    #[test]
+    fn test_load_invalid_json() -> Result<(), Box<dyn std::error::Error>> {
+        let temp_dir = env::temp_dir().join("foem_test_invalid");
+        let _ = fs::remove_dir_all(&temp_dir);
+        fs::create_dir_all(&temp_dir)?;
+
+        let file_path = temp_dir.join("learned_methods.json");
+        MOCK_KB_PATH.with(|m| *m.borrow_mut() = Some(file_path.clone()));
+        let _guard = MockGuard;
+
+        fs::write(&file_path, "invalid json")?;
+
+        let kb = KnowledgeBase::load();
+        assert!(kb.learned.is_empty());
+
+        let _ = fs::remove_dir_all(&temp_dir);
+        Ok(())
+    }
 }
