@@ -1,5 +1,6 @@
 /// Device detection and diagnostic utilities via ADB and Fastboot.
 use std::collections::BTreeMap;
+use std::fmt::Write;
 
 use crate::exec::{self, COMMAND_TIMEOUT};
 
@@ -85,7 +86,7 @@ impl DeviceDiagnostics {
 
         let mut script = String::new();
         for (_, prop) in props {
-            script.push_str(&format!("getprop {} 2>&1; echo B_MARKER_$?;\n", prop));
+            let _ = writeln!(script, "getprop {} 2>&1; echo B_MARKER_$?;", prop);
         }
 
         match Self::run_cmd("adb", &["-s", serial, "shell", "sh", "-c", &script]) {
