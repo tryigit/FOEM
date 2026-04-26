@@ -270,8 +270,23 @@ fn builtin_recipes() -> Vec<ExploitRecipe> {
     ]
 }
 
+#[cfg(not(test))]
+fn get_available_ports() -> serialport::Result<Vec<serialport::SerialPortInfo>> {
+    serialport::available_ports()
+}
+
+#[cfg(test)]
+thread_local! {
+    pub static MOCK_AVAILABLE_PORTS: std::cell::RefCell<serialport::Result<Vec<serialport::SerialPortInfo>>> = std::cell::RefCell::new(Ok(vec![]));
+}
+
+#[cfg(test)]
+fn get_available_ports() -> serialport::Result<Vec<serialport::SerialPortInfo>> {
+    MOCK_AVAILABLE_PORTS.with(|m| m.borrow().clone())
+}
+
 pub fn autodetect_diag_port() -> Option<String> {
-    if let Ok(ports) = serialport::available_ports() {
+    if let Ok(ports) = get_available_ports() {
         for p in ports {
             if matches!(p.port_type, serialport::SerialPortType::UsbPort(_)) {
                 return Some(p.port_name);
@@ -279,4 +294,69 @@ pub fn autodetect_diag_port() -> Option<String> {
         }
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serialport::{SerialPortInfo, SerialPortType, UsbPortInfo};
+
+    #[test]
+    fn test_autodetect_diag_port_success() {
+        MOCK_AVAILABLE_PORTS.with(|m| {
+            *m.borrow_mut() = Ok(vec![
+                SerialPortInfo {
+                    port_name: "COM1".to_string(),
+                    port_type: SerialPortType::PciPort,
+                },
+                SerialPortInfo {
+                    port_name: "COM2".to_string(),
+                    port_type: SerialPortType::UsbPort(UsbPortInfo {
+                        vid: 0x1234,
+                        pid: 0x5678,
+                        serial_number: None,
+                        manufacturer: None,
+                        product: None,
+                    }),
+                },
+            ]);
+        });
+
+        assert_eq!(autodetect_diag_port(), Some("COM2".to_string()));
+
+        // Clean up
+        MOCK_AVAILABLE_PORTS.with(|m| *m.borrow_mut() = Ok(vec![]));
+    }
+
+    #[test]
+    fn test_autodetect_diag_port_no_usb() {
+        MOCK_AVAILABLE_PORTS.with(|m| {
+            *m.borrow_mut() = Ok(vec![
+                SerialPortInfo {
+                    port_name: "COM1".to_string(),
+                    port_type: SerialPortType::PciPort,
+                },
+            ]);
+        });
+
+        assert_eq!(autodetect_diag_port(), None);
+
+        // Clean up
+        MOCK_AVAILABLE_PORTS.with(|m| *m.borrow_mut() = Ok(vec![]));
+    }
+
+    #[test]
+    fn test_autodetect_diag_port_error() {
+        MOCK_AVAILABLE_PORTS.with(|m| {
+            *m.borrow_mut() = Err(serialport::Error::new(
+                serialport::ErrorKind::Unknown,
+                "Simulated error",
+            ));
+        });
+
+        assert_eq!(autodetect_diag_port(), None);
+
+        // Clean up
+        MOCK_AVAILABLE_PORTS.with(|m| *m.borrow_mut() = Ok(vec![]));
+    }
 }
