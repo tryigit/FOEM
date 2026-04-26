@@ -76,3 +76,26 @@ pub fn apply(ctx: &egui::Context) {
     .into();
     ctx.set_style(style);
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_apply_theme() {
+        let ctx = egui::Context::default();
+
+        // Initial state
+
+
+        // Apply our theme
+        apply(&ctx);
+
+        // Verify it was applied by checking a couple of properties
+        let new_style = ctx.style();
+        assert_eq!(new_style.visuals.panel_fill, BG);
+        assert_eq!(new_style.visuals.window_fill, CARD_BG);
+        assert_eq!(new_style.visuals.override_text_color, Some(FG));
+        assert_eq!(new_style.visuals.widgets.active.bg_fill, ACCENT);
+    }
+}

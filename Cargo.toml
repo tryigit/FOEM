@@ -22,3 +22,6 @@ shellexpand = "3.1.2"
 opt-level = "s"
 lto = true
 strip = true
+
+[dev-dependencies]
+eframe = "0.29.1"
