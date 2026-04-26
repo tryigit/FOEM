@@ -2,6 +2,7 @@
 /// backup/restore, APK management, bloatware removal, screenshots.
 use super::{adb, adb_shell};
 use crate::exec::{normalize_local_path, normalize_remote_path};
+use std::fmt::Write;
 
 // -- ADB Shell --
 
@@ -370,11 +371,7 @@ where
 ",
             );
             for line in val.lines().take(20) {
-                output.push_str(&format!(
-                    "  {}
-",
-                    line
-                ));
+                let _ = writeln!(output, "  {}", line);
             }
             output
         }
