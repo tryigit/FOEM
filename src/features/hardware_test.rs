@@ -3,6 +3,7 @@
 /// Battery, screen, sensors, camera, audio, connectivity,
 /// biometrics, USB, vibration, and general hardware tests.
 use super::adb_shell;
+use std::fmt::Write;
 
 /// Run all available hardware tests.
 pub fn run_all(serial: &str) -> String {
@@ -53,11 +54,7 @@ pub fn run_all(serial: &str) -> String {
 
     let mut script = String::new();
     for cmd in &commands {
-        script.push_str(&format!(
-            "{}; echo B_MARKER_FOEM_$?;
-",
-            cmd
-        ));
+        let _ = writeln!(script, "{}; echo B_MARKER_FOEM_$?;", cmd);
     }
 
     match adb_shell(serial, &["sh", "-c", &script]) {
@@ -96,34 +93,22 @@ Battery Status:
 ",
             );
             if parts[0].1 == 0 {
-                output.push_str(&format!(
-                    "{}
-",
-                    parts[0].0
-                ));
+                let _ = writeln!(output, "{}", parts[0].0);
             } else {
-                output.push_str(&format!(
-                    "Battery check failed: exit status {}
-",
-                    parts[0].1
-                ));
+                let _ = writeln!(output, "Battery check failed: exit status {}", parts[0].1);
             }
 
             if parts[1].1 == 0 {
                 let val = &parts[1].0;
                 let summary = if val.len() > 500 { &val[..500] } else { val };
-                output.push_str(&format!(
+                let _ = writeln!(
+                    output,
                     "Battery Statistics (summary):
-{}
-",
+{}",
                     summary
-                ));
+                );
             } else {
-                output.push_str(&format!(
-                    "Battery stats failed: exit status {}
-",
-                    parts[1].1
-                ));
+                let _ = writeln!(output, "Battery stats failed: exit status {}", parts[1].1);
             }
 
             // -- Sensors --
@@ -140,11 +125,7 @@ Sensor Report:
                         || trimmed.contains("name=")
                         || trimmed.contains("vendor=")
                     {
-                        output.push_str(&format!(
-                            "  {}
-",
-                            trimmed
-                        ));
+                        let _ = writeln!(output, "  {}", trimmed);
                         count += 1;
                         if count > 30 {
                             output.push_str(
@@ -162,12 +143,12 @@ Sensor Report:
                     );
                 }
             } else {
-                output.push_str(&format!(
+                let _ = writeln!(
+                    output,
                     "
-Sensor test failed: exit status {}
-",
+Sensor test failed: exit status {}",
                     parts[2].1
-                ));
+                );
             }
 
             // -- Display --
@@ -177,11 +158,7 @@ Display Test:
 ",
             );
             if parts[3].1 == 0 {
-                output.push_str(&format!(
-                    "  Resolution: {}
-",
-                    parts[3].0
-                ));
+                let _ = writeln!(output, "  Resolution: {}", parts[3].0);
             } else {
                 output.push_str(
                     "  Resolution: unknown
@@ -190,11 +167,7 @@ Display Test:
             }
 
             if parts[4].1 == 0 {
-                output.push_str(&format!(
-                    "  Density: {}
-",
-                    parts[4].0
-                ));
+                let _ = writeln!(output, "  Density: {}", parts[4].0);
             } else {
                 output.push_str(
                     "  Density: unknown
@@ -209,11 +182,7 @@ Display Test:
                         || trimmed.contains("mBaseDisplayInfo")
                         || trimmed.contains("fps")
                     {
-                        output.push_str(&format!(
-                            "  {}
-",
-                            trimmed
-                        ));
+                        let _ = writeln!(output, "  {}", trimmed);
                     }
                 }
             } else {
@@ -225,11 +194,7 @@ Display Test:
 
             if parts[6].1 == 0 {
                 let touch_count = parts[6].0.matches("ABS_MT_POSITION").count();
-                output.push_str(&format!(
-                    "  Touch input devices: {} axes found
-",
-                    touch_count
-                ));
+                let _ = writeln!(output, "  Touch input devices: {} axes found", touch_count);
             } else {
                 output.push_str(
                     "  Touch info not available.
@@ -251,11 +216,7 @@ Audio Test:
                         || trimmed.contains("SPEAKER")
                         || trimmed.contains("volume")
                     {
-                        output.push_str(&format!(
-                            "  {}
-",
-                            trimmed
-                        ));
+                        let _ = writeln!(output, "  {}", trimmed);
                     }
                 }
             } else {
@@ -280,15 +241,15 @@ Connectivity Test:
             );
             if parts[9].1 == 0 {
                 let enabled = parts[9].0.contains("Wi-Fi is enabled");
-                output.push_str(&format!(
-                    "  WiFi: {}
-",
+                let _ = writeln!(
+                    output,
+                    "  WiFi: {}",
                     if enabled {
                         "enabled"
                     } else {
                         "disabled/unknown"
                     }
-                ));
+                );
             } else {
                 output.push_str(
                     "  WiFi: check failed
@@ -298,15 +259,15 @@ Connectivity Test:
 
             if parts[10].1 == 0 {
                 let enabled = parts[10].0.contains("enabled: true");
-                output.push_str(&format!(
-                    "  Bluetooth: {}
-",
+                let _ = writeln!(
+                    output,
+                    "  Bluetooth: {}",
                     if enabled {
                         "enabled"
                     } else {
                         "disabled/unknown"
                     }
-                ));
+                );
             } else {
                 output.push_str(
                     "  Bluetooth: check failed
@@ -316,11 +277,11 @@ Connectivity Test:
 
             if parts[11].1 == 0 {
                 let has_gps = parts[11].0.contains("gps") || parts[11].0.contains("GPS");
-                output.push_str(&format!(
-                    "  GPS: {}
-",
+                let _ = writeln!(
+                    output,
+                    "  GPS: {}",
                     if has_gps { "available" } else { "not detected" }
-                ));
+                );
             } else {
                 output.push_str(
                     "  GPS: check failed
@@ -330,11 +291,11 @@ Connectivity Test:
 
             if parts[12].1 == 0 {
                 let has_nfc = parts[12].0.contains("mState=") || parts[12].0.contains("NFC");
-                output.push_str(&format!(
-                    "  NFC: {}
-",
+                let _ = writeln!(
+                    output,
+                    "  NFC: {}",
                     if has_nfc { "available" } else { "not detected" }
-                ));
+                );
             } else {
                 output.push_str(
                     "  NFC: not available
@@ -350,28 +311,20 @@ Camera Report:
 ",
                 );
                 let cam_count = parts[13].0.matches("Camera ID").count();
-                output.push_str(&format!(
-                    "  Cameras detected: {}
-",
-                    cam_count
-                ));
+                let _ = writeln!(output, "  Cameras detected: {}", cam_count);
                 for line in parts[13].0.lines() {
                     let trimmed = line.trim();
                     if trimmed.contains("Camera ID") || trimmed.contains("facing") {
-                        output.push_str(&format!(
-                            "  {}
-",
-                            trimmed
-                        ));
+                        let _ = writeln!(output, "  {}", trimmed);
                     }
                 }
             } else {
-                output.push_str(&format!(
+                let _ = writeln!(
+                    output,
                     "
-Camera test failed: exit status {}
-",
+Camera test failed: exit status {}",
                     parts[13].1
-                ));
+                );
             }
 
             // -- Biometrics --
@@ -382,15 +335,15 @@ Biometrics Test:
             );
             if parts[14].1 == 0 {
                 let has_fp = parts[14].0.contains("HAL") || parts[14].0.contains("fingerprint");
-                output.push_str(&format!(
-                    "  Fingerprint: {}
-",
+                let _ = writeln!(
+                    output,
+                    "  Fingerprint: {}",
                     if has_fp {
                         "sensor detected"
                     } else {
                         "not available"
                     }
-                ));
+                );
             } else {
                 output.push_str(
                     "  Fingerprint: check failed
@@ -400,15 +353,15 @@ Biometrics Test:
 
             if parts[15].1 == 0 {
                 let has_face = !parts[15].0.is_empty() && !parts[15].0.contains("not found");
-                output.push_str(&format!(
-                    "  Face Unlock: {}
-",
+                let _ = writeln!(
+                    output,
+                    "  Face Unlock: {}",
                     if has_face {
                         "available"
                     } else {
                         "not available"
                     }
-                ));
+                );
             } else {
                 output.push_str(
                     "  Face Unlock: not available
@@ -424,11 +377,7 @@ Storage Report:
             );
             if parts[16].1 == 0 {
                 for line in parts[16].0.lines().take(10) {
-                    output.push_str(&format!(
-                        "  {}
-",
-                        line
-                    ));
+                    let _ = writeln!(output, "  {}", line);
                 }
             } else {
                 output.push_str(
@@ -438,11 +387,7 @@ Storage Report:
             }
 
             if parts[17].1 == 0 {
-                output.push_str(&format!(
-                    "  Primary storage UUID: {}
-",
-                    parts[17].0
-                ));
+                let _ = writeln!(output, "  Primary storage UUID: {}", parts[17].0);
             }
 
             // -- USB --
@@ -452,11 +397,7 @@ USB Status:
 ",
             );
             if parts[18].1 == 0 {
-                output.push_str(&format!(
-                    "  USB mode: {}
-",
-                    parts[18].0
-                ));
+                let _ = writeln!(output, "  USB mode: {}", parts[18].0);
             } else {
                 output.push_str(
                     "  USB mode: unknown
@@ -465,11 +406,7 @@ USB Status:
             }
 
             if parts[19].1 == 0 && !parts[19].0.is_empty() {
-                output.push_str(&format!(
-                    "  Controller: {}
-",
-                    parts[19].0
-                ));
+                let _ = writeln!(output, "  Controller: {}", parts[19].0);
             }
 
             // -- Telephony --
@@ -490,27 +427,14 @@ Telephony Status:
             for (i, label) in labels.iter().enumerate() {
                 let p_idx = 20 + i;
                 if parts[p_idx].1 == 0 && !parts[p_idx].0.trim().is_empty() {
-                    output.push_str(&format!(
-                        "  {}: {}
-",
-                        label,
-                        parts[p_idx].0.trim()
-                    ));
+                    let _ = writeln!(output, "  {}: {}", label, parts[p_idx].0.trim());
                 } else {
-                    output.push_str(&format!(
-                        "  {}: --
-",
-                        label
-                    ));
+                    let _ = writeln!(output, "  {}: --", label);
                 }
             }
         }
         Err(e) => {
-            output.push_str(&format!(
-                "Hardware diagnostics failed to execute: {}
-",
-                e
-            ));
+            let _ = writeln!(output, "Hardware diagnostics failed to execute: {}", e);
         }
     }
 
@@ -577,7 +501,9 @@ pub fn test_display(serial: &str) -> String {
 
             // 1. wm size
             match results.first().unwrap_or(&Err(())) {
-                Ok(val) => output.push_str(&format!("  Resolution: {}\n", val)),
+                Ok(val) => {
+                    let _ = writeln!(output, "  Resolution: {}", val);
+                }
                 Err(_) => output.push_str("  Resolution: unknown\n"),
             }
 
@@ -596,7 +522,7 @@ pub fn test_display(serial: &str) -> String {
                             || trimmed.contains("mBaseDisplayInfo")
                             || trimmed.contains("fps")
                         {
-                            output.push_str(&format!("  {}\n", trimmed));
+                            let _ = writeln!(output, "  {}", trimmed);
                         }
                     }
                 }
@@ -607,10 +533,7 @@ pub fn test_display(serial: &str) -> String {
             match results.get(3).unwrap_or(&Err(())) {
                 Ok(val) => {
                     let touch_count = val.matches("ABS_MT_POSITION").count();
-                    output.push_str(&format!(
-                        "  Touch input devices: {} axes found\n",
-                        touch_count
-                    ));
+                    let _ = writeln!(output, "  Touch input devices: {} axes found", touch_count);
                 }
                 Err(_) => output.push_str("  Touch info not available.\n"),
             }
@@ -673,7 +596,7 @@ pub fn test_audio(serial: &str) -> String {
                     || trimmed.contains("SPEAKER")
                     || trimmed.contains("volume")
                 {
-                    output.push_str(&format!("  {}\n", trimmed));
+                    let _ = writeln!(output, "  {}", trimmed);
                 }
             }
         }
@@ -695,14 +618,15 @@ pub fn test_connectivity(serial: &str) -> String {
     match adb_shell(serial, &["dumpsys", "wifi"]) {
         Ok(val) => {
             let enabled = val.contains("Wi-Fi is enabled");
-            output.push_str(&format!(
-                "  WiFi: {}\n",
+            let _ = writeln!(
+                output,
+                "  WiFi: {}",
                 if enabled {
                     "enabled"
                 } else {
                     "disabled/unknown"
                 }
-            ));
+            );
         }
         Err(_) => output.push_str("  WiFi: check failed\n"),
     }
@@ -710,14 +634,15 @@ pub fn test_connectivity(serial: &str) -> String {
     match adb_shell(serial, &["dumpsys", "bluetooth_manager"]) {
         Ok(val) => {
             let enabled = val.contains("enabled: true");
-            output.push_str(&format!(
-                "  Bluetooth: {}\n",
+            let _ = writeln!(
+                output,
+                "  Bluetooth: {}",
                 if enabled {
                     "enabled"
                 } else {
                     "disabled/unknown"
                 }
-            ));
+            );
         }
         Err(_) => output.push_str("  Bluetooth: check failed\n"),
     }
@@ -725,10 +650,11 @@ pub fn test_connectivity(serial: &str) -> String {
     match adb_shell(serial, &["dumpsys", "location"]) {
         Ok(val) => {
             let has_gps = val.contains("gps") || val.contains("GPS");
-            output.push_str(&format!(
-                "  GPS: {}\n",
+            let _ = writeln!(
+                output,
+                "  GPS: {}",
                 if has_gps { "available" } else { "not detected" }
-            ));
+            );
         }
         Err(_) => output.push_str("  GPS: check failed\n"),
     }
@@ -736,10 +662,11 @@ pub fn test_connectivity(serial: &str) -> String {
     match adb_shell(serial, &["dumpsys", "nfc"]) {
         Ok(val) => {
             let has_nfc = val.contains("mState=") || val.contains("NFC");
-            output.push_str(&format!(
-                "  NFC: {}\n",
+            let _ = writeln!(
+                output,
+                "  NFC: {}",
                 if has_nfc { "available" } else { "not detected" }
-            ));
+            );
         }
         Err(_) => output.push_str("  NFC: not available\n"),
     }
@@ -754,11 +681,11 @@ pub fn test_cameras(serial: &str) -> String {
         Ok(val) => {
             let mut output = String::from("Camera Report:\n");
             let cam_count = val.matches("Camera ID").count();
-            output.push_str(&format!("  Cameras detected: {}\n", cam_count));
+            let _ = writeln!(output, "  Cameras detected: {}", cam_count);
             for line in val.lines() {
                 let trimmed = line.trim();
                 if trimmed.contains("Camera ID") || trimmed.contains("facing") {
-                    output.push_str(&format!("  {}\n", trimmed));
+                    let _ = writeln!(output, "  {}", trimmed);
                 }
             }
             output
@@ -776,14 +703,15 @@ pub fn test_biometrics(serial: &str) -> String {
     match adb_shell(serial, &["dumpsys", "fingerprint"]) {
         Ok(val) => {
             let has_fp = val.contains("HAL") || val.contains("fingerprint");
-            output.push_str(&format!(
-                "  Fingerprint: {}\n",
+            let _ = writeln!(
+                output,
+                "  Fingerprint: {}",
                 if has_fp {
                     "sensor detected"
                 } else {
                     "not available"
                 }
-            ));
+            );
         }
         Err(_) => output.push_str("  Fingerprint: check failed\n"),
     }
@@ -791,14 +719,15 @@ pub fn test_biometrics(serial: &str) -> String {
     match adb_shell(serial, &["dumpsys", "face"]) {
         Ok(val) => {
             let has_face = !val.is_empty() && !val.contains("not found");
-            output.push_str(&format!(
-                "  Face Unlock: {}\n",
+            let _ = writeln!(
+                output,
+                "  Face Unlock: {}",
                 if has_face {
                     "available"
                 } else {
                     "not available"
                 }
-            ));
+            );
         }
         Err(_) => output.push_str("  Face Unlock: not available\n"),
     }
@@ -813,14 +742,14 @@ pub fn test_storage(serial: &str) -> String {
     match adb_shell(serial, &["df", "-h"]) {
         Ok(val) => {
             for line in val.lines().take(10) {
-                output.push_str(&format!("  {}\n", line));
+                let _ = writeln!(output, "  {}", line);
             }
         }
         Err(_) => output.push_str("  Storage info not available.\n"),
     }
     // Internal storage health
     if let Ok(val) = adb_shell(serial, &["sm", "get-primary-storage-uuid"]) {
-        output.push_str(&format!("  Primary storage UUID: {}\n", val));
+        let _ = writeln!(output, "  Primary storage UUID: {}", val);
     }
     output
 }
@@ -839,7 +768,7 @@ pub fn test_usb(serial: &str) -> String {
             if let Some(state) = lines.next() {
                 let val = state.trim();
                 if !val.is_empty() {
-                    output.push_str(&format!("  USB mode: {}\n", val));
+                    let _ = writeln!(output, "  USB mode: {}", val);
                 } else {
                     output.push_str("  USB mode: unknown\n");
                 }
@@ -851,7 +780,7 @@ pub fn test_usb(serial: &str) -> String {
             if let Some(controller) = lines.next() {
                 let val = controller.trim();
                 if !val.is_empty() {
-                    output.push_str(&format!("  Controller: {}\n", val));
+                    let _ = writeln!(output, "  Controller: {}", val);
                 }
             }
         }
@@ -879,7 +808,7 @@ pub fn test_telephony(serial: &str) -> String {
     // Batch all getprop commands into a single shell execution
     let mut script = String::new();
     for (_, prop) in &props {
-        script.push_str(&format!("getprop {}; ", prop));
+        let _ = writeln!(script, "getprop {}; ", prop);
     }
 
     match adb_shell(serial, &["sh", "-c", &script]) {
@@ -887,15 +816,15 @@ pub fn test_telephony(serial: &str) -> String {
             let lines: Vec<&str> = res.lines().collect();
             for (i, (label, _)) in props.iter().enumerate() {
                 if i < lines.len() && !lines[i].trim().is_empty() {
-                    output.push_str(&format!("  {}: {}\n", label, lines[i].trim()));
+                    let _ = writeln!(output, "  {}: {}", label, lines[i].trim());
                 } else {
-                    output.push_str(&format!("  {}: --\n", label));
+                    let _ = writeln!(output, "  {}: --", label);
                 }
             }
         }
         Err(_) => {
             for (label, _) in &props {
-                output.push_str(&format!("  {}: --\n", label));
+                let _ = writeln!(output, "  {}: --", label);
             }
         }
     }

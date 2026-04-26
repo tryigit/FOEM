@@ -483,13 +483,13 @@ impl FOEMApp {
                         self.log = "Connect a device first.".into();
                     }
                 }
-                if matches!(mfr, features::Manufacturer::Xiaomi) {
-                    if btn(ui, "Xiaomi Modem Test (MTB)") {
-                        if let Ok(s) = self.require_device() {
-                            self.log = features::repair::open_xiaomi_mtb(s);
-                        } else {
-                            self.log = "Connect a device first.".into();
-                        }
+                if matches!(mfr, features::Manufacturer::Xiaomi)
+                    && btn(ui, "Xiaomi Modem Test (MTB)")
+                {
+                    if let Ok(s) = self.require_device() {
+                        self.log = features::repair::open_xiaomi_mtb(s);
+                    } else {
+                        self.log = "Connect a device first.".into();
                     }
                 }
             });
