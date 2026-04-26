@@ -76,7 +76,19 @@ impl KnowledgeBase {
     }
 }
 
+
+#[cfg(test)]
+thread_local! {
+    pub static MOCK_KB_PATH: std::cell::RefCell<Option<PathBuf>> = std::cell::RefCell::new(None);
+}
+
 fn kb_path() -> PathBuf {
+    #[cfg(test)]
+    {
+        if let Some(path) = MOCK_KB_PATH.with(|m| m.borrow().clone()) {
+            return path;
+        }
+    }
     if let Ok(home) = std::env::var("HOME") {
         return PathBuf::from(home)
             .join(".foem")
@@ -279,4 +291,50 @@ pub fn autodetect_diag_port() -> Option<String> {
         }
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::error::Error;
+
+    struct KbPathMockGuard;
+
+    impl Drop for KbPathMockGuard {
+        fn drop(&mut self) {
+            MOCK_KB_PATH.with(|m| *m.borrow_mut() = None);
+        }
+    }
+
+    #[test]
+    fn test_knowledge_base_save_and_load() -> Result<(), Box<dyn Error>> {
+        let dir = std::env::temp_dir();
+        let db_path = dir.join("test_kb_save.json");
+
+        MOCK_KB_PATH.with(|m| *m.borrow_mut() = Some(db_path.clone()));
+        let _guard = KbPathMockGuard; // Ensure cleanup
+
+        let mut kb = KnowledgeBase {
+            learned: HashMap::new(),
+        };
+
+        let step = ExploitStep {
+            kind: StepKind::AdbShell,
+            payload: "echo test".to_string(),
+            success_markers: vec!["test".to_string()],
+            failure_markers: vec![],
+            retries: 1,
+            timeout_ms: None,
+        };
+        kb.learn("test_fingerprint", step.clone());
+
+        assert!(db_path.exists());
+
+        let loaded_kb = KnowledgeBase::load();
+        assert_eq!(loaded_kb.learned.len(), 1);
+        let loaded_step = loaded_kb.recall("test_fingerprint").ok_or("missing step")?;
+        assert_eq!(loaded_step.payload, "echo test");
+
+        Ok(())
+    }
 }
