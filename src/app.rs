@@ -1028,237 +1028,248 @@ impl FOEMApp {
         heading(ui, "Tools");
 
         egui::ScrollArea::vertical().show(ui, |ui| {
-            // ADB Shell
-            section(ui, "ADB Shell");
-            ui.horizontal_wrapped(|ui| {
-                ui.add(
-                    egui::TextEdit::singleline(&mut self.adb_command)
-                        .desired_width(400.0)
-                        .hint_text("Enter ADB shell command..."),
-                );
-                if btn_accent(ui, "Execute") {
-                    if let Ok(s) = self.require_device() {
-                        self.log = features::tools::execute_shell(s, &self.adb_command);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-            });
-
-            // Logcat
-            section(ui, "Logcat");
-            ui.horizontal_wrapped(|ui| {
-                if btn(ui, "Logcat (100 lines)") {
-                    if let Ok(s) = self.require_device() {
-                        self.log = features::tools::capture_logcat(s, 100);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-                if btn(ui, "Clear Logcat") {
-                    if let Ok(s) = self.require_device() {
-                        self.log = features::tools::clear_logcat(s);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-            });
-
-            // File Manager
-            section(ui, "File Manager");
-            ui.horizontal_wrapped(|ui| {
-                ui.label(
-                    egui::RichText::new("Remote:")
-                        .size(11.0)
-                        .color(theme::SECONDARY),
-                );
-                ui.add(egui::TextEdit::singleline(&mut self.remote_path).desired_width(200.0));
-                ui.label(
-                    egui::RichText::new("Local:")
-                        .size(11.0)
-                        .color(theme::SECONDARY),
-                );
-                ui.add(egui::TextEdit::singleline(&mut self.local_path).desired_width(200.0));
-            });
-            ui.horizontal_wrapped(|ui| {
-                if btn(ui, "Pull File") {
-                    if let Ok(s) = self.require_device() {
-                        self.log =
-                            features::tools::pull_file(s, &self.remote_path, &self.local_path);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-                if btn(ui, "Push File") {
-                    if let Ok(s) = self.require_device() {
-                        self.log =
-                            features::tools::push_file(s, &self.local_path, &self.remote_path);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-                if btn(ui, "List Files") {
-                    if let Ok(s) = self.require_device() {
-                        self.log = features::tools::list_files(s, &self.remote_path);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-            });
-
-            // APK & Packages
-            section(ui, "APK & Packages");
-            ui.horizontal_wrapped(|ui| {
-                ui.label(
-                    egui::RichText::new("Filter:")
-                        .size(11.0)
-                        .color(theme::SECONDARY),
-                );
-                ui.add(egui::TextEdit::singleline(&mut self.package_filter).desired_width(180.0));
-                if btn(ui, "Install APK") {
-                    if let Ok(s) = self.require_device() {
-                        self.log = features::tools::install_apk(s, &self.local_path);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-            });
-            ui.horizontal_wrapped(|ui| {
-                if btn(ui, "List All") {
-                    if let Ok(s) = self.require_device() {
-                        self.log = features::tools::list_packages(s, &self.package_filter);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-                if btn(ui, "User Apps") {
-                    if let Ok(s) = self.require_device() {
-                        self.log = features::tools::list_user_packages(s);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-                if btn(ui, "System Apps") {
-                    if let Ok(s) = self.require_device() {
-                        self.log = features::tools::list_system_packages(s);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-                if btn(ui, "Disable Package") {
-                    if let Ok(s) = self.require_device() {
-                        self.log = features::tools::disable_package(s, &self.package_filter);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-                if btn(ui, "Enable Package") {
-                    if let Ok(s) = self.require_device() {
-                        self.log = features::tools::enable_package(s, &self.package_filter);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-            });
-
-            // Backup & Restore
-            section(ui, "Backup & Restore");
-            ui.horizontal_wrapped(|ui| {
-                if btn(ui, "Full Backup") {
-                    if let Ok(s) = self.require_device() {
-                        self.log = features::tools::full_backup(s, &self.local_path);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-                if btn(ui, "Full Restore") {
-                    if let Ok(s) = self.require_device() {
-                        self.log = features::tools::full_restore(s, &self.local_path);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-                if btn(ui, "Screenshot") {
-                    if let Ok(s) = self.require_device() {
-                        self.log = features::tools::take_screenshot(s, &self.local_path);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-                if btn(ui, "Screen Mirror (scrcpy)") {
-                    if let Ok(s) = self.require_device() {
-                        self.log = features::tools::start_scrcpy(s);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-            });
-
-            // System
-            section(ui, "System");
-            ui.horizontal_wrapped(|ui| {
-                if btn(ui, "Reboot") {
-                    if let Ok(s) = self.require_device() {
-                        self.log = features::tools::reboot(s);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-                if btn(ui, "Recovery") {
-                    if let Ok(s) = self.require_device() {
-                        self.log = features::tools::reboot_recovery(s);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-                if btn(ui, "Bootloader") {
-                    if let Ok(s) = self.require_device() {
-                        self.log = features::tools::reboot_bootloader(s);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-                if btn(ui, "Dev Options") {
-                    if let Ok(s) = self.require_device() {
-                        self.log = features::tools::enable_developer_options(s);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-            });
-            ui.horizontal_wrapped(|ui| {
-                if btn(ui, "Uptime") {
-                    if let Ok(s) = self.require_device() {
-                        self.log = features::tools::get_uptime(s);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-                if btn(ui, "Memory") {
-                    if let Ok(s) = self.require_device() {
-                        self.log = features::tools::get_memory_info(s);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-                if btn(ui, "CPU") {
-                    if let Ok(s) = self.require_device() {
-                        self.log = features::tools::get_cpu_info(s);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-                if btn(ui, "Processes") {
-                    if let Ok(s) = self.require_device() {
-                        self.log = features::tools::get_processes(s);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-            });
+            self.tools_adb_shell(ui);
+            self.tools_logcat(ui);
+            self.tools_file_manager(ui);
+            self.tools_apk_packages(ui);
+            self.tools_backup_restore(ui);
+            self.tools_system(ui);
 
             ui.add_space(8.0);
             log_area(ui, &self.log);
+        });
+    }
+
+    fn tools_adb_shell(&mut self, ui: &mut egui::Ui) {
+        section(ui, "ADB Shell");
+        ui.horizontal_wrapped(|ui| {
+            ui.add(
+                egui::TextEdit::singleline(&mut self.adb_command)
+                    .desired_width(400.0)
+                    .hint_text("Enter ADB shell command..."),
+            );
+            if btn_accent(ui, "Execute") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::tools::execute_shell(s, &self.adb_command);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
+        });
+    }
+
+    fn tools_logcat(&mut self, ui: &mut egui::Ui) {
+        section(ui, "Logcat");
+        ui.horizontal_wrapped(|ui| {
+            if btn(ui, "Logcat (100 lines)") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::tools::capture_logcat(s, 100);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
+            if btn(ui, "Clear Logcat") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::tools::clear_logcat(s);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
+        });
+    }
+
+    fn tools_file_manager(&mut self, ui: &mut egui::Ui) {
+        section(ui, "File Manager");
+        ui.horizontal_wrapped(|ui| {
+            ui.label(
+                egui::RichText::new("Remote:")
+                    .size(11.0)
+                    .color(theme::SECONDARY),
+            );
+            ui.add(egui::TextEdit::singleline(&mut self.remote_path).desired_width(200.0));
+            ui.label(
+                egui::RichText::new("Local:")
+                    .size(11.0)
+                    .color(theme::SECONDARY),
+            );
+            ui.add(egui::TextEdit::singleline(&mut self.local_path).desired_width(200.0));
+        });
+        ui.horizontal_wrapped(|ui| {
+            if btn(ui, "Pull File") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::tools::pull_file(s, &self.remote_path, &self.local_path);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
+            if btn(ui, "Push File") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::tools::push_file(s, &self.local_path, &self.remote_path);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
+            if btn(ui, "List Files") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::tools::list_files(s, &self.remote_path);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
+        });
+    }
+
+    fn tools_apk_packages(&mut self, ui: &mut egui::Ui) {
+        section(ui, "APK & Packages");
+        ui.horizontal_wrapped(|ui| {
+            ui.label(
+                egui::RichText::new("Filter:")
+                    .size(11.0)
+                    .color(theme::SECONDARY),
+            );
+            ui.add(egui::TextEdit::singleline(&mut self.package_filter).desired_width(180.0));
+            if btn(ui, "Install APK") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::tools::install_apk(s, &self.local_path);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
+        });
+        ui.horizontal_wrapped(|ui| {
+            if btn(ui, "List All") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::tools::list_packages(s, &self.package_filter);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
+            if btn(ui, "User Apps") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::tools::list_user_packages(s);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
+            if btn(ui, "System Apps") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::tools::list_system_packages(s);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
+            if btn(ui, "Disable Package") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::tools::disable_package(s, &self.package_filter);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
+            if btn(ui, "Enable Package") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::tools::enable_package(s, &self.package_filter);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
+        });
+    }
+
+    fn tools_backup_restore(&mut self, ui: &mut egui::Ui) {
+        section(ui, "Backup & Restore");
+        ui.horizontal_wrapped(|ui| {
+            if btn(ui, "Full Backup") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::tools::full_backup(s, &self.local_path);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
+            if btn(ui, "Full Restore") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::tools::full_restore(s, &self.local_path);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
+            if btn(ui, "Screenshot") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::tools::take_screenshot(s, &self.local_path);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
+            if btn(ui, "Screen Mirror (scrcpy)") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::tools::start_scrcpy(s);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
+        });
+    }
+
+    fn tools_system(&mut self, ui: &mut egui::Ui) {
+        section(ui, "System");
+        ui.horizontal_wrapped(|ui| {
+            if btn(ui, "Reboot") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::tools::reboot(s);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
+            if btn(ui, "Recovery") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::tools::reboot_recovery(s);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
+            if btn(ui, "Bootloader") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::tools::reboot_bootloader(s);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
+            if btn(ui, "Dev Options") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::tools::enable_developer_options(s);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
+        });
+        ui.horizontal_wrapped(|ui| {
+            if btn(ui, "Uptime") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::tools::get_uptime(s);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
+            if btn(ui, "Memory") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::tools::get_memory_info(s);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
+            if btn(ui, "CPU") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::tools::get_cpu_info(s);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
+            if btn(ui, "Processes") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::tools::get_processes(s);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
         });
     }
 
