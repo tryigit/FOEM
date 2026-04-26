@@ -134,6 +134,12 @@ mod tests {
     }
 
     #[test]
+    fn test_diagnostics_new_initialization() {
+        let diagnostics = DeviceDiagnostics::new();
+        assert!(diagnostics.device_serial.is_none());
+    }
+
+    #[test]
     fn test_new() {
         let diagnostics = DeviceDiagnostics::new();
         assert_eq!(diagnostics.device_serial, None);
