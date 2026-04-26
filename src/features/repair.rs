@@ -931,6 +931,117 @@ pub fn enable_diag_port(serial: &str, manufacturer: &Manufacturer) -> String {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn read_imei_success() {
+        crate::exec::MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args, _| {
+                if program == "adb" {
+                    let cmd = args.join(" ");
+                    if cmd.contains("shell am start -a android.intent.action.DIAL") {
+                        return Ok("Starting: Intent { action=android.intent.action.DIAL ... }".to_string());
+                    }
+                    if cmd.contains("sh -c") {
+                        return Ok("123456789012345\nB_MARKER_0\nB_MARKER_0\nB_MARKER_0\n".to_string());
+                    }
+                }
+                Ok("".to_string())
+            }));
+        });
+
+        let output = super::read_imei("serial123");
+        assert!(output.contains("123456789012345"));
+        assert!(output.contains("Dialer IMEI check launched"));
+
+        crate::exec::MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+    }
+
+    #[test]
+    fn read_imei_empty_response() {
+        crate::exec::MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args, _| {
+                if program == "adb" {
+                    let cmd = args.join(" ");
+                    if cmd.contains("shell am start -a android.intent.action.DIAL") {
+                        return Err("error".to_string());
+                    }
+                    if cmd.contains("sh -c") {
+                        return Ok("B_MARKER_0\nB_MARKER_0\nB_MARKER_0\n".to_string());
+                    }
+                }
+                Ok("".to_string())
+            }));
+        });
+
+        let output = super::read_imei("serial123");
+        assert!(output.contains("service call -- empty response"));
+        assert!(output.contains("getprop -- empty response"));
+        assert!(output.contains("dumpsys -- empty response"));
+        assert!(!output.contains("Dialer IMEI check launched"));
+
+        crate::exec::MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+    }
+
+    #[test]
+    fn read_imei_error_response() {
+        crate::exec::MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args, _| {
+                if program == "adb" {
+                    let cmd = args.join(" ");
+                    if cmd.contains("shell am start -a android.intent.action.DIAL") {
+                        return Err("error".to_string());
+                    }
+                    if cmd.contains("sh -c") {
+                        return Err("device offline".to_string());
+                    }
+                }
+                Ok("".to_string())
+            }));
+        });
+
+        let output = super::read_imei("serial123");
+        assert!(output.contains("service call -- error: device offline"));
+        assert!(output.contains("getprop -- error: device offline"));
+        assert!(output.contains("dumpsys -- error: device offline"));
+
+        crate::exec::MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     use super::{build_imei_write_commands, parse_imei_input};
     use crate::features::Manufacturer;
 
