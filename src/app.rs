@@ -465,168 +465,179 @@ impl FOEMApp {
         let mfr = *self.manufacturer();
 
         egui::ScrollArea::vertical().show(ui, |ui| {
-            // IMEI
-            section(ui, "IMEI Management");
-            ui.horizontal_wrapped(|ui| {
-                if btn(ui, "Read IMEI") {
-                    if let Ok(s) = self.require_device() {
-                        self.log = features::repair::read_imei(s);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-
-                if btn(ui, "Backup IMEI") {
-                    if let Ok(s) = self.require_device() {
-                        self.log = features::repair::backup_imei(s);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-                if matches!(mfr, features::Manufacturer::Xiaomi) {
-                    if btn(ui, "Xiaomi Modem Test (MTB)") {
-                        if let Ok(s) = self.require_device() {
-                            self.log = features::repair::open_xiaomi_mtb(s);
-                        } else {
-                            self.log = "Connect a device first.".into();
-                        }
-                    }
-                }
-            });
-            ui.horizontal_wrapped(|ui| {
-                ui.label(
-                    egui::RichText::new("IMEI 1:")
-                        .size(12.0)
-                        .color(theme::SECONDARY),
-                );
-                ui.add(egui::TextEdit::singleline(&mut self.imei_input).desired_width(180.0));
-                ui.label(
-                    egui::RichText::new("IMEI 2 (optional):")
-                        .size(12.0)
-                        .color(theme::SECONDARY),
-                );
-                ui.add(egui::TextEdit::singleline(&mut self.imei_input_2).desired_width(180.0));
-                if btn(ui, "Write IMEI") {
-                    if let Ok(s) = self.require_device() {
-                        let imei_payload = if self.imei_input_2.trim().is_empty() {
-                            self.imei_input.clone()
-                        } else {
-                            format!("{},{}", self.imei_input.trim(), self.imei_input_2.trim())
-                        };
-                        self.log = features::repair::write_imei(s, &imei_payload, &mfr);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-            });
-
-            // GMS
-            section(ui, "Google Mobile Services");
-            ui.horizontal_wrapped(|ui| {
-                if btn(ui, "Check GMS") {
-                    if let Ok(s) = self.require_device() {
-                        self.log = features::repair::check_gms(s);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-                if btn_accent(ui, "Repair GMS") {
-                    if let Ok(s) = self.require_device() {
-                        self.log = features::repair::repair_gms(s);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-            });
-
-            // EFS / NV
-            section(ui, "EFS / NV Data");
-            ui.horizontal_wrapped(|ui| {
-                if btn(ui, "Backup EFS") {
-                    if let Ok(s) = self.require_device() {
-                        self.log = features::repair::backup_efs(s);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-                if btn(ui, "Restore EFS") {
-                    if let Ok(s) = self.require_device() {
-                        self.log = features::repair::restore_efs(s);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-                if btn(ui, "Backup NV") {
-                    if let Ok(s) = self.require_device() {
-                        self.log = features::repair::backup_nv_data(s);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-                if btn(ui, "Restore NV") {
-                    if let Ok(s) = self.require_device() {
-                        self.log = features::repair::restore_nv_data(s);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-            });
-
-            // Samsung-specific
-            section(ui, "Samsung Specific");
-            ui.horizontal_wrapped(|ui| {
-                if btn(ui, "DRK Repair") {
-                    if let Ok(s) = self.require_device() {
-                        self.log = features::repair::repair_drk(s);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-                if btn(ui, "Knox Counter") {
-                    if let Ok(s) = self.require_device() {
-                        self.log = features::repair::check_knox_counter(s);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-            });
-            ui.horizontal_wrapped(|ui| {
-                ui.label(
-                    egui::RichText::new("CSC:")
-                        .size(12.0)
-                        .color(theme::SECONDARY),
-                );
-                ui.add(egui::TextEdit::singleline(&mut self.csc_input).desired_width(80.0));
-                if btn(ui, "Change CSC") {
-                    if let Ok(s) = self.require_device() {
-                        self.log = features::repair::change_csc(s, &self.csc_input);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-            });
-
-            // Baseband
-            section(ui, "Baseband / Modem");
-            ui.horizontal_wrapped(|ui| {
-                if btn(ui, "Check Baseband") {
-                    if let Ok(s) = self.require_device() {
-                        self.log = features::repair::check_baseband(s);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-                if btn(ui, "Repair Baseband") {
-                    if let Ok(s) = self.require_device() {
-                        self.log = features::repair::repair_baseband(s);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-            });
+            self.repair_imei_section(ui, mfr);
+            self.repair_gms_section(ui);
+            self.repair_efs_nv_section(ui);
+            self.repair_samsung_section(ui);
+            self.repair_baseband_section(ui);
 
             ui.add_space(8.0);
             log_area(ui, &self.log);
+        });
+    }
+
+    fn repair_imei_section(&mut self, ui: &mut egui::Ui, mfr: features::Manufacturer) {
+        section(ui, "IMEI Management");
+        ui.horizontal_wrapped(|ui| {
+            if btn(ui, "Read IMEI") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::repair::read_imei(s);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
+
+            if btn(ui, "Backup IMEI") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::repair::backup_imei(s);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
+            if matches!(mfr, features::Manufacturer::Xiaomi) {
+                if btn(ui, "Xiaomi Modem Test (MTB)") {
+                    if let Ok(s) = self.require_device() {
+                        self.log = features::repair::open_xiaomi_mtb(s);
+                    } else {
+                        self.log = "Connect a device first.".into();
+                    }
+                }
+            }
+        });
+        ui.horizontal_wrapped(|ui| {
+            ui.label(
+                egui::RichText::new("IMEI 1:")
+                    .size(12.0)
+                    .color(theme::SECONDARY),
+            );
+            ui.add(egui::TextEdit::singleline(&mut self.imei_input).desired_width(180.0));
+            ui.label(
+                egui::RichText::new("IMEI 2 (optional):")
+                    .size(12.0)
+                    .color(theme::SECONDARY),
+            );
+            ui.add(egui::TextEdit::singleline(&mut self.imei_input_2).desired_width(180.0));
+            if btn(ui, "Write IMEI") {
+                if let Ok(s) = self.require_device() {
+                    let imei_payload = if self.imei_input_2.trim().is_empty() {
+                        self.imei_input.clone()
+                    } else {
+                        format!("{},{}", self.imei_input.trim(), self.imei_input_2.trim())
+                    };
+                    self.log = features::repair::write_imei(s, &imei_payload, &mfr);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
+        });
+    }
+
+    fn repair_gms_section(&mut self, ui: &mut egui::Ui) {
+        section(ui, "Google Mobile Services");
+        ui.horizontal_wrapped(|ui| {
+            if btn(ui, "Check GMS") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::repair::check_gms(s);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
+            if btn_accent(ui, "Repair GMS") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::repair::repair_gms(s);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
+        });
+    }
+
+    fn repair_efs_nv_section(&mut self, ui: &mut egui::Ui) {
+        section(ui, "EFS / NV Data");
+        ui.horizontal_wrapped(|ui| {
+            if btn(ui, "Backup EFS") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::repair::backup_efs(s);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
+            if btn(ui, "Restore EFS") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::repair::restore_efs(s);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
+            if btn(ui, "Backup NV") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::repair::backup_nv_data(s);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
+            if btn(ui, "Restore NV") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::repair::restore_nv_data(s);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
+        });
+    }
+
+    fn repair_samsung_section(&mut self, ui: &mut egui::Ui) {
+        section(ui, "Samsung Specific");
+        ui.horizontal_wrapped(|ui| {
+            if btn(ui, "DRK Repair") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::repair::repair_drk(s);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
+            if btn(ui, "Knox Counter") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::repair::check_knox_counter(s);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
+        });
+        ui.horizontal_wrapped(|ui| {
+            ui.label(
+                egui::RichText::new("CSC:")
+                    .size(12.0)
+                    .color(theme::SECONDARY),
+            );
+            ui.add(egui::TextEdit::singleline(&mut self.csc_input).desired_width(80.0));
+            if btn(ui, "Change CSC") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::repair::change_csc(s, &self.csc_input);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
+        });
+    }
+
+    fn repair_baseband_section(&mut self, ui: &mut egui::Ui) {
+        section(ui, "Baseband / Modem");
+        ui.horizontal_wrapped(|ui| {
+            if btn(ui, "Check Baseband") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::repair::check_baseband(s);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
+            if btn(ui, "Repair Baseband") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::repair::repair_baseband(s);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
         });
     }
 
