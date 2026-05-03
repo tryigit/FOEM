@@ -87,7 +87,6 @@ mod tests {
 
         // Initial state
 
-
         // Apply our theme
         apply(&ctx);
 

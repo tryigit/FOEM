@@ -181,15 +181,45 @@ pub fn backup_imei(serial: &str) -> String {
     let _ = adb_shell(serial, &["mkdir", "-p", backup_path]);
     let partitions = ["efs", "modemst1", "modemst2", "fsg", "fsc"];
     let mut output = String::from("IMEI/EFS Backup:\n");
-    for part in &partitions {
+
+    let mut cmd = String::new();
+    for (i, part) in partitions.iter().enumerate() {
         let src = format!("/dev/block/bootdevice/by-name/{}", part);
         let dst = format!("{}/{}.img", backup_path, part);
-        match adb_shell(
-            serial,
-            &["dd", &format!("if={}", src), &format!("of={}", dst)],
-        ) {
-            Ok(_) => output.push_str(&format!("  {} -- backed up\n", part)),
-            Err(_) => output.push_str(&format!("  {} -- not found or access denied\n", part)),
+        cmd.push_str(&format!(
+            "if dd if={} of={} 2>/dev/null; then echo OK; else echo FAIL; fi",
+            src, dst
+        ));
+        if i < partitions.len() - 1 {
+            cmd.push_str("; echo B_MARKER; ");
+        }
+    }
+
+    match adb_shell(serial, &["sh", "-c", &cmd]) {
+        Ok(res) => {
+            let parts: Vec<&str> = res.split("B_MARKER").collect();
+            for (i, part) in partitions.iter().enumerate() {
+                let out = parts.get(i).copied().unwrap_or("").trim();
+                if out.contains("OK") {
+                    let _ = std::fmt::Write::write_fmt(
+                        &mut output,
+                        format_args!("  {} -- backed up\n", part),
+                    );
+                } else {
+                    let _ = std::fmt::Write::write_fmt(
+                        &mut output,
+                        format_args!("  {} -- not found or access denied\n", part),
+                    );
+                }
+            }
+        }
+        Err(_) => {
+            for part in &partitions {
+                let _ = std::fmt::Write::write_fmt(
+                    &mut output,
+                    format_args!("  {} -- not found or access denied\n", part),
+                );
+            }
         }
     }
     output
@@ -938,10 +968,13 @@ mod tests {
                 if program == "adb" {
                     let cmd = args.join(" ");
                     if cmd.contains("shell am start -a android.intent.action.DIAL") {
-                        return Ok("Starting: Intent { action=android.intent.action.DIAL ... }".to_string());
+                        return Ok("Starting: Intent { action=android.intent.action.DIAL ... }"
+                            .to_string());
                     }
                     if cmd.contains("sh -c") {
-                        return Ok("123456789012345\nB_MARKER_0\nB_MARKER_0\nB_MARKER_0\n".to_string());
+                        return Ok(
+                            "123456789012345\nB_MARKER_0\nB_MARKER_0\nB_MARKER_0\n".to_string()
+                        );
                     }
                 }
                 Ok("".to_string())
@@ -1011,36 +1044,6 @@ mod tests {
             *mock.borrow_mut() = None;
         });
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     use super::{build_imei_write_commands, parse_imei_input};
     use crate::features::Manufacturer;
