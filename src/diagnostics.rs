@@ -316,4 +316,51 @@ dev2    device
         assert_eq!(result, Err("adb not found".to_string()));
         assert_eq!(diagnostics.connected_device(), None);
     }
+
+    #[test]
+    fn test_is_fastboot_available_success() {
+        struct MockGuard;
+        impl Drop for MockGuard {
+            fn drop(&mut self) {
+                MOCK_RUN_CMD.with(|mock| *mock.borrow_mut() = None);
+            }
+        }
+        let _guard = MockGuard;
+
+        MOCK_RUN_CMD.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args| {
+                if program == "fastboot" && args == ["--version"] {
+                    Ok("fastboot version 34.0.4-10411341".to_string())
+                } else {
+                    Err("not fastboot".to_string())
+                }
+            }));
+        });
+
+        assert!(DeviceDiagnostics::is_fastboot_available());
+    }
+
+    #[test]
+    fn test_is_fastboot_available_failure() {
+        struct MockGuard;
+        impl Drop for MockGuard {
+            fn drop(&mut self) {
+                MOCK_RUN_CMD.with(|mock| *mock.borrow_mut() = None);
+            }
+        }
+        let _guard = MockGuard;
+
+        MOCK_RUN_CMD.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args| {
+                if program == "fastboot" && args == ["--version"] {
+                    Err("fastboot not found".to_string())
+                } else {
+                    Ok("".to_string())
+                }
+            }));
+        });
+
+        assert!(!DeviceDiagnostics::is_fastboot_available());
+    }
+
 }
