@@ -139,6 +139,20 @@ mod tests {
         assert!(diagnostics.device_serial.is_none());
     }
 
+
+    #[test]
+    fn test_connected_device_none() {
+        let diagnostics = DeviceDiagnostics::new();
+        assert_eq!(diagnostics.connected_device(), None);
+    }
+
+    #[test]
+    fn test_connected_device_some() {
+        let mut diagnostics = DeviceDiagnostics::new();
+        diagnostics.device_serial = Some("test_device_123".to_string());
+        assert_eq!(diagnostics.connected_device(), Some("test_device_123"));
+    }
+
     #[test]
     fn test_new() {
         let diagnostics = DeviceDiagnostics::new();
