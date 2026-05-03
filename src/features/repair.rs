@@ -938,10 +938,13 @@ mod tests {
                 if program == "adb" {
                     let cmd = args.join(" ");
                     if cmd.contains("shell am start -a android.intent.action.DIAL") {
-                        return Ok("Starting: Intent { action=android.intent.action.DIAL ... }".to_string());
+                        return Ok("Starting: Intent { action=android.intent.action.DIAL ... }"
+                            .to_string());
                     }
                     if cmd.contains("sh -c") {
-                        return Ok("123456789012345\nB_MARKER_0\nB_MARKER_0\nB_MARKER_0\n".to_string());
+                        return Ok(
+                            "123456789012345\nB_MARKER_0\nB_MARKER_0\nB_MARKER_0\n".to_string()
+                        );
                     }
                 }
                 Ok("".to_string())
@@ -1011,36 +1014,6 @@ mod tests {
             *mock.borrow_mut() = None;
         });
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     use super::{build_imei_write_commands, parse_imei_input};
     use crate::features::Manufacturer;

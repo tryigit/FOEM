@@ -32,7 +32,9 @@ impl UpdateManager {
             .call()
             .map_err(|e| format!("HTTP request failed: {}", e))?;
 
-        response.into_string().map_err(|e| format!("Failed to read response: {}", e))
+        response
+            .into_string()
+            .map_err(|e| format!("Failed to read response: {}", e))
     }
 
     /// Query the GitHub API for the latest release.
@@ -99,7 +101,8 @@ pub mod tests {
             *mock.borrow_mut() = Some(Ok(r#"{
                     "tag_name": "v9.9.9",
                     "html_url": "https://github.com/tryigit/FOEM/releases/tag/v9.9.9"
-                }"#.to_string()));
+                }"#
+            .to_string()));
         });
 
         let manager = UpdateManager::new();
@@ -107,7 +110,10 @@ pub mod tests {
         assert!(result.is_some());
         let info = result.unwrap();
         assert_eq!(info.latest_version, "9.9.9");
-        assert_eq!(info.download_url, "https://github.com/tryigit/FOEM/releases/tag/v9.9.9");
+        assert_eq!(
+            info.download_url,
+            "https://github.com/tryigit/FOEM/releases/tag/v9.9.9"
+        );
 
         MOCK_HTTP_RESPONSE.with(|mock| {
             *mock.borrow_mut() = None;
@@ -118,10 +124,13 @@ pub mod tests {
     fn test_no_update_available() {
         MOCK_HTTP_RESPONSE.with(|mock| {
             let current_version = crate::VERSION;
-            *mock.borrow_mut() = Some(Ok(format!(r#"{{
+            *mock.borrow_mut() = Some(Ok(format!(
+                r#"{{
                     "tag_name": "v{}",
                     "html_url": "https://github.com/tryigit/FOEM/releases/tag/v{}"
-                }}"#, current_version, current_version)));
+                }}"#,
+                current_version, current_version
+            )));
         });
 
         let manager = UpdateManager::new();
