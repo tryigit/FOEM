@@ -76,7 +76,6 @@ impl KnowledgeBase {
     }
 }
 
-
 #[cfg(test)]
 thread_local! {
     pub static MOCK_KB_PATH: std::cell::RefCell<Option<PathBuf>> = std::cell::RefCell::new(None);

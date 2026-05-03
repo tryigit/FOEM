@@ -253,7 +253,9 @@ fn endpoint(settings: &AiSettings) -> String {
     match settings.provider {
         Provider::OpenRouter => "https://openrouter.ai/api/v1/chat/completions".into(),
         Provider::OpenAI => "https://api.openai.com/v1/chat/completions".into(),
-        Provider::Gemini => "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions".into(),
+        Provider::Gemini => {
+            "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions".into()
+        }
         Provider::Local => settings.custom_endpoint.clone(),
     }
 }
