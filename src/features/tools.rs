@@ -3,7 +3,6 @@
 use super::{adb, adb_shell};
 use std::fmt::Write;
 use crate::exec::{normalize_local_path, normalize_remote_path};
-use std::fmt::Write;
 
 // -- ADB Shell --
 
