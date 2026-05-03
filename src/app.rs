@@ -483,13 +483,13 @@ impl FOEMApp {
                         self.log = "Connect a device first.".into();
                     }
                 }
-                if matches!(mfr, features::Manufacturer::Xiaomi) {
-                    if btn(ui, "Xiaomi Modem Test (MTB)") {
-                        if let Ok(s) = self.require_device() {
-                            self.log = features::repair::open_xiaomi_mtb(s);
-                        } else {
-                            self.log = "Connect a device first.".into();
-                        }
+                if matches!(mfr, features::Manufacturer::Xiaomi)
+                    && btn(ui, "Xiaomi Modem Test (MTB)")
+                {
+                    if let Ok(s) = self.require_device() {
+                        self.log = features::repair::open_xiaomi_mtb(s);
+                    } else {
+                        self.log = "Connect a device first.".into();
                     }
                 }
             });
@@ -758,165 +758,180 @@ impl FOEMApp {
         let mfr = *self.manufacturer();
 
         egui::ScrollArea::vertical().show(ui, |ui| {
-            // EDL
-            section(ui, "EDL Mode (Qualcomm 9008)");
-            ui.horizontal_wrapped(|ui| {
-                if btn_accent(ui, "Enter EDL Mode") {
-                    if let Ok(s) = self.require_device() {
-                        self.log = features::flash::enter_edl_mode(s);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-                if btn(ui, "Flash via EDL") {
-                    if let Ok(s) = self.require_device() {
-                        self.log = features::flash::flash_edl(s, &self.flash_path);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-            });
-
-            // Fastboot
-            section(ui, "Fastboot Flash");
-            ui.horizontal_wrapped(|ui| {
-                ui.label(
-                    egui::RichText::new("Partition:")
-                        .size(12.0)
-                        .color(theme::SECONDARY),
-                );
-                egui::ComboBox::from_id_salt("part")
-                    .width(120.0)
-                    .selected_text(features::flash::FASTBOOT_PARTITIONS[self.partition_idx])
-                    .show_ui(ui, |ui| {
-                        for (i, p) in features::flash::FASTBOOT_PARTITIONS.iter().enumerate() {
-                            ui.selectable_value(&mut self.partition_idx, i, *p);
-                        }
-                    });
-            });
-            ui.horizontal_wrapped(|ui| {
-                ui.label(
-                    egui::RichText::new("Image:")
-                        .size(12.0)
-                        .color(theme::SECONDARY),
-                );
-                ui.add(egui::TextEdit::singleline(&mut self.flash_path).desired_width(300.0));
-            });
-            ui.horizontal_wrapped(|ui| {
-                if btn_accent(ui, "Flash Partition") {
-                    if let Ok(s) = self.require_device() {
-                        let part = features::flash::FASTBOOT_PARTITIONS[self.partition_idx];
-                        self.log = features::flash::flash_partition(s, part, &self.flash_path);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-                if btn(ui, "Erase Partition") {
-                    if let Ok(s) = self.require_device() {
-                        let part = features::flash::FASTBOOT_PARTITIONS[self.partition_idx];
-                        self.log = features::flash::erase_partition(s, part);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-                if btn(ui, "Flash vbmeta (no verify)") {
-                    if let Ok(s) = self.require_device() {
-                        self.log = features::flash::flash_vbmeta_disabled(s, &self.flash_path);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-            });
-
-            // Root
-            section(ui, "Root (Magisk / KernelSU)");
-            ui.horizontal_wrapped(|ui| {
-                if btn_accent(ui, "Install Magisk") {
-                    if let Ok(s) = self.require_device() {
-                        self.log = features::flash::install_magisk(s, &self.flash_path);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-                if btn_accent(ui, "Install KernelSU") {
-                    if let Ok(s) = self.require_device() {
-                        self.log = features::flash::install_kernelsu(s, &self.flash_path);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-            });
-
-            // Recovery
-            section(ui, "Recovery");
-            ui.horizontal_wrapped(|ui| {
-                if btn(ui, "Flash Recovery") {
-                    if let Ok(s) = self.require_device() {
-                        self.log = features::flash::flash_recovery(s, &self.flash_path);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-                if btn(ui, "Temp Boot Recovery") {
-                    if let Ok(s) = self.require_device() {
-                        self.log = features::flash::boot_recovery_temp(s, &self.flash_path);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-            });
-
-            // Firmware
-            section(ui, "Firmware");
-            ui.horizontal_wrapped(|ui| {
-                if btn_accent(ui, "Flash Firmware") {
-                    if let Ok(s) = self.require_device() {
-                        self.log = features::flash::flash_firmware(s, &self.flash_path, &mfr);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-            });
-
-            // MediaTek
-            section(ui, "MediaTek SP Flash");
-            ui.horizontal_wrapped(|ui| {
-                if btn(ui, "Enter BROM Mode") {
-                    if let Ok(s) = self.require_device() {
-                        self.log = features::flash::enter_brom_mode(s);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
-                }
-                if btn(ui, "SP Flash Info") {
-                    self.log = features::flash::sp_flash_info();
-                }
-            });
-
-            // Reboot modes
-            section(ui, "Reboot");
-            ui.horizontal_wrapped(|ui| {
-                let modes = [
-                    "system",
-                    "recovery",
-                    "bootloader",
-                    "edl",
-                    "download",
-                    "sideload",
-                ];
-                for mode in &modes {
-                    if btn(ui, mode) {
-                        if let Ok(s) = self.require_device() {
-                            self.log = features::flash::reboot_to(s, mode);
-                        } else {
-                            self.log = "Connect a device first.".into();
-                        }
-                    }
-                }
-            });
+            self.flash_edl_section(ui);
+            self.flash_fastboot_section(ui);
+            self.flash_root_section(ui);
+            self.flash_recovery_section(ui);
+            self.flash_firmware_section(ui, &mfr);
+            self.flash_mediatek_section(ui);
+            self.flash_reboot_section(ui);
 
             ui.add_space(8.0);
             log_area(ui, &self.log);
+        });
+    }
+
+    fn flash_edl_section(&mut self, ui: &mut egui::Ui) {
+        section(ui, "EDL Mode (Qualcomm 9008)");
+        ui.horizontal_wrapped(|ui| {
+            if btn_accent(ui, "Enter EDL Mode") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::flash::enter_edl_mode(s);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
+            if btn(ui, "Flash via EDL") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::flash::flash_edl(s, &self.flash_path);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
+        });
+    }
+
+    fn flash_fastboot_section(&mut self, ui: &mut egui::Ui) {
+        section(ui, "Fastboot Flash");
+        ui.horizontal_wrapped(|ui| {
+            ui.label(
+                egui::RichText::new("Partition:")
+                    .size(12.0)
+                    .color(theme::SECONDARY),
+            );
+            egui::ComboBox::from_id_salt("part")
+                .width(120.0)
+                .selected_text(features::flash::FASTBOOT_PARTITIONS[self.partition_idx])
+                .show_ui(ui, |ui| {
+                    for (i, p) in features::flash::FASTBOOT_PARTITIONS.iter().enumerate() {
+                        ui.selectable_value(&mut self.partition_idx, i, *p);
+                    }
+                });
+        });
+        ui.horizontal_wrapped(|ui| {
+            ui.label(
+                egui::RichText::new("Image:")
+                    .size(12.0)
+                    .color(theme::SECONDARY),
+            );
+            ui.add(egui::TextEdit::singleline(&mut self.flash_path).desired_width(300.0));
+        });
+        ui.horizontal_wrapped(|ui| {
+            if btn_accent(ui, "Flash Partition") {
+                if let Ok(s) = self.require_device() {
+                    let part = features::flash::FASTBOOT_PARTITIONS[self.partition_idx];
+                    self.log = features::flash::flash_partition(s, part, &self.flash_path);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
+            if btn(ui, "Erase Partition") {
+                if let Ok(s) = self.require_device() {
+                    let part = features::flash::FASTBOOT_PARTITIONS[self.partition_idx];
+                    self.log = features::flash::erase_partition(s, part);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
+            if btn(ui, "Flash vbmeta (no verify)") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::flash::flash_vbmeta_disabled(s, &self.flash_path);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
+        });
+    }
+
+    fn flash_root_section(&mut self, ui: &mut egui::Ui) {
+        section(ui, "Root (Magisk / KernelSU)");
+        ui.horizontal_wrapped(|ui| {
+            if btn_accent(ui, "Install Magisk") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::flash::install_magisk(s, &self.flash_path);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
+            if btn_accent(ui, "Install KernelSU") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::flash::install_kernelsu(s, &self.flash_path);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
+        });
+    }
+
+    fn flash_recovery_section(&mut self, ui: &mut egui::Ui) {
+        section(ui, "Recovery");
+        ui.horizontal_wrapped(|ui| {
+            if btn(ui, "Flash Recovery") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::flash::flash_recovery(s, &self.flash_path);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
+            if btn(ui, "Temp Boot Recovery") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::flash::boot_recovery_temp(s, &self.flash_path);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
+        });
+    }
+
+    fn flash_firmware_section(&mut self, ui: &mut egui::Ui, mfr: &crate::features::Manufacturer) {
+        section(ui, "Firmware");
+        ui.horizontal_wrapped(|ui| {
+            if btn_accent(ui, "Flash Firmware") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::flash::flash_firmware(s, &self.flash_path, mfr);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
+        });
+    }
+
+    fn flash_mediatek_section(&mut self, ui: &mut egui::Ui) {
+        section(ui, "MediaTek SP Flash");
+        ui.horizontal_wrapped(|ui| {
+            if btn(ui, "Enter BROM Mode") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::flash::enter_brom_mode(s);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
+            if btn(ui, "SP Flash Info") {
+                self.log = features::flash::sp_flash_info();
+            }
+        });
+    }
+
+    fn flash_reboot_section(&mut self, ui: &mut egui::Ui) {
+        section(ui, "Reboot");
+        ui.horizontal_wrapped(|ui| {
+            let modes = [
+                "system",
+                "recovery",
+                "bootloader",
+                "edl",
+                "download",
+                "sideload",
+            ];
+            for mode in &modes {
+                if btn(ui, mode) {
+                    if let Ok(s) = self.require_device() {
+                        self.log = features::flash::reboot_to(s, mode);
+                    } else {
+                        self.log = "Connect a device first.".into();
+                    }
+                }
+            }
         });
     }
 
