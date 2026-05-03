@@ -133,6 +133,46 @@ mod tests {
         pub static MOCK_RUN_CMD: RefCell<Option<Box<dyn Fn(&str, &[&str]) -> Result<String, String>>>> = RefCell::new(None);
     }
 
+
+    struct MockGuard;
+    impl Drop for MockGuard {
+        fn drop(&mut self) {
+            MOCK_RUN_CMD.with(|mock| {
+                *mock.borrow_mut() = None;
+            });
+        }
+    }
+
+    #[test]
+    fn test_is_adb_available_true() {
+        let _guard = MockGuard;
+        MOCK_RUN_CMD.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args| {
+                if program == "adb" && args == ["version"] {
+                    Ok("Android Debug Bridge version 1.0.41".to_string())
+                } else {
+                    Err("mocked error".to_string())
+                }
+            }));
+        });
+        assert!(DeviceDiagnostics::is_adb_available());
+    }
+
+    #[test]
+    fn test_is_adb_available_false() {
+        let _guard = MockGuard;
+        MOCK_RUN_CMD.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args| {
+                if program == "adb" && args == ["version"] {
+                    Err("adb not found".to_string())
+                } else {
+                    Ok("".to_string())
+                }
+            }));
+        });
+        assert!(!DeviceDiagnostics::is_adb_available());
+    }
+
     #[test]
     fn test_diagnostics_new_initialization() {
         let diagnostics = DeviceDiagnostics::new();
