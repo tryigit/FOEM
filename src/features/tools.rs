@@ -809,4 +809,36 @@ adb output"
         });
         assert_eq!(result, "List failed: device offline");
     }
+
+    #[test]
+    fn test_execute_shell_success() {
+        crate::exec::MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args, _error_prefix| {
+                assert_eq!(program, "adb");
+                assert_eq!(args, &["-s", "dev1", "shell", "sh", "-c", "ls"]);
+                Ok("file1".to_string())
+            }));
+        });
+
+        let result = execute_shell("dev1", "ls");
+        assert_eq!(result, "file1");
+
+        crate::exec::MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+    }
+
+    #[test]
+    fn test_execute_shell_failure() {
+        crate::exec::MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|_, _, _| Err("adb error".to_string())));
+        });
+
+        let result = execute_shell("dev1", "ls");
+        assert_eq!(result, "Error: adb error");
+
+        crate::exec::MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+    }
 }
