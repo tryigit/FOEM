@@ -663,6 +663,36 @@ adb output"
         );
     }
 
+
+    #[test]
+    fn test_get_cpu_info_success_long() {
+        let result = get_cpu_info_internal("device_123", |serial, args| {
+            assert_eq!(serial, "device_123");
+            assert_eq!(args, &["cat", "/proc/cpuinfo"]);
+            let mut long_output = String::new();
+            for i in 0..25 {
+                long_output.push_str(&format!("Line {}\n", i));
+            }
+            Ok(long_output)
+        });
+
+        let mut expected = String::from("CPU Info:\n");
+        for i in 0..20 {
+            expected.push_str(&format!("  Line {}\n", i));
+        }
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_get_cpu_info_failure() {
+        let result = get_cpu_info_internal("device_123", |serial, args| {
+            assert_eq!(serial, "device_123");
+            assert_eq!(args, &["cat", "/proc/cpuinfo"]);
+            Err("device offline".to_string())
+        });
+        assert_eq!(result, "CPU info failed: device offline");
+    }
+
     #[test]
     fn test_reboot_bootloader_success() {
         let result = reboot_bootloader_internal("device_123", |serial, args| {
