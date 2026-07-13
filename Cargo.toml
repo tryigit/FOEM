@@ -1,6 +1,6 @@
 [package]
 name = "foem"
-version = "0.0.1"
+version = "0.1.0"
 edition = "2021"
 description = "Free Open Ecosystem for Mobile Devices"
 license = "SEE LICENSE IN LICENSE"
@@ -8,20 +8,13 @@ repository = "https://github.com/tryigit/FOEM"
 
 [dependencies]
 eframe = "0.29.1"
-image = "0.25"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 ureq = { version = "2.12", features = ["json"] }
 open = "5"
 serialport = "4.3"
-base64 = "0.21"
-hex = "0.4.3"
-shellexpand = "3.1.2"
 
 [profile.release]
 opt-level = "s"
 lto = true
 strip = true
-
-[dev-dependencies]
-eframe = "0.29.1"

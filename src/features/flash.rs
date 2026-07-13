@@ -3,7 +3,6 @@
 /// Supports Qualcomm EDL (9008), MediaTek BROM/SP Flash,
 /// Samsung Download/Odin mode, and standard Fastboot flashing.
 use super::{adb, adb_shell, fastboot, Manufacturer};
-use crate::exec::normalize_local_path;
 
 // -- EDL (Emergency Download) Mode --
 
@@ -72,11 +71,10 @@ pub const FASTBOOT_PARTITIONS: &[&str] = &[
 
 /// Flash an image to a specific partition via fastboot.
 pub fn flash_partition(serial: &str, partition: &str, image_path: &str) -> String {
-    let path = normalize_local_path(image_path);
-    if path.is_empty() {
+    if image_path.is_empty() {
         return format!("Flash {}: Image file path is required.", partition);
     }
-    match fastboot(serial, &["flash", partition, &path]) {
+    match fastboot(serial, &["flash", partition, image_path]) {
         Ok(out) => format!("Flash {} result:\n{}", partition, out),
         Err(e) => format!(
             "Flash {} failed: {}\nEnsure device is in fastboot mode.",
@@ -95,8 +93,7 @@ pub fn erase_partition(serial: &str, partition: &str) -> String {
 
 /// Flash vbmeta with disabled verification (for custom ROMs).
 pub fn flash_vbmeta_disabled(serial: &str, image_path: &str) -> String {
-    let path = normalize_local_path(image_path);
-    if path.is_empty() {
+    if image_path.is_empty() {
         return "vbmeta path required. Use stock vbmeta.img.".to_string();
     }
     match fastboot(
@@ -106,7 +103,7 @@ pub fn flash_vbmeta_disabled(serial: &str, image_path: &str) -> String {
             "--disable-verification",
             "flash",
             "vbmeta",
-            &path,
+            image_path,
         ],
     ) {
         Ok(out) => format!("vbmeta flash (verification disabled):\n{}", out),
@@ -118,11 +115,10 @@ pub fn flash_vbmeta_disabled(serial: &str, image_path: &str) -> String {
 
 /// Flash a custom recovery image.
 pub fn flash_recovery(serial: &str, recovery_path: &str) -> String {
-    let path = normalize_local_path(recovery_path);
-    if path.is_empty() {
+    if recovery_path.is_empty() {
         return "Recovery image path required (e.g., twrp.img, orangefox.img).".to_string();
     }
-    match fastboot(serial, &["flash", "recovery", &path]) {
+    match fastboot(serial, &["flash", "recovery", recovery_path]) {
         Ok(out) => format!("Recovery flash result:\n{}", out),
         Err(e) => format!(
             "Recovery flash failed: {}\nSome A/B devices use: fastboot flash boot <recovery.img>",
@@ -133,11 +129,10 @@ pub fn flash_recovery(serial: &str, recovery_path: &str) -> String {
 
 /// Temporarily boot a recovery image without flashing.
 pub fn boot_recovery_temp(serial: &str, recovery_path: &str) -> String {
-    let path = normalize_local_path(recovery_path);
-    if path.is_empty() {
+    if recovery_path.is_empty() {
         return "Recovery image path required.".to_string();
     }
-    match fastboot(serial, &["boot", &path]) {
+    match fastboot(serial, &["boot", recovery_path]) {
         Ok(out) => format!("Temporary boot result:\n{}", out),
         Err(e) => format!("Temporary boot failed: {}", e),
     }
@@ -260,17 +255,16 @@ pub fn sp_flash_info() -> String {
 
 /// Install Magisk via APK, ZIP, or patched boot image.
 pub fn install_magisk(serial: &str, path: &str) -> String {
-    let path = normalize_local_path(path);
     if path.is_empty() {
         return "Magisk file path required. Provide .apk (Manager), .zip (Sideload), or .img (Patched Boot).".to_string();
     }
     if path.ends_with(".apk") {
-        match adb(serial, &["install", "-r", "-d", &path]) {
+        match adb(serial, &["install", "-r", "-d", path]) {
             Ok(out) => format!("Magisk Manager APK install:\n{}", out),
             Err(e) => format!("Magisk APK install failed: {}", e),
         }
     } else if path.ends_with(".zip") {
-        match adb(serial, &["sideload", &path]) {
+        match adb(serial, &["sideload", path]) {
             Ok(out) => format!("Magisk ZIP sideload:\n{}", out),
             Err(e) => format!(
                 "Magisk sideload failed (ensure device is in ADB sideload mode): {}",
@@ -278,7 +272,7 @@ pub fn install_magisk(serial: &str, path: &str) -> String {
             ),
         }
     } else if path.ends_with(".img") {
-        match fastboot(serial, &["flash", "boot", &path]) {
+        match fastboot(serial, &["flash", "boot", path]) {
             Ok(out) => format!("Magisk patched boot flash:\n{}", out),
             Err(e) => format!("Magisk boot flash failed: {}", e),
         }
@@ -289,17 +283,16 @@ pub fn install_magisk(serial: &str, path: &str) -> String {
 
 /// Install KernelSU via APK, ZIP, or patched boot image.
 pub fn install_kernelsu(serial: &str, path: &str) -> String {
-    let path = normalize_local_path(path);
     if path.is_empty() {
         return "KernelSU file path required. Provide .apk (Manager), .zip (Sideload), or .img (Patched Boot).".to_string();
     }
     if path.ends_with(".apk") {
-        match adb(serial, &["install", "-r", "-d", &path]) {
+        match adb(serial, &["install", "-r", "-d", path]) {
             Ok(out) => format!("KernelSU Manager APK install:\n{}", out),
             Err(e) => format!("KernelSU APK install failed: {}", e),
         }
     } else if path.ends_with(".zip") {
-        match adb(serial, &["sideload", &path]) {
+        match adb(serial, &["sideload", path]) {
             Ok(out) => format!("KernelSU AnyKernel3 ZIP sideload:\n{}", out),
             Err(e) => format!(
                 "KernelSU sideload failed (ensure device is in ADB sideload mode): {}",
@@ -307,55 +300,11 @@ pub fn install_kernelsu(serial: &str, path: &str) -> String {
             ),
         }
     } else if path.ends_with(".img") {
-        match fastboot(serial, &["flash", "boot", &path]) {
+        match fastboot(serial, &["flash", "boot", path]) {
             Ok(out) => format!("KernelSU patched boot flash:\n{}", out),
             Err(e) => format!("KernelSU boot flash failed: {}", e),
         }
     } else {
         "Unsupported file type. Use .apk, .zip, or .img.".to_string()
-    }
-}
-#[cfg(test)]
-mod tests {
-    use crate::exec::MOCK_RUN_IMPL;
-    use crate::features::flash::erase_partition;
-
-    #[test]
-    fn test_erase_partition_success() {
-        MOCK_RUN_IMPL.with(|mock| {
-            *mock.borrow_mut() = Some(Box::new(|program, args, _error_prefix| {
-                assert_eq!(program, "fastboot");
-                assert_eq!(args, &["-s", "12345", "erase", "userdata"]);
-                Ok("erasing 'userdata'...\nOKAY [  0.123s]".to_string())
-            }));
-        });
-
-        let result = erase_partition("12345", "userdata");
-        assert_eq!(
-            result,
-            "Erase userdata result:\nerasing 'userdata'...\nOKAY [  0.123s]"
-        );
-
-        MOCK_RUN_IMPL.with(|mock| {
-            *mock.borrow_mut() = None;
-        });
-    }
-
-    #[test]
-    fn test_erase_partition_failure() {
-        MOCK_RUN_IMPL.with(|mock| {
-            *mock.borrow_mut() = Some(Box::new(|program, args, _error_prefix| {
-                assert_eq!(program, "fastboot");
-                assert_eq!(args, &["-s", "12345", "erase", "system"]);
-                Err("fastboot error".to_string())
-            }));
-        });
-
-        let result = erase_partition("12345", "system");
-        assert_eq!(result, "Erase system failed: fastboot error");
-
-        MOCK_RUN_IMPL.with(|mock| {
-            *mock.borrow_mut() = None;
-        });
     }
 }

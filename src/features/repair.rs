@@ -3,77 +3,31 @@
 /// These operations interact with critical device partitions and data.
 /// Manufacturer-specific methods are used where applicable.
 use super::{adb, adb_shell, Manufacturer};
-use crate::adaptive_engine::{autodetect_diag_port, execute_goal, fingerprint, FuzzGoal};
 
-use std::fmt::Write;
-use std::io::{Read, Write as IoWrite};
+use std::io::{Read, Write};
 use std::time::Duration;
 
 // -- IMEI Management --
 
-/// Execute a batch of adb shell commands in one `sh -c` to avoid N+1 overhead.
-fn batch_shell(
-    serial: &str,
-    labeled_cmds: &[(&str, &str)],
-) -> Vec<(String, Result<String, String>)> {
-    if labeled_cmds.is_empty() {
-        return Vec::new();
-    }
-    let mut script = String::new();
-    for (_label, cmd) in labeled_cmds {
-        script.push_str(cmd);
-        script.push_str("; echo B_MARKER_$?;\n");
-    }
-    let mut results = Vec::with_capacity(labeled_cmds.len());
-    match adb_shell(serial, &["sh", "-c", &script]) {
-        Ok(output) => {
-            let mut parts = output.split("B_MARKER_");
-            let mut prev = parts.next().unwrap_or("").to_string();
-            for (idx, part) in parts.enumerate() {
-                if idx >= labeled_cmds.len() {
-                    break;
-                }
-                let (code_str, rest) = match part.find('\n') {
-                    Some(pos) => (&part[..pos], part[pos + 1..].to_string()),
-                    None => (part, String::new()),
-                };
-                let val = prev.trim().to_string();
-                let code: i32 = code_str.trim().parse().unwrap_or(-1);
-                if code == 0 {
-                    results.push((labeled_cmds[idx].0.to_string(), Ok(val)));
-                } else {
-                    let err = if val.is_empty() {
-                        format!("exit code {}", code)
-                    } else {
-                        val
-                    };
-                    results.push((labeled_cmds[idx].0.to_string(), Err(err)));
-                }
-                prev = rest;
-            }
-        }
-        Err(e) => {
-            for (label, _) in labeled_cmds {
-                results.push((label.to_string(), Err(e.clone())));
-            }
-        }
-    }
-    results
-}
-
-/// Read current IMEI(s) from the device using batched shell commands to avoid N+1 overhead.
+/// Read current IMEI(s) from the device.
 pub fn read_imei(serial: &str) -> String {
-    let methods: &[(&str, &str)] = &[
-        ("service call", "service call iphonesubinfo 1"),
-        ("getprop", "getprop persist.radio.imei"),
-        ("dumpsys", "dumpsys iphonesubinfo"),
+    let methods = [
+        (
+            "service call",
+            &["service", "call", "iphonesubinfo", "1"][..],
+        ),
+        ("getprop", &["getprop", "persist.radio.imei"][..]),
+        ("dumpsys", &["dumpsys", "iphonesubinfo"][..]),
     ];
     let mut output = String::from("IMEI Information:\n");
-    for (label, res) in batch_shell(serial, methods) {
-        match res {
-            Ok(val) if !val.is_empty() => output.push_str(&format!("  {} -- {}\n", label, val)),
-            Ok(_) => output.push_str(&format!("  {} -- empty response\n", label)),
-            Err(e) => output.push_str(&format!("  {} -- error: {}\n", label, e)),
+    for (name, args) in &methods {
+        match adb_shell(serial, args) {
+            Ok(val) if !val.is_empty() => {
+                output.push_str(&format!("  {} -- {}\n", name, val));
+            }
+            _ => {
+                output.push_str(&format!("  {} -- not available\n", name));
+            }
         }
     }
     // Try AT command via dialer
@@ -123,214 +77,66 @@ pub fn read_imei(serial: &str) -> String {
     output
 }
 
-/// Open Xiaomi Modem Test Board (MTB) menu using secret code broadcast
-pub fn open_xiaomi_mtb(serial: &str) -> String {
-    let mut output = String::from(
-        "Opening Xiaomi MTB Menu (*#*#663368378#*#*)...
-",
-    );
-
-    // Method 1: Broadcast secret code (Best method for Android 8+)
-    let _ = adb_shell(
-        serial,
-        &[
-            "am",
-            "broadcast",
-            "-a",
-            "android.provider.Telephony.SECRET_CODE",
-            "-d",
-            "android_secret_code://663368378",
-        ],
-    );
-
-    // Method 2: Launch com.xiaomi.mtb activity directly
-    let _ = adb_shell(
-        serial,
-        &[
-            "am",
-            "start",
-            "-n",
-            "com.xiaomi.mtb/com.xiaomi.mtb.MainActivity",
-        ],
-    );
-
-    // Method 3: Call via dialer just in case
-    let _ = adb_shell(
-        serial,
-        &[
-            "am",
-            "start",
-            "-a",
-            "android.intent.action.DIAL",
-            "-d",
-            "tel:%2A%23%2A%23663368378%23%2A%23%2A",
-        ],
-    );
-
-    output.push_str(
-        "Executed launch commands.
-Check the device screen for the MTB/Modem Test interface.
-",
-    );
-
-    output
-}
-
 /// Backup IMEI data (EFS-based) to device storage.
 pub fn backup_imei(serial: &str) -> String {
     let backup_path = "/sdcard/FOEM/imei_backup";
     let _ = adb_shell(serial, &["mkdir", "-p", backup_path]);
     let partitions = ["efs", "modemst1", "modemst2", "fsg", "fsc"];
     let mut output = String::from("IMEI/EFS Backup:\n");
-
-    let mut cmd = String::new();
-    for (i, part) in partitions.iter().enumerate() {
+    for part in &partitions {
         let src = format!("/dev/block/bootdevice/by-name/{}", part);
         let dst = format!("{}/{}.img", backup_path, part);
-        cmd.push_str(&format!(
-            "if dd if={} of={} 2>/dev/null; then echo OK; else echo FAIL; fi",
-            src, dst
-        ));
-        if i < partitions.len() - 1 {
-            cmd.push_str("; echo B_MARKER; ");
-        }
-    }
-
-    match adb_shell(serial, &["sh", "-c", &cmd]) {
-        Ok(res) => {
-            let parts: Vec<&str> = res.split("B_MARKER").collect();
-            for (i, part) in partitions.iter().enumerate() {
-                let out = parts.get(i).copied().unwrap_or("").trim();
-                if out.contains("OK") {
-                    let _ = std::fmt::Write::write_fmt(
-                        &mut output,
-                        format_args!("  {} -- backed up\n", part),
-                    );
-                } else {
-                    let _ = std::fmt::Write::write_fmt(
-                        &mut output,
-                        format_args!("  {} -- not found or access denied\n", part),
-                    );
-                }
-            }
-        }
-        Err(_) => {
-            for part in &partitions {
-                let _ = std::fmt::Write::write_fmt(
-                    &mut output,
-                    format_args!("  {} -- not found or access denied\n", part),
-                );
-            }
+        match adb_shell(
+            serial,
+            &["dd", &format!("if={}", src), &format!("of={}", dst)],
+        ) {
+            Ok(_) => output.push_str(&format!("  {} -- backed up\n", part)),
+            Err(_) => output.push_str(&format!("  {} -- not found or access denied\n", part)),
         }
     }
     output
 }
 
-/// Write IMEI via AT command over a diagnostic port when available.
+/// Write IMEI via AT command (requires root or diag mode on some devices).
 pub fn write_imei(_serial: &str, imei: &str, manufacturer: &Manufacturer) -> String {
-    let imeis = match parse_imei_input(imei) {
-        Ok(v) => v,
-        Err(e) => return e,
-    };
-    let diag_port = autodetect_diag_port();
-    let port_name = match diag_port {
-        Some(p) => p,
-        None => {
-            return "No diagnostic port detected. Enable diag/AT mode and try again.".to_string();
+    if imei.len() != 15 || !imei.chars().all(|c| c.is_ascii_digit()) {
+        return "Invalid IMEI. Must be exactly 15 digits.".to_string();
+    }
+    match manufacturer {
+        Manufacturer::Samsung => {
+            format!(
+                "Samsung IMEI write:\n\
+                 Method: AT command via diagnostic port.\n\
+                 AT+EGMR=1,7,\"{}\"\n\
+                 Note: Requires UART/diagnostic mode access.",
+                imei
+            )
         }
-    };
-
-    let mut port = match open_diag_port(&port_name) {
-        Ok(p) => p,
-        Err(e) => return e,
-    };
-
-    let commands = build_imei_write_commands(manufacturer, &imeis);
-    let mut output = format!("IMEI write command(s) sent on {}:\n", port_name);
-    for (slot, at_cmd) in commands.iter().enumerate() {
-        match send_at_command(&mut port, at_cmd) {
-            Ok(resp) => {
-                output.push_str(&format!(
-                    "  Slot {} command: {}\n  Response:\n{}\n",
-                    slot + 1,
-                    at_cmd,
-                    resp
-                ));
-            }
-            Err(e) => {
-                output.push_str(&format!(
-                    "  Slot {} command failed: {}\n  Error: {}\n",
-                    slot + 1,
-                    at_cmd,
-                    e
-                ));
-            }
+        Manufacturer::Xiaomi | Manufacturer::Oppo | Manufacturer::Realme | Manufacturer::Vivo => {
+            format!(
+                "Qualcomm/MediaTek IMEI write:\n\
+                 Method: Engineering mode or QPST/QFIL.\n\
+                 IMEI: {}\n\
+                 Note: Requires diagnostic mode (diag port).",
+                imei
+            )
+        }
+        _ => {
+            format!(
+                "IMEI write for {}:\n\
+                 IMEI: {}\n\
+                 Method varies by chipset. Check platform-specific tools.",
+                manufacturer.name(),
+                imei
+            )
         }
     }
-    output
-}
-
-fn parse_imei_input(input: &str) -> Result<Vec<String>, String> {
-    let imeis: Vec<String> = input
-        .split(|c: char| c == ',' || c == ';' || c.is_whitespace())
-        .filter_map(|piece| {
-            let trimmed = piece.trim();
-            if trimmed.is_empty() {
-                None
-            } else {
-                Some(trimmed.to_string())
-            }
-        })
-        .collect();
-    if imeis.is_empty() {
-        return Err("Invalid IMEI. Enter one or two IMEI values.".to_string());
-    }
-    if imeis.len() > 2 {
-        return Err("Invalid IMEI input. Enter at most two IMEI values.".to_string());
-    }
-    if imeis
-        .iter()
-        .any(|v| v.len() != 15 || !v.chars().all(|c| c.is_ascii_digit()))
-    {
-        return Err("Invalid IMEI. Each IMEI must be exactly 15 digits.".to_string());
-    }
-    Ok(imeis)
-}
-
-fn build_imei_write_commands(manufacturer: &Manufacturer, imeis: &[String]) -> Vec<String> {
-    if imeis.len() == 2 {
-        return match manufacturer {
-            Manufacturer::Google | Manufacturer::OnePlus | Manufacturer::Motorola => vec![
-                format!("AT+CGSN={}", imeis[0]),
-                format!("AT+CGSN=1,{}", imeis[1]),
-            ],
-            _ => vec![
-                format!("AT+EGMR=1,7,\"{}\"", imeis[0]),
-                format!("AT+EGMR=1,10,\"{}\"", imeis[1]),
-            ],
-        };
-    }
-
-    let primary = match manufacturer {
-        Manufacturer::Samsung => format!("AT+EGMR=1,7,\"{}\"", imeis[0]),
-        Manufacturer::Xiaomi
-        | Manufacturer::Oppo
-        | Manufacturer::Realme
-        | Manufacturer::Vivo
-        | Manufacturer::Huawei
-        | Manufacturer::Honor => format!("AT+EGMR=1,10,\"{}\"", imeis[0]),
-        Manufacturer::Google | Manufacturer::OnePlus | Manufacturer::Motorola => {
-            format!("AT+CGSN={}", imeis[0])
-        }
-        _ => format!("AT+EGMR=1,7,\"{}\"", imeis[0]),
-    };
-    vec![primary]
 }
 
 // -- Diagnostic Serial Port Communication --
 
 /// Send an AT command to a serial port and read the response.
-pub fn send_at_command(
+fn send_at_command(
     port: &mut Box<dyn serialport::SerialPort>,
     command: &str,
 ) -> Result<String, String> {
@@ -435,7 +241,7 @@ pub fn list_diag_ports() -> String {
     }
 }
 
-pub fn open_diag_port(port_name: &str) -> Result<Box<dyn serialport::SerialPort>, String> {
+fn open_diag_port(port_name: &str) -> Result<Box<dyn serialport::SerialPort>, String> {
     let port_result = serialport::new(port_name, 115200)
         .timeout(Duration::from_secs(3))
         .data_bits(serialport::DataBits::Eight)
@@ -469,18 +275,6 @@ pub fn open_diag_port(port_name: &str) -> Result<Box<dyn serialport::SerialPort>
             Err(format!("Diag Port Error:\n  {}", detail))
         }
     }
-}
-
-/// Send raw diagnostic bytes over an open port. Returns error on write/flush failure.
-pub fn send_diag_bytes(
-    port: &mut Box<dyn serialport::SerialPort>,
-    bytes: &[u8],
-) -> Result<(), String> {
-    port.write_all(bytes)
-        .map_err(|e| format!("Diag write failed: {}", e))?;
-    port.flush()
-        .map_err(|e| format!("Diag flush failed: {}", e))?;
-    Ok(())
 }
 
 fn query_device_identity(port: &mut Box<dyn serialport::SerialPort>, output: &mut String) {
@@ -592,16 +386,6 @@ pub fn read_imei_diag(port_name: &str) -> String {
     let mut output = format!("Diag Port IMEI Read ({}):\n", port_name);
     query_device_identity(&mut port, &mut output);
     output
-}
-
-fn get_fingerprint(serial: &str) -> String {
-    let script = "getprop ro.product.model; echo SEP; getprop ro.build.version.release; echo SEP; getprop ro.board.platform";
-    let out = adb_shell(serial, &["sh", "-c", script]).unwrap_or_default();
-    let mut parts = out.split("SEP");
-    let model = parts.next().unwrap_or("").trim();
-    let release = parts.next().unwrap_or("").trim();
-    let platform = parts.next().unwrap_or("").trim();
-    fingerprint(model, release, platform)
 }
 
 // -- GMS (Google Mobile Services) Repair --
@@ -729,36 +513,15 @@ pub fn backup_nv_data(serial: &str) -> String {
     let _ = adb_shell(serial, &["mkdir", "-p", backup_dir]);
     let partitions = ["modemst1", "modemst2", "fsg", "fsc"];
     let mut output = String::from("NV Data Backup:\n");
-
-    let mut cmd = String::new();
-    for (i, part) in partitions.iter().enumerate() {
+    for part in &partitions {
         let src = format!("/dev/block/bootdevice/by-name/{}", part);
         let dst = format!("{}/{}.img", backup_dir, part);
-        cmd.push_str(&format!(
-            "if dd if={} of={} 2>/dev/null; then echo OK; else echo FAIL; fi",
-            src, dst
-        ));
-        if i < partitions.len() - 1 {
-            cmd.push_str("; echo B_MARKER; ");
-        }
-    }
-
-    match adb_shell(serial, &["sh", "-c", &cmd]) {
-        Ok(res) => {
-            let parts: Vec<&str> = res.split("B_MARKER").collect();
-            for (i, part) in partitions.iter().enumerate() {
-                let out = parts.get(i).copied().unwrap_or("").trim();
-                if out.contains("OK") {
-                    output.push_str(&format!("  {} -- saved\n", part));
-                } else {
-                    output.push_str(&format!("  {} -- failed (root required)\n", part));
-                }
-            }
-        }
-        Err(_) => {
-            for part in &partitions {
-                output.push_str(&format!("  {} -- failed (root required)\n", part));
-            }
+        match adb_shell(
+            serial,
+            &["dd", &format!("if={}", src), &format!("of={}", dst)],
+        ) {
+            Ok(_) => output.push_str(&format!("  {} -- saved\n", part)),
+            Err(_) => output.push_str(&format!("  {} -- failed (root required)\n", part)),
         }
     }
     output
@@ -769,36 +532,15 @@ pub fn restore_nv_data(serial: &str) -> String {
     let backup_dir = "/sdcard/FOEM/nv_backup";
     let partitions = ["modemst1", "modemst2", "fsg", "fsc"];
     let mut output = String::from("NV Data Restore:\n");
-
-    let mut cmd = String::new();
-    for (i, part) in partitions.iter().enumerate() {
+    for part in &partitions {
         let src = format!("{}/{}.img", backup_dir, part);
         let dst = format!("/dev/block/bootdevice/by-name/{}", part);
-        cmd.push_str(&format!(
-            "if dd if={} of={} 2>/dev/null; then echo OK; else echo FAIL; fi",
-            src, dst
-        ));
-        if i < partitions.len() - 1 {
-            cmd.push_str("; echo B_MARKER; ");
-        }
-    }
-
-    match adb_shell(serial, &["sh", "-c", &cmd]) {
-        Ok(res) => {
-            let parts: Vec<&str> = res.split("B_MARKER").collect();
-            for (i, part) in partitions.iter().enumerate() {
-                let out = parts.get(i).copied().unwrap_or("").trim();
-                if out.contains("OK") {
-                    output.push_str(&format!("  {} -- restored\n", part));
-                } else {
-                    output.push_str(&format!("  {} -- failed\n", part));
-                }
-            }
-        }
-        Err(_) => {
-            for part in &partitions {
-                output.push_str(&format!("  {} -- failed\n", part));
-            }
+        match adb_shell(
+            serial,
+            &["dd", &format!("if={}", src), &format!("of={}", dst)],
+        ) {
+            Ok(_) => output.push_str(&format!("  {} -- restored\n", part)),
+            Err(_) => output.push_str(&format!("  {} -- failed\n", part)),
         }
     }
     output.push_str("  Reboot required.\n");
@@ -863,29 +605,11 @@ pub fn check_baseband(serial: &str) -> String {
         ("Modem Board", "ro.board.platform"),
         ("Radio", "gsm.current.phone-type"),
     ];
-
-    let mut script = String::new();
-    for (_, prop) in &props {
-        script.push_str(&format!("getprop {}; echo B_MARKER; ", prop));
-    }
-
     let mut output = String::from("Baseband/Modem Info:\n");
-    match adb_shell(serial, &["sh", "-c", script.as_str()]) {
-        Ok(res) => {
-            let mut parts = res.split("B_MARKER");
-            for (label, _) in &props {
-                let val = parts.next().unwrap_or("").trim();
-                if !val.is_empty() {
-                    let _ = writeln!(output, "  {}: {}", label, val);
-                } else {
-                    let _ = writeln!(output, "  {}: not available", label);
-                }
-            }
-        }
-        Err(_) => {
-            for (label, _) in &props {
-                output.push_str(&format!("  {}: not available\n", label));
-            }
+    for (label, prop) in &props {
+        match adb_shell(serial, &["getprop", prop]) {
+            Ok(val) if !val.is_empty() => output.push_str(&format!("  {}: {}\n", label, val)),
+            _ => output.push_str(&format!("  {}: not available\n", label)),
         }
     }
     output
@@ -894,8 +618,8 @@ pub fn check_baseband(serial: &str) -> String {
 /// Attempt baseband repair by clearing modem cache.
 pub fn repair_baseband(serial: &str) -> String {
     let mut output = String::from("Baseband Repair:\n");
-    let script = "setprop persist.sys.modem.diag ,default; rm -rf /cache/modem_*";
-    match adb_shell(serial, &["sh", "-c", script]) {
+    let _ = adb_shell(serial, &["setprop", "persist.sys.modem.diag", ",default"]);
+    match adb_shell(serial, &["rm", "-rf", "/cache/modem_*"]) {
         Ok(_) => output.push_str("  Cleared modem cache.\n"),
         Err(_) => output.push_str("  Modem cache clear failed (root may be required).\n"),
     }
@@ -948,148 +672,4 @@ pub fn read_build_props(serial: &str) -> String {
         }
     }
     output
-}
-
-// -- Adaptive Diag Enable via heuristic engine --
-
-/// Enable diagnostic port using adaptive heuristic engine with self-learning.
-pub fn enable_diag_port(serial: &str, manufacturer: &Manufacturer) -> String {
-    let fp = get_fingerprint(serial);
-    // Use manufacturer hint as part of fingerprint to increase specificity
-    let fp = format!("{}|{}", fp, manufacturer.name());
-    execute_goal(serial, FuzzGoal::EnableDiagPort, &fp, None)
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn read_imei_success() {
-        crate::exec::MOCK_RUN_IMPL.with(|mock| {
-            *mock.borrow_mut() = Some(Box::new(|program, args, _| {
-                if program == "adb" {
-                    let cmd = args.join(" ");
-                    if cmd.contains("shell am start -a android.intent.action.DIAL") {
-                        return Ok("Starting: Intent { action=android.intent.action.DIAL ... }"
-                            .to_string());
-                    }
-                    if cmd.contains("sh -c") {
-                        return Ok(
-                            "123456789012345\nB_MARKER_0\nB_MARKER_0\nB_MARKER_0\n".to_string()
-                        );
-                    }
-                }
-                Ok("".to_string())
-            }));
-        });
-
-        let output = super::read_imei("serial123");
-        assert!(output.contains("123456789012345"));
-        assert!(output.contains("Dialer IMEI check launched"));
-
-        crate::exec::MOCK_RUN_IMPL.with(|mock| {
-            *mock.borrow_mut() = None;
-        });
-    }
-
-    #[test]
-    fn read_imei_empty_response() {
-        crate::exec::MOCK_RUN_IMPL.with(|mock| {
-            *mock.borrow_mut() = Some(Box::new(|program, args, _| {
-                if program == "adb" {
-                    let cmd = args.join(" ");
-                    if cmd.contains("shell am start -a android.intent.action.DIAL") {
-                        return Err("error".to_string());
-                    }
-                    if cmd.contains("sh -c") {
-                        return Ok("B_MARKER_0\nB_MARKER_0\nB_MARKER_0\n".to_string());
-                    }
-                }
-                Ok("".to_string())
-            }));
-        });
-
-        let output = super::read_imei("serial123");
-        assert!(output.contains("service call -- empty response"));
-        assert!(output.contains("getprop -- empty response"));
-        assert!(output.contains("dumpsys -- empty response"));
-        assert!(!output.contains("Dialer IMEI check launched"));
-
-        crate::exec::MOCK_RUN_IMPL.with(|mock| {
-            *mock.borrow_mut() = None;
-        });
-    }
-
-    #[test]
-    fn read_imei_error_response() {
-        crate::exec::MOCK_RUN_IMPL.with(|mock| {
-            *mock.borrow_mut() = Some(Box::new(|program, args, _| {
-                if program == "adb" {
-                    let cmd = args.join(" ");
-                    if cmd.contains("shell am start -a android.intent.action.DIAL") {
-                        return Err("error".to_string());
-                    }
-                    if cmd.contains("sh -c") {
-                        return Err("device offline".to_string());
-                    }
-                }
-                Ok("".to_string())
-            }));
-        });
-
-        let output = super::read_imei("serial123");
-        assert!(output.contains("service call -- error: device offline"));
-        assert!(output.contains("getprop -- error: device offline"));
-        assert!(output.contains("dumpsys -- error: device offline"));
-
-        crate::exec::MOCK_RUN_IMPL.with(|mock| {
-            *mock.borrow_mut() = None;
-        });
-    }
-
-    use super::{build_imei_write_commands, parse_imei_input};
-    use crate::features::Manufacturer;
-
-    #[test]
-    fn parse_single_imei() -> Result<(), Box<dyn std::error::Error>> {
-        let parsed = parse_imei_input("123456789012345")?;
-        assert_eq!(parsed, vec!["123456789012345".to_string()]);
-        Ok(())
-    }
-
-    #[test]
-    fn parse_dual_imei_with_comma() -> Result<(), Box<dyn std::error::Error>> {
-        let parsed = parse_imei_input("123456789012345,234567890123456")?;
-        assert_eq!(
-            parsed,
-            vec!["123456789012345".to_string(), "234567890123456".to_string()]
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn parse_rejects_more_than_two_imeis() {
-        let err = parse_imei_input("123456789012345,234567890123456,345678901234567")
-            .expect_err("more than two imeis should fail");
-        assert!(err.contains("at most two"));
-    }
-
-    #[test]
-    fn build_commands_includes_second_slot_when_present() {
-        let imeis = vec!["123456789012345".to_string(), "234567890123456".to_string()];
-        let commands = build_imei_write_commands(&Manufacturer::Samsung, &imeis);
-        assert_eq!(commands.len(), 2);
-        assert!(commands[0].contains("AT+EGMR=1,7"));
-        assert!(commands[1].contains("AT+EGMR=1,10"));
-        assert!(commands[0].contains("123456789012345"));
-        assert!(commands[1].contains("234567890123456"));
-    }
-
-    #[test]
-    fn build_commands_dual_imei_uses_two_slots_for_xiaomi() {
-        let imeis = vec!["123456789012345".to_string(), "234567890123456".to_string()];
-        let commands = build_imei_write_commands(&Manufacturer::Xiaomi, &imeis);
-        assert_eq!(commands.len(), 2);
-        assert!(commands[0].contains("AT+EGMR=1,7"));
-        assert!(commands[1].contains("AT+EGMR=1,10"));
-    }
 }

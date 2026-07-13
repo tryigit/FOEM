@@ -1,5 +1,8 @@
-pub mod ai_assistant;
 /// Feature modules for FOEM.
+///
+/// Each module provides functions that execute ADB/Fastboot commands
+/// for a specific category of device operations.
+/// Manufacturer-specific logic is handled via the Manufacturer enum.
 pub mod bootloader;
 pub mod flash;
 pub mod hardware_test;
@@ -7,7 +10,7 @@ pub mod network;
 pub mod repair;
 pub mod tools;
 
-use crate::exec;
+use std::process::Command;
 
 /// Supported device manufacturers.
 /// Used to select manufacturer-specific methods and protocols.
@@ -104,14 +107,39 @@ impl Manufacturer {
     }
 }
 
+fn run_cmd(
+    program: &str,
+    serial: &str,
+    args: &[&str],
+    error_prefix: &str,
+) -> Result<String, String> {
+    let mut cmd = Command::new(program);
+    cmd.args(["-s", serial]);
+    cmd.args(args);
+    match cmd.output() {
+        Ok(output) if output.status.success() => {
+            Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+        }
+        Ok(output) => {
+            let err = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            Err(if err.is_empty() {
+                "Command failed with no error output.".to_string()
+            } else {
+                err
+            })
+        }
+        Err(e) => Err(format!("{}: {}", error_prefix, e)),
+    }
+}
+
 /// Shared helper: run an ADB command and return its output.
 pub fn adb(serial: &str, args: &[&str]) -> Result<String, String> {
-    exec::run_with_serial("adb", serial, args, "Failed to execute ADB")
+    run_cmd("adb", serial, args, "Failed to execute ADB")
 }
 
 /// Shared helper: run a Fastboot command and return its output.
 pub fn fastboot(serial: &str, args: &[&str]) -> Result<String, String> {
-    exec::run_with_serial("fastboot", serial, args, "Failed to execute Fastboot")
+    run_cmd("fastboot", serial, args, "Failed to execute Fastboot")
 }
 
 /// Shared helper: run an ADB shell command.
@@ -119,57 +147,4 @@ pub fn adb_shell(serial: &str, args: &[&str]) -> Result<String, String> {
     let mut full_args = vec!["shell"];
     full_args.extend_from_slice(args);
     adb(serial, &full_args)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_manufacturer_name() {
-        assert_eq!(Manufacturer::Samsung.name(), "Samsung");
-        assert_eq!(Manufacturer::Xiaomi.name(), "Xiaomi");
-
-        for manufacturer in Manufacturer::ALL {
-            let name = manufacturer.name();
-            assert!(!name.is_empty(), "Manufacturer name should not be empty");
-        }
-    }
-
-    #[test]
-    fn test_adb_fastboot_wrappers() {
-        // We test that the wrappers correctly format errors when the underlying command fails.
-        // This ensures the wrappers are properly passing arguments and the error prefix down.
-        let serial = "dummy_serial_that_does_not_exist";
-        let args = &["dummy_arg"];
-
-        let adb_res = adb(serial, args);
-        let e = adb_res.unwrap_err();
-        assert!(!e.is_empty(), "Error message should not be empty");
-
-        let shell_res = adb_shell(serial, args);
-        let e = shell_res.unwrap_err();
-        assert!(!e.is_empty(), "Error message should not be empty");
-
-        let fastboot_res = fastboot(serial, args);
-        let e = fastboot_res.unwrap_err();
-        assert!(!e.is_empty(), "Error message should not be empty");
-    }
-
-    #[test]
-    fn test_manufacturer_platform_hint() {
-        assert_eq!(Manufacturer::Samsung.platform_hint(), "Exynos / Qualcomm");
-        assert_eq!(
-            Manufacturer::Google.platform_hint(),
-            "Google Tensor / Qualcomm"
-        );
-
-        for manufacturer in Manufacturer::ALL {
-            let hint = manufacturer.platform_hint();
-            assert!(
-                !hint.is_empty(),
-                "Manufacturer platform hint should not be empty"
-            );
-        }
-    }
 }

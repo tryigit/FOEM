@@ -5,14 +5,11 @@
 use eframe::egui;
 
 use crate::diagnostics::DeviceDiagnostics;
-use crate::display_version;
-use crate::features::ai_assistant::{
-    self, AiAssistantState, AiSettings, Provider, TelemetrySnapshot,
-};
 use crate::features::{self, Manufacturer};
 use crate::license_text::{COMMUNITY_LINKS, CRYPTO_DONATIONS, FIAT_DONATIONS, LICENSE_TEXT};
 use crate::theme;
 use crate::update_manager::UpdateManager;
+use crate::VERSION;
 
 #[derive(Default, PartialEq, Clone, Copy)]
 enum Panel {
@@ -24,8 +21,6 @@ enum Panel {
     Flash,
     Diagnostics,
     Tools,
-    AiAssistant,
-    ServerAuth,
     Updates,
     License,
 }
@@ -38,36 +33,19 @@ pub struct FOEMApp {
     log: String,
     // Input fields
     imei_input: String,
-    imei_input_2: String,
     csc_input: String,
     adb_command: String,
     nck_input: String,
     flash_path: String,
-    payload_path: String,
     partition_idx: usize,
     package_filter: String,
     remote_path: String,
     local_path: String,
     show_full_license: bool,
-    ai_settings: AiSettings,
-    ai_state: AiAssistantState,
-    ai_attachment_path: String,
-    server_api_endpoint: String,
-    server_auth_token: String,
-    server_proxy: String,
-    service_account_id: String,
 }
 
 impl FOEMApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        let native_scale = cc.egui_ctx.native_pixels_per_point().unwrap_or({
-            if cfg!(target_os = "windows") {
-                1.25
-            } else {
-                1.0
-            }
-        });
-        cc.egui_ctx.set_pixels_per_point(native_scale.max(1.0));
         theme::apply(&cc.egui_ctx);
         Self {
             panel: Panel::Device,
@@ -76,24 +54,15 @@ impl FOEMApp {
             manufacturer_idx: 0,
             log: String::new(),
             imei_input: String::new(),
-            imei_input_2: String::new(),
             csc_input: String::new(),
             adb_command: String::new(),
             nck_input: String::new(),
             flash_path: String::new(),
-            payload_path: String::new(),
             partition_idx: 0,
             package_filter: String::new(),
             remote_path: String::new(),
             local_path: String::new(),
             show_full_license: false,
-            ai_settings: AiSettings::default(),
-            ai_state: AiAssistantState::default(),
-            ai_attachment_path: String::new(),
-            server_api_endpoint: String::new(),
-            server_auth_token: String::new(),
-            server_proxy: String::new(),
-            service_account_id: String::new(),
         }
     }
 
@@ -110,42 +79,6 @@ impl FOEMApp {
 
     fn manufacturer(&self) -> &Manufacturer {
         &Manufacturer::ALL[self.manufacturer_idx]
-    }
-
-    fn panel_name(&self) -> &'static str {
-        match self.panel {
-            Panel::Device => "Device",
-            Panel::Bootloader => "Bootloader",
-            Panel::Repair => "Repair",
-            Panel::Network => "Network",
-            Panel::Flash => "Flash",
-            Panel::Diagnostics => "Diagnostics",
-            Panel::Tools => "Tools",
-            Panel::AiAssistant => "AI Agent",
-            Panel::ServerAuth => "Server Auth",
-            Panel::Updates => "Updates",
-            Panel::License => "License",
-        }
-    }
-
-    fn navigate_to_panel(&mut self, target: &str) -> bool {
-        let normalized = target.trim().to_ascii_lowercase();
-        let next = match normalized.as_str() {
-            "device" => Panel::Device,
-            "bootloader" => Panel::Bootloader,
-            "repair" => Panel::Repair,
-            "network" | "network & security" => Panel::Network,
-            "flash" => Panel::Flash,
-            "diagnostics" => Panel::Diagnostics,
-            "tools" => Panel::Tools,
-            "ai" | "ai agent" | "ai assistant" => Panel::AiAssistant,
-            "server" | "server auth" | "api" => Panel::ServerAuth,
-            "updates" => Panel::Updates,
-            "license" | "license & support" => Panel::License,
-            _ => return false,
-        };
-        self.panel = next;
-        true
     }
 }
 
@@ -168,7 +101,7 @@ impl eframe::App for FOEMApp {
                         .color(theme::FG),
                 );
                 ui.label(
-                    egui::RichText::new(format!("v{}", display_version()))
+                    egui::RichText::new(format!("v{}", VERSION))
                         .size(11.0)
                         .color(theme::TERTIARY),
                 );
@@ -184,8 +117,6 @@ impl eframe::App for FOEMApp {
                     ("Flash", Panel::Flash),
                     ("Diagnostics", Panel::Diagnostics),
                     ("Tools", Panel::Tools),
-                    ("AI Agent", Panel::AiAssistant),
-                    ("Server Auth", Panel::ServerAuth),
                     ("Updates", Panel::Updates),
                     ("License & Support", Panel::License),
                 ];
@@ -245,8 +176,6 @@ impl eframe::App for FOEMApp {
                 Panel::Flash => self.panel_flash(ui),
                 Panel::Diagnostics => self.panel_diagnostics(ui),
                 Panel::Tools => self.panel_tools(ui),
-                Panel::AiAssistant => self.panel_ai_assistant(ui),
-                Panel::ServerAuth => self.panel_server_auth(ui),
                 Panel::Updates => self.panel_updates(ui),
                 Panel::License => self.panel_license(ui),
             });
@@ -284,11 +213,10 @@ fn log_area(ui: &mut egui::Ui, text: &str) {
             egui::ScrollArea::vertical()
                 .max_height(380.0)
                 .show(ui, |ui| {
-                    ui.spacing_mut().item_spacing = egui::vec2(6.0, 8.0);
                     ui.label(
                         egui::RichText::new(text)
                             .monospace()
-                            .size(13.0)
+                            .size(11.5)
                             .color(theme::FG),
                     );
                 });
@@ -296,24 +224,14 @@ fn log_area(ui: &mut egui::Ui, text: &str) {
 }
 
 fn btn(ui: &mut egui::Ui, label: &str) -> bool {
-    ui.add(
-        egui::Button::new(egui::RichText::new(label).size(12.5))
-            .min_size(egui::vec2(132.0, 36.0))
-            .wrap(),
-    )
-    .clicked()
+    ui.button(egui::RichText::new(label).size(12.0)).clicked()
 }
 
 fn btn_accent(ui: &mut egui::Ui, label: &str) -> bool {
-    ui.add(
-        egui::Button::new(
-            egui::RichText::new(label)
-                .size(12.5)
-                .color(egui::Color32::WHITE),
-        )
-        .fill(theme::ACCENT)
-        .min_size(egui::vec2(132.0, 36.0))
-        .wrap(),
+    ui.button(
+        egui::RichText::new(label)
+            .size(12.0)
+            .color(egui::Color32::WHITE),
     )
     .clicked()
 }
@@ -337,12 +255,11 @@ impl FOEMApp {
         );
 
         ui.add_space(8.0);
-        ui.horizontal_wrapped(|ui| {
+        ui.horizontal(|ui| {
             if btn_accent(ui, "Detect Device") {
                 self.log = match self.diagnostics.detect_device() {
-                    Ok(Some(s)) => format!("Device detected: {}", s),
-                    Ok(None) => "No device detected. Check USB debugging.".into(),
-                    Err(e) => format!("Detect device failed: {}", e),
+                    Some(s) => format!("Device detected: {}", s),
+                    None => "No device detected. Check USB debugging.".into(),
                 };
             }
             if btn(ui, "Device Info") {
@@ -387,7 +304,7 @@ impl FOEMApp {
         );
 
         section(ui, "Status");
-        ui.horizontal_wrapped(|ui| {
+        ui.horizontal(|ui| {
             if btn(ui, "Check BL Status") {
                 if let Ok(s) = self.require_device() {
                     self.log = features::bootloader::check_status(s);
@@ -412,7 +329,7 @@ impl FOEMApp {
         });
 
         section(ui, "Actions");
-        ui.horizontal_wrapped(|ui| {
+        ui.horizontal(|ui| {
             if btn_accent(ui, "Unlock Bootloader") {
                 if let Ok(s) = self.require_device() {
                     self.log = features::bootloader::unlock(s, &mfr);
@@ -427,19 +344,20 @@ impl FOEMApp {
                     self.log = "Connect a device first.".into();
                 }
             }
-            ui.horizontal(|ui| {
-                ui.label("Payload Path:");
-                ui.add(egui::TextEdit::singleline(&mut self.payload_path).desired_width(150.0));
-                if btn(ui, "Bypass Bootloader Unlock (Pre-Feb)") {
-                    if self.payload_path.is_empty() {
-                        self.log = "Please provide the payload path first.".into();
-                    } else if let Ok(s) = self.require_device() {
-                        self.log = features::bootloader::bypass_unlock(s, &self.payload_path);
-                    } else {
-                        self.log = "Connect a device first.".into();
-                    }
+            if btn(ui, "Bypass Bootloader Unlock (Pre-Feb)") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::bootloader::bypass_unlock(s);
+                } else {
+                    self.log = "Connect a device first.".into();
                 }
-            });
+            }
+            if btn(ui, "Attempt Locked Root") {
+                if let Ok(s) = self.require_device() {
+                    self.log = features::bootloader::attempt_locked_root(s);
+                } else {
+                    self.log = "Connect a device first.".into();
+                }
+            }
             if btn(ui, "Attempt Locked Root") {
                 if let Ok(s) = self.require_device() {
                     self.log = features::bootloader::attempt_locked_root(s);
@@ -465,179 +383,147 @@ impl FOEMApp {
         let mfr = *self.manufacturer();
 
         egui::ScrollArea::vertical().show(ui, |ui| {
-            self.repair_imei_section(ui, mfr);
-            self.repair_gms_section(ui);
-            self.repair_efs_nv_section(ui);
-            self.repair_samsung_section(ui);
-            self.repair_baseband_section(ui);
-
-            ui.add_space(8.0);
-            log_area(ui, &self.log);
-        });
-    }
-
-    fn repair_imei_section(&mut self, ui: &mut egui::Ui, mfr: features::Manufacturer) {
-        section(ui, "IMEI Management");
-        ui.horizontal_wrapped(|ui| {
-            if btn(ui, "Read IMEI") {
-                if let Ok(s) = self.require_device() {
-                    self.log = features::repair::read_imei(s);
-                } else {
-                    self.log = "Connect a device first.".into();
-                }
-            }
-
-            if btn(ui, "Backup IMEI") {
-                if let Ok(s) = self.require_device() {
-                    self.log = features::repair::backup_imei(s);
-                } else {
-                    self.log = "Connect a device first.".into();
-                }
-            }
-            if matches!(mfr, features::Manufacturer::Xiaomi) {
-                if btn(ui, "Xiaomi Modem Test (MTB)") {
+            // IMEI
+            section(ui, "IMEI Management");
+            ui.horizontal(|ui| {
+                if btn(ui, "Read IMEI") {
                     if let Ok(s) = self.require_device() {
-                        self.log = features::repair::open_xiaomi_mtb(s);
+                        self.log = features::repair::read_imei(s);
                     } else {
                         self.log = "Connect a device first.".into();
                     }
                 }
-            }
-        });
-        ui.horizontal_wrapped(|ui| {
-            ui.label(
-                egui::RichText::new("IMEI 1:")
-                    .size(12.0)
-                    .color(theme::SECONDARY),
-            );
-            ui.add(egui::TextEdit::singleline(&mut self.imei_input).desired_width(180.0));
-            ui.label(
-                egui::RichText::new("IMEI 2 (optional):")
-                    .size(12.0)
-                    .color(theme::SECONDARY),
-            );
-            ui.add(egui::TextEdit::singleline(&mut self.imei_input_2).desired_width(180.0));
-            if btn(ui, "Write IMEI") {
-                if let Ok(s) = self.require_device() {
-                    let imei_payload = if self.imei_input_2.trim().is_empty() {
-                        self.imei_input.clone()
+                if btn(ui, "Backup IMEI") {
+                    if let Ok(s) = self.require_device() {
+                        self.log = features::repair::backup_imei(s);
                     } else {
-                        format!("{},{}", self.imei_input.trim(), self.imei_input_2.trim())
-                    };
-                    self.log = features::repair::write_imei(s, &imei_payload, &mfr);
-                } else {
-                    self.log = "Connect a device first.".into();
+                        self.log = "Connect a device first.".into();
+                    }
                 }
-            }
-        });
-    }
+            });
+            ui.horizontal(|ui| {
+                ui.label(
+                    egui::RichText::new("IMEI:")
+                        .size(12.0)
+                        .color(theme::SECONDARY),
+                );
+                ui.add(egui::TextEdit::singleline(&mut self.imei_input).desired_width(180.0));
+                if btn(ui, "Write IMEI") {
+                    if let Ok(s) = self.require_device() {
+                        self.log = features::repair::write_imei(s, &self.imei_input, &mfr);
+                    } else {
+                        self.log = "Connect a device first.".into();
+                    }
+                }
+            });
 
-    fn repair_gms_section(&mut self, ui: &mut egui::Ui) {
-        section(ui, "Google Mobile Services");
-        ui.horizontal_wrapped(|ui| {
-            if btn(ui, "Check GMS") {
-                if let Ok(s) = self.require_device() {
-                    self.log = features::repair::check_gms(s);
-                } else {
-                    self.log = "Connect a device first.".into();
+            // GMS
+            section(ui, "Google Mobile Services");
+            ui.horizontal(|ui| {
+                if btn(ui, "Check GMS") {
+                    if let Ok(s) = self.require_device() {
+                        self.log = features::repair::check_gms(s);
+                    } else {
+                        self.log = "Connect a device first.".into();
+                    }
                 }
-            }
-            if btn_accent(ui, "Repair GMS") {
-                if let Ok(s) = self.require_device() {
-                    self.log = features::repair::repair_gms(s);
-                } else {
-                    self.log = "Connect a device first.".into();
+                if btn_accent(ui, "Repair GMS") {
+                    if let Ok(s) = self.require_device() {
+                        self.log = features::repair::repair_gms(s);
+                    } else {
+                        self.log = "Connect a device first.".into();
+                    }
                 }
-            }
-        });
-    }
+            });
 
-    fn repair_efs_nv_section(&mut self, ui: &mut egui::Ui) {
-        section(ui, "EFS / NV Data");
-        ui.horizontal_wrapped(|ui| {
-            if btn(ui, "Backup EFS") {
-                if let Ok(s) = self.require_device() {
-                    self.log = features::repair::backup_efs(s);
-                } else {
-                    self.log = "Connect a device first.".into();
+            // EFS / NV
+            section(ui, "EFS / NV Data");
+            ui.horizontal(|ui| {
+                if btn(ui, "Backup EFS") {
+                    if let Ok(s) = self.require_device() {
+                        self.log = features::repair::backup_efs(s);
+                    } else {
+                        self.log = "Connect a device first.".into();
+                    }
                 }
-            }
-            if btn(ui, "Restore EFS") {
-                if let Ok(s) = self.require_device() {
-                    self.log = features::repair::restore_efs(s);
-                } else {
-                    self.log = "Connect a device first.".into();
+                if btn(ui, "Restore EFS") {
+                    if let Ok(s) = self.require_device() {
+                        self.log = features::repair::restore_efs(s);
+                    } else {
+                        self.log = "Connect a device first.".into();
+                    }
                 }
-            }
-            if btn(ui, "Backup NV") {
-                if let Ok(s) = self.require_device() {
-                    self.log = features::repair::backup_nv_data(s);
-                } else {
-                    self.log = "Connect a device first.".into();
+                if btn(ui, "Backup NV") {
+                    if let Ok(s) = self.require_device() {
+                        self.log = features::repair::backup_nv_data(s);
+                    } else {
+                        self.log = "Connect a device first.".into();
+                    }
                 }
-            }
-            if btn(ui, "Restore NV") {
-                if let Ok(s) = self.require_device() {
-                    self.log = features::repair::restore_nv_data(s);
-                } else {
-                    self.log = "Connect a device first.".into();
+                if btn(ui, "Restore NV") {
+                    if let Ok(s) = self.require_device() {
+                        self.log = features::repair::restore_nv_data(s);
+                    } else {
+                        self.log = "Connect a device first.".into();
+                    }
                 }
-            }
-        });
-    }
+            });
 
-    fn repair_samsung_section(&mut self, ui: &mut egui::Ui) {
-        section(ui, "Samsung Specific");
-        ui.horizontal_wrapped(|ui| {
-            if btn(ui, "DRK Repair") {
-                if let Ok(s) = self.require_device() {
-                    self.log = features::repair::repair_drk(s);
-                } else {
-                    self.log = "Connect a device first.".into();
+            // Samsung-specific
+            section(ui, "Samsung Specific");
+            ui.horizontal(|ui| {
+                if btn(ui, "DRK Repair") {
+                    if let Ok(s) = self.require_device() {
+                        self.log = features::repair::repair_drk(s);
+                    } else {
+                        self.log = "Connect a device first.".into();
+                    }
                 }
-            }
-            if btn(ui, "Knox Counter") {
-                if let Ok(s) = self.require_device() {
-                    self.log = features::repair::check_knox_counter(s);
-                } else {
-                    self.log = "Connect a device first.".into();
+                if btn(ui, "Knox Counter") {
+                    if let Ok(s) = self.require_device() {
+                        self.log = features::repair::check_knox_counter(s);
+                    } else {
+                        self.log = "Connect a device first.".into();
+                    }
                 }
-            }
-        });
-        ui.horizontal_wrapped(|ui| {
-            ui.label(
-                egui::RichText::new("CSC:")
-                    .size(12.0)
-                    .color(theme::SECONDARY),
-            );
-            ui.add(egui::TextEdit::singleline(&mut self.csc_input).desired_width(80.0));
-            if btn(ui, "Change CSC") {
-                if let Ok(s) = self.require_device() {
-                    self.log = features::repair::change_csc(s, &self.csc_input);
-                } else {
-                    self.log = "Connect a device first.".into();
+            });
+            ui.horizontal(|ui| {
+                ui.label(
+                    egui::RichText::new("CSC:")
+                        .size(12.0)
+                        .color(theme::SECONDARY),
+                );
+                ui.add(egui::TextEdit::singleline(&mut self.csc_input).desired_width(80.0));
+                if btn(ui, "Change CSC") {
+                    if let Ok(s) = self.require_device() {
+                        self.log = features::repair::change_csc(s, &self.csc_input);
+                    } else {
+                        self.log = "Connect a device first.".into();
+                    }
                 }
-            }
-        });
-    }
+            });
 
-    fn repair_baseband_section(&mut self, ui: &mut egui::Ui) {
-        section(ui, "Baseband / Modem");
-        ui.horizontal_wrapped(|ui| {
-            if btn(ui, "Check Baseband") {
-                if let Ok(s) = self.require_device() {
-                    self.log = features::repair::check_baseband(s);
-                } else {
-                    self.log = "Connect a device first.".into();
+            // Baseband
+            section(ui, "Baseband / Modem");
+            ui.horizontal(|ui| {
+                if btn(ui, "Check Baseband") {
+                    if let Ok(s) = self.require_device() {
+                        self.log = features::repair::check_baseband(s);
+                    } else {
+                        self.log = "Connect a device first.".into();
+                    }
                 }
-            }
-            if btn(ui, "Repair Baseband") {
-                if let Ok(s) = self.require_device() {
-                    self.log = features::repair::repair_baseband(s);
-                } else {
-                    self.log = "Connect a device first.".into();
+                if btn(ui, "Repair Baseband") {
+                    if let Ok(s) = self.require_device() {
+                        self.log = features::repair::repair_baseband(s);
+                    } else {
+                        self.log = "Connect a device first.".into();
+                    }
                 }
-            }
+            });
+
+            ui.add_space(8.0);
+            log_area(ui, &self.log);
         });
     }
 
@@ -647,7 +533,7 @@ impl FOEMApp {
         egui::ScrollArea::vertical().show(ui, |ui| {
             // FRP
             section(ui, "FRP (Factory Reset Protection)");
-            ui.horizontal_wrapped(|ui| {
+            ui.horizontal(|ui| {
                 if btn(ui, "Check FRP") {
                     if let Ok(s) = self.require_device() {
                         self.log = features::network::check_frp_status(s);
@@ -676,7 +562,7 @@ impl FOEMApp {
                     }
                 }
             });
-            ui.horizontal_wrapped(|ui| {
+            ui.horizontal(|ui| {
                 if btn(ui, "Remove Accounts") {
                     if let Ok(s) = self.require_device() {
                         self.log = features::network::bypass_frp(
@@ -708,7 +594,7 @@ impl FOEMApp {
 
             // Carrier
             section(ui, "Carrier / SIM Unlock");
-            ui.horizontal_wrapped(|ui| {
+            ui.horizontal(|ui| {
                 if btn(ui, "Check Lock Status") {
                     if let Ok(s) = self.require_device() {
                         self.log = features::network::check_carrier_lock(s);
@@ -717,7 +603,7 @@ impl FOEMApp {
                     }
                 }
             });
-            ui.horizontal_wrapped(|ui| {
+            ui.horizontal(|ui| {
                 ui.label(
                     egui::RichText::new("NCK:")
                         .size(12.0)
@@ -735,7 +621,7 @@ impl FOEMApp {
 
             // MDM
             section(ui, "MDM / Enterprise");
-            ui.horizontal_wrapped(|ui| {
+            ui.horizontal(|ui| {
                 if btn(ui, "Check MDM") {
                     if let Ok(s) = self.require_device() {
                         self.log = features::network::check_mdm_status(s);
@@ -771,7 +657,7 @@ impl FOEMApp {
         egui::ScrollArea::vertical().show(ui, |ui| {
             // EDL
             section(ui, "EDL Mode (Qualcomm 9008)");
-            ui.horizontal_wrapped(|ui| {
+            ui.horizontal(|ui| {
                 if btn_accent(ui, "Enter EDL Mode") {
                     if let Ok(s) = self.require_device() {
                         self.log = features::flash::enter_edl_mode(s);
@@ -790,7 +676,7 @@ impl FOEMApp {
 
             // Fastboot
             section(ui, "Fastboot Flash");
-            ui.horizontal_wrapped(|ui| {
+            ui.horizontal(|ui| {
                 ui.label(
                     egui::RichText::new("Partition:")
                         .size(12.0)
@@ -805,7 +691,7 @@ impl FOEMApp {
                         }
                     });
             });
-            ui.horizontal_wrapped(|ui| {
+            ui.horizontal(|ui| {
                 ui.label(
                     egui::RichText::new("Image:")
                         .size(12.0)
@@ -813,7 +699,7 @@ impl FOEMApp {
                 );
                 ui.add(egui::TextEdit::singleline(&mut self.flash_path).desired_width(300.0));
             });
-            ui.horizontal_wrapped(|ui| {
+            ui.horizontal(|ui| {
                 if btn_accent(ui, "Flash Partition") {
                     if let Ok(s) = self.require_device() {
                         let part = features::flash::FASTBOOT_PARTITIONS[self.partition_idx];
@@ -841,7 +727,7 @@ impl FOEMApp {
 
             // Root
             section(ui, "Root (Magisk / KernelSU)");
-            ui.horizontal_wrapped(|ui| {
+            ui.horizontal(|ui| {
                 if btn_accent(ui, "Install Magisk") {
                     if let Ok(s) = self.require_device() {
                         self.log = features::flash::install_magisk(s, &self.flash_path);
@@ -860,7 +746,7 @@ impl FOEMApp {
 
             // Recovery
             section(ui, "Recovery");
-            ui.horizontal_wrapped(|ui| {
+            ui.horizontal(|ui| {
                 if btn(ui, "Flash Recovery") {
                     if let Ok(s) = self.require_device() {
                         self.log = features::flash::flash_recovery(s, &self.flash_path);
@@ -879,7 +765,7 @@ impl FOEMApp {
 
             // Firmware
             section(ui, "Firmware");
-            ui.horizontal_wrapped(|ui| {
+            ui.horizontal(|ui| {
                 if btn_accent(ui, "Flash Firmware") {
                     if let Ok(s) = self.require_device() {
                         self.log = features::flash::flash_firmware(s, &self.flash_path, &mfr);
@@ -891,7 +777,7 @@ impl FOEMApp {
 
             // MediaTek
             section(ui, "MediaTek SP Flash");
-            ui.horizontal_wrapped(|ui| {
+            ui.horizontal(|ui| {
                 if btn(ui, "Enter BROM Mode") {
                     if let Ok(s) = self.require_device() {
                         self.log = features::flash::enter_brom_mode(s);
@@ -906,7 +792,7 @@ impl FOEMApp {
 
             // Reboot modes
             section(ui, "Reboot");
-            ui.horizontal_wrapped(|ui| {
+            ui.horizontal(|ui| {
                 let modes = [
                     "system",
                     "recovery",
@@ -935,7 +821,7 @@ impl FOEMApp {
         heading(ui, "Hardware Diagnostics");
 
         egui::ScrollArea::vertical().show(ui, |ui| {
-            ui.horizontal_wrapped(|ui| {
+            ui.horizontal(|ui| {
                 if btn_accent(ui, "Run All Tests") {
                     if let Ok(s) = self.require_device() {
                         self.log = features::hardware_test::run_all(s);
@@ -946,7 +832,7 @@ impl FOEMApp {
             });
 
             section(ui, "Individual Tests");
-            ui.horizontal_wrapped(|ui| {
+            ui.horizontal(|ui| {
                 if btn(ui, "Battery") {
                     if let Ok(s) = self.require_device() {
                         self.log = features::hardware_test::check_battery(s);
@@ -976,7 +862,7 @@ impl FOEMApp {
                     }
                 }
             });
-            ui.horizontal_wrapped(|ui| {
+            ui.horizontal(|ui| {
                 if btn(ui, "Cameras") {
                     if let Ok(s) = self.require_device() {
                         self.log = features::hardware_test::test_cameras(s);
@@ -1006,7 +892,7 @@ impl FOEMApp {
                     }
                 }
             });
-            ui.horizontal_wrapped(|ui| {
+            ui.horizontal(|ui| {
                 if btn(ui, "USB") {
                     if let Ok(s) = self.require_device() {
                         self.log = features::hardware_test::test_usb(s);
@@ -1039,537 +925,236 @@ impl FOEMApp {
         heading(ui, "Tools");
 
         egui::ScrollArea::vertical().show(ui, |ui| {
-            self.tools_adb_shell(ui);
-            self.tools_logcat(ui);
-            self.tools_file_manager(ui);
-            self.tools_apk_packages(ui);
-            self.tools_backup_restore(ui);
-            self.tools_system(ui);
+            // ADB Shell
+            section(ui, "ADB Shell");
+            ui.horizontal(|ui| {
+                ui.add(
+                    egui::TextEdit::singleline(&mut self.adb_command)
+                        .desired_width(400.0)
+                        .hint_text("Enter ADB shell command..."),
+                );
+                if btn_accent(ui, "Execute") {
+                    if let Ok(s) = self.require_device() {
+                        self.log = features::tools::execute_shell(s, &self.adb_command);
+                    } else {
+                        self.log = "Connect a device first.".into();
+                    }
+                }
+            });
 
-            ui.add_space(8.0);
-            log_area(ui, &self.log);
-        });
-    }
+            // Logcat
+            section(ui, "Logcat");
+            ui.horizontal(|ui| {
+                if btn(ui, "Logcat (100 lines)") {
+                    if let Ok(s) = self.require_device() {
+                        self.log = features::tools::capture_logcat(s, 100);
+                    } else {
+                        self.log = "Connect a device first.".into();
+                    }
+                }
+                if btn(ui, "Clear Logcat") {
+                    if let Ok(s) = self.require_device() {
+                        self.log = features::tools::clear_logcat(s);
+                    } else {
+                        self.log = "Connect a device first.".into();
+                    }
+                }
+            });
 
-    fn tools_adb_shell(&mut self, ui: &mut egui::Ui) {
-        section(ui, "ADB Shell");
-        ui.horizontal_wrapped(|ui| {
-            ui.add(
-                egui::TextEdit::singleline(&mut self.adb_command)
-                    .desired_width(400.0)
-                    .hint_text("Enter ADB shell command..."),
-            );
-            if btn_accent(ui, "Execute") {
-                if let Ok(s) = self.require_device() {
-                    self.log = features::tools::execute_shell(s, &self.adb_command);
-                } else {
-                    self.log = "Connect a device first.".into();
-                }
-            }
-        });
-    }
-
-    fn tools_logcat(&mut self, ui: &mut egui::Ui) {
-        section(ui, "Logcat");
-        ui.horizontal_wrapped(|ui| {
-            if btn(ui, "Logcat (100 lines)") {
-                if let Ok(s) = self.require_device() {
-                    self.log = features::tools::capture_logcat(s, 100);
-                } else {
-                    self.log = "Connect a device first.".into();
-                }
-            }
-            if btn(ui, "Clear Logcat") {
-                if let Ok(s) = self.require_device() {
-                    self.log = features::tools::clear_logcat(s);
-                } else {
-                    self.log = "Connect a device first.".into();
-                }
-            }
-        });
-    }
-
-    fn tools_file_manager(&mut self, ui: &mut egui::Ui) {
-        section(ui, "File Manager");
-        ui.horizontal_wrapped(|ui| {
-            ui.label(
-                egui::RichText::new("Remote:")
-                    .size(11.0)
-                    .color(theme::SECONDARY),
-            );
-            ui.add(egui::TextEdit::singleline(&mut self.remote_path).desired_width(200.0));
-            ui.label(
-                egui::RichText::new("Local:")
-                    .size(11.0)
-                    .color(theme::SECONDARY),
-            );
-            ui.add(egui::TextEdit::singleline(&mut self.local_path).desired_width(200.0));
-        });
-        ui.horizontal_wrapped(|ui| {
-            if btn(ui, "Pull File") {
-                if let Ok(s) = self.require_device() {
-                    self.log = features::tools::pull_file(s, &self.remote_path, &self.local_path);
-                } else {
-                    self.log = "Connect a device first.".into();
-                }
-            }
-            if btn(ui, "Push File") {
-                if let Ok(s) = self.require_device() {
-                    self.log = features::tools::push_file(s, &self.local_path, &self.remote_path);
-                } else {
-                    self.log = "Connect a device first.".into();
-                }
-            }
-            if btn(ui, "List Files") {
-                if let Ok(s) = self.require_device() {
-                    self.log = features::tools::list_files(s, &self.remote_path);
-                } else {
-                    self.log = "Connect a device first.".into();
-                }
-            }
-        });
-    }
-
-    fn tools_apk_packages(&mut self, ui: &mut egui::Ui) {
-        section(ui, "APK & Packages");
-        ui.horizontal_wrapped(|ui| {
-            ui.label(
-                egui::RichText::new("Filter:")
-                    .size(11.0)
-                    .color(theme::SECONDARY),
-            );
-            ui.add(egui::TextEdit::singleline(&mut self.package_filter).desired_width(180.0));
-            if btn(ui, "Install APK") {
-                if let Ok(s) = self.require_device() {
-                    self.log = features::tools::install_apk(s, &self.local_path);
-                } else {
-                    self.log = "Connect a device first.".into();
-                }
-            }
-        });
-        ui.horizontal_wrapped(|ui| {
-            if btn(ui, "List All") {
-                if let Ok(s) = self.require_device() {
-                    self.log = features::tools::list_packages(s, &self.package_filter);
-                } else {
-                    self.log = "Connect a device first.".into();
-                }
-            }
-            if btn(ui, "User Apps") {
-                if let Ok(s) = self.require_device() {
-                    self.log = features::tools::list_user_packages(s);
-                } else {
-                    self.log = "Connect a device first.".into();
-                }
-            }
-            if btn(ui, "System Apps") {
-                if let Ok(s) = self.require_device() {
-                    self.log = features::tools::list_system_packages(s);
-                } else {
-                    self.log = "Connect a device first.".into();
-                }
-            }
-            if btn(ui, "Disable Package") {
-                if let Ok(s) = self.require_device() {
-                    self.log = features::tools::disable_package(s, &self.package_filter);
-                } else {
-                    self.log = "Connect a device first.".into();
-                }
-            }
-            if btn(ui, "Enable Package") {
-                if let Ok(s) = self.require_device() {
-                    self.log = features::tools::enable_package(s, &self.package_filter);
-                } else {
-                    self.log = "Connect a device first.".into();
-                }
-            }
-        });
-    }
-
-    fn tools_backup_restore(&mut self, ui: &mut egui::Ui) {
-        section(ui, "Backup & Restore");
-        ui.horizontal_wrapped(|ui| {
-            if btn(ui, "Full Backup") {
-                if let Ok(s) = self.require_device() {
-                    self.log = features::tools::full_backup(s, &self.local_path);
-                } else {
-                    self.log = "Connect a device first.".into();
-                }
-            }
-            if btn(ui, "Full Restore") {
-                if let Ok(s) = self.require_device() {
-                    self.log = features::tools::full_restore(s, &self.local_path);
-                } else {
-                    self.log = "Connect a device first.".into();
-                }
-            }
-            if btn(ui, "Screenshot") {
-                if let Ok(s) = self.require_device() {
-                    self.log = features::tools::take_screenshot(s, &self.local_path);
-                } else {
-                    self.log = "Connect a device first.".into();
-                }
-            }
-            if btn(ui, "Screen Mirror (scrcpy)") {
-                if let Ok(s) = self.require_device() {
-                    self.log = features::tools::start_scrcpy(s);
-                } else {
-                    self.log = "Connect a device first.".into();
-                }
-            }
-        });
-    }
-
-    fn tools_system(&mut self, ui: &mut egui::Ui) {
-        section(ui, "System");
-        ui.horizontal_wrapped(|ui| {
-            if btn(ui, "Reboot") {
-                if let Ok(s) = self.require_device() {
-                    self.log = features::tools::reboot(s);
-                } else {
-                    self.log = "Connect a device first.".into();
-                }
-            }
-            if btn(ui, "Recovery") {
-                if let Ok(s) = self.require_device() {
-                    self.log = features::tools::reboot_recovery(s);
-                } else {
-                    self.log = "Connect a device first.".into();
-                }
-            }
-            if btn(ui, "Bootloader") {
-                if let Ok(s) = self.require_device() {
-                    self.log = features::tools::reboot_bootloader(s);
-                } else {
-                    self.log = "Connect a device first.".into();
-                }
-            }
-            if btn(ui, "Dev Options") {
-                if let Ok(s) = self.require_device() {
-                    self.log = features::tools::enable_developer_options(s);
-                } else {
-                    self.log = "Connect a device first.".into();
-                }
-            }
-        });
-        ui.horizontal_wrapped(|ui| {
-            if btn(ui, "Uptime") {
-                if let Ok(s) = self.require_device() {
-                    self.log = features::tools::get_uptime(s);
-                } else {
-                    self.log = "Connect a device first.".into();
-                }
-            }
-            if btn(ui, "Memory") {
-                if let Ok(s) = self.require_device() {
-                    self.log = features::tools::get_memory_info(s);
-                } else {
-                    self.log = "Connect a device first.".into();
-                }
-            }
-            if btn(ui, "CPU") {
-                if let Ok(s) = self.require_device() {
-                    self.log = features::tools::get_cpu_info(s);
-                } else {
-                    self.log = "Connect a device first.".into();
-                }
-            }
-            if btn(ui, "Processes") {
-                if let Ok(s) = self.require_device() {
-                    self.log = features::tools::get_processes(s);
-                } else {
-                    self.log = "Connect a device first.".into();
-                }
-            }
-        });
-    }
-
-    fn panel_ai_assistant(&mut self, ui: &mut egui::Ui) {
-        heading(ui, "AI Agent");
-
-        egui::ScrollArea::vertical().show(ui, |ui| {
-            section(ui, "Provider");
-            egui::ComboBox::from_id_salt("ai_provider")
-                .width(180.0)
-                .selected_text(self.ai_settings.provider.label())
-                .show_ui(ui, |ui| {
-                    ui.selectable_value(
-                        &mut self.ai_settings.provider,
-                        Provider::OpenRouter,
-                        Provider::OpenRouter.label(),
-                    );
-                    ui.selectable_value(
-                        &mut self.ai_settings.provider,
-                        Provider::OpenAI,
-                        Provider::OpenAI.label(),
-                    );
-                    ui.selectable_value(
-                        &mut self.ai_settings.provider,
-                        Provider::Gemini,
-                        Provider::Gemini.label(),
-                    );
-                    ui.selectable_value(
-                        &mut self.ai_settings.provider,
-                        Provider::Local,
-                        Provider::Local.label(),
-                    );
-                });
-            ui.add_space(6.0);
-            ui.label(
-                egui::RichText::new("Model")
-                    .size(11.0)
-                    .color(theme::SECONDARY),
-            );
-            ui.add(egui::TextEdit::singleline(&mut self.ai_settings.model).desired_width(320.0));
-            ui.label(
-                egui::RichText::new("API Key (for Local provider, leave empty if not needed)")
-                    .size(11.0)
-                    .color(theme::SECONDARY),
-            );
-            ui.add(
-                egui::TextEdit::singleline(&mut self.ai_settings.api_key)
-                    .password(true)
-                    .desired_width(420.0),
-            );
-            if self.ai_settings.provider == Provider::Local {
+            // File Manager
+            section(ui, "File Manager");
+            ui.horizontal(|ui| {
                 ui.label(
-                    egui::RichText::new("Local Endpoint")
+                    egui::RichText::new("Remote:")
                         .size(11.0)
                         .color(theme::SECONDARY),
                 );
-                ui.add(
-                    egui::TextEdit::singleline(&mut self.ai_settings.custom_endpoint)
-                        .desired_width(420.0),
+                ui.add(egui::TextEdit::singleline(&mut self.remote_path).desired_width(200.0));
+                ui.label(
+                    egui::RichText::new("Local:")
+                        .size(11.0)
+                        .color(theme::SECONDARY),
                 );
-            }
-            section(ui, "Advanced");
-            ui.checkbox(
-                &mut self.ai_settings.vision_enabled,
-                "Enable vision/image analysis",
-            );
-            ui.add(
-                egui::Slider::new(&mut self.ai_settings.temperature, 0.0..=1.0)
-                    .text("Temperature")
-                    .step_by(0.05),
-            );
-            ui.label(
-                egui::RichText::new("Detected commands are listed below for manual copy/execute.")
-                    .size(11.0)
-                    .color(theme::TERTIARY),
-            );
-
-            self.render_ai_attachment_section(ui);
-            self.render_ai_input_section(ui);
-
-            if !self.ai_state.pending_commands.is_empty() {
-                section(ui, "Detected Commands");
-                for cmd in &self.ai_state.pending_commands {
-                    ui.label(
-                        egui::RichText::new(cmd)
-                            .monospace()
-                            .size(11.0)
-                            .color(theme::FG),
-                    );
-                }
-            }
-
-            self.render_ai_conversation_section(ui);
-
-            ui.add_space(8.0);
-            log_area(ui, &self.log);
-        });
-    }
-
-    fn render_ai_attachment_section(&mut self, ui: &mut egui::Ui) {
-        section(ui, "Attachment");
-        ui.horizontal_wrapped(|ui| {
-            ui.add(egui::TextEdit::singleline(&mut self.ai_attachment_path).desired_width(420.0));
-            if btn(ui, "Attach File") {
-                match self
-                    .ai_state
-                    .add_attachment_from_path(self.ai_attachment_path.trim())
-                {
-                    Ok(()) => {
-                        self.log = format!(
-                            "Attachment added. Total attachments: {}",
-                            self.ai_state.attachments.len()
-                        );
-                        self.ai_attachment_path.clear();
-                    }
-                    Err(e) => {
-                        self.log = e;
-                    }
-                }
-            }
-        });
-    }
-
-    fn render_ai_input_section(&mut self, ui: &mut egui::Ui) {
-        section(ui, "Chat");
-        ui.add(
-            egui::TextEdit::multiline(&mut self.ai_state.input)
-                .desired_rows(4)
-                .desired_width(f32::INFINITY)
-                .hint_text("Ask the AI agent for repair steps, diagnostics help, or command suggestions..."),
-        );
-        ui.horizontal_wrapped(|ui| {
-            if btn_accent(ui, "Send to AI") {
-                if self.ai_state.input.trim().is_empty() {
-                    self.log = "Please enter a prompt first.".into();
-                } else {
-                    let telemetry = TelemetrySnapshot {
-                        active_panel: self.panel_name().to_string(),
-                        recent_actions: vec![self.log.clone()],
-                        device_summary: self
-                            .serial()
-                            .map(|s| format!("Connected device: {}", s))
-                            .unwrap_or_else(|| "No device connected".to_string()),
-                    };
-                    let user_input = self.ai_state.input.clone();
-                    self.ai_state.push_user_message(user_input);
-                    match ai_assistant::send_chat(&mut self.ai_state, &self.ai_settings, telemetry)
-                    {
-                        Ok(resp) => {
-                            if let Some(target) = self.ai_state.last_action_target.clone() {
-                                if self.navigate_to_panel(&target) {
-                                    self.log = format!(
-                                        "AI Response:\n{}\n\nAI navigated to panel: {}",
-                                        resp, target
-                                    );
-                                } else {
-                                    self.log = format!(
-                                        "AI Response:\n{}\n\nAI requested unknown panel: {}",
-                                        resp, target
-                                    );
-                                }
-                            } else {
-                                self.log = format!("AI Response:\n{}", resp);
-                            }
-                            self.ai_state.last_error = None;
-                        }
-                        Err(e) => {
-                            self.log = format!("AI request failed: {}", e);
-                            self.ai_state.last_error = Some(e);
-                        }
-                    }
-                }
-            }
-            if btn(ui, "Clear Conversation") {
-                self.ai_state = AiAssistantState::default();
-                self.log = "AI conversation cleared.".into();
-            }
-            if btn(ui, "Clear Detected Commands") {
-                self.ai_state.pending_commands.clear();
-                self.log = "Detected command list cleared.".into();
-            }
-        });
-    }
-
-    fn render_ai_conversation_section(&mut self, ui: &mut egui::Ui) {
-        section(ui, "Conversation");
-        egui::Frame::none()
-            .fill(theme::CARD_BG)
-            .rounding(theme::ROUNDING)
-            .inner_margin(theme::CARD_PADDING)
-            .show(ui, |ui| {
-                egui::ScrollArea::vertical()
-                    .max_height(240.0)
-                    .id_salt("ai_history_scroll")
-                    .show(ui, |ui| {
-                        for msg in &self.ai_state.history {
-                            let role = match msg.role {
-                                ai_assistant::ChatRole::System => "System",
-                                ai_assistant::ChatRole::User => "You",
-                                ai_assistant::ChatRole::Assistant => "AI",
-                            };
-                            ui.label(
-                                egui::RichText::new(format!("{}: {}", role, msg.content))
-                                    .size(11.0)
-                                    .color(theme::SECONDARY),
-                            );
-                            ui.add_space(4.0);
-                        }
-                    });
+                ui.add(egui::TextEdit::singleline(&mut self.local_path).desired_width(200.0));
             });
-    }
-
-    fn panel_server_auth(&mut self, ui: &mut egui::Ui) {
-        heading(ui, "Server Auth & API");
-
-        egui::ScrollArea::vertical().show(ui, |ui| {
-            section(ui, "API Integration");
-            ui.label(
-                egui::RichText::new(
-                    "Configure proxy server and session tokens for authorized service accounts.",
-                )
-                .size(11.0)
-                .color(theme::TERTIARY),
-            );
-
-            ui.add_space(8.0);
-
-            ui.label(
-                egui::RichText::new("API Endpoint / Proxy Server URL")
-                    .size(11.0)
-                    .color(theme::SECONDARY),
-            );
-            ui.add(egui::TextEdit::singleline(&mut self.server_api_endpoint).desired_width(420.0));
-
-            ui.label(
-                egui::RichText::new("Proxy Server Address")
-                    .size(11.0)
-                    .color(theme::SECONDARY),
-            );
-            ui.add(egui::TextEdit::singleline(&mut self.server_proxy).desired_width(420.0));
-
-            ui.label(
-                egui::RichText::new("Service Account ID")
-                    .size(11.0)
-                    .color(theme::SECONDARY),
-            );
-            ui.add(egui::TextEdit::singleline(&mut self.service_account_id).desired_width(420.0));
-
-            ui.label(
-                egui::RichText::new("Session Key / Auth Token")
-                    .size(11.0)
-                    .color(theme::SECONDARY),
-            );
-            ui.add(
-                egui::TextEdit::singleline(&mut self.server_auth_token)
-                    .password(true)
-                    .desired_width(420.0),
-            );
-
-            ui.add_space(12.0);
-
-            ui.horizontal_wrapped(|ui| {
-                if btn_accent(ui, "Connect API") {
-                    if self.server_api_endpoint.is_empty() || self.server_auth_token.is_empty() {
-                        self.log = "Error: API Endpoint and Auth Token are required.".into();
+            ui.horizontal(|ui| {
+                if btn(ui, "Pull File") {
+                    if let Ok(s) = self.require_device() {
+                        self.log =
+                            features::tools::pull_file(s, &self.remote_path, &self.local_path);
                     } else {
-                        self.log = format!("Connecting to API via {}...", self.server_api_endpoint);
-                        // Simulate connection logic
-                        self.log.push_str(
-                            "
-Connection established successfully. Token injected via proxy.",
-                        );
+                        self.log = "Connect a device first.".into();
                     }
                 }
-                if btn(ui, "Verify Token") {
-                    if self.server_auth_token.is_empty() {
-                        self.log = "Error: Auth Token is required for verification.".into();
+                if btn(ui, "Push File") {
+                    if let Ok(s) = self.require_device() {
+                        self.log =
+                            features::tools::push_file(s, &self.local_path, &self.remote_path);
                     } else {
-                        self.log = "Verifying session key...".into();
-                        // Simulate token validation
-                        self.log.push_str(
-                            "
-Session key is valid and active.",
-                        );
+                        self.log = "Connect a device first.".into();
+                    }
+                }
+                if btn(ui, "List Files") {
+                    if let Ok(s) = self.require_device() {
+                        self.log = features::tools::list_files(s, &self.remote_path);
+                    } else {
+                        self.log = "Connect a device first.".into();
                     }
                 }
             });
 
-            ui.add_space(12.0);
+            // APK & Packages
+            section(ui, "APK & Packages");
+            ui.horizontal(|ui| {
+                ui.label(
+                    egui::RichText::new("Filter:")
+                        .size(11.0)
+                        .color(theme::SECONDARY),
+                );
+                ui.add(egui::TextEdit::singleline(&mut self.package_filter).desired_width(180.0));
+                if btn(ui, "Install APK") {
+                    if let Ok(s) = self.require_device() {
+                        self.log = features::tools::install_apk(s, &self.local_path);
+                    } else {
+                        self.log = "Connect a device first.".into();
+                    }
+                }
+            });
+            ui.horizontal(|ui| {
+                if btn(ui, "List All") {
+                    if let Ok(s) = self.require_device() {
+                        self.log = features::tools::list_packages(s, &self.package_filter);
+                    } else {
+                        self.log = "Connect a device first.".into();
+                    }
+                }
+                if btn(ui, "User Apps") {
+                    if let Ok(s) = self.require_device() {
+                        self.log = features::tools::list_user_packages(s);
+                    } else {
+                        self.log = "Connect a device first.".into();
+                    }
+                }
+                if btn(ui, "System Apps") {
+                    if let Ok(s) = self.require_device() {
+                        self.log = features::tools::list_system_packages(s);
+                    } else {
+                        self.log = "Connect a device first.".into();
+                    }
+                }
+                if btn(ui, "Disable Package") {
+                    if let Ok(s) = self.require_device() {
+                        self.log = features::tools::disable_package(s, &self.package_filter);
+                    } else {
+                        self.log = "Connect a device first.".into();
+                    }
+                }
+                if btn(ui, "Enable Package") {
+                    if let Ok(s) = self.require_device() {
+                        self.log = features::tools::enable_package(s, &self.package_filter);
+                    } else {
+                        self.log = "Connect a device first.".into();
+                    }
+                }
+            });
+
+            // Backup & Restore
+            section(ui, "Backup & Restore");
+            ui.horizontal(|ui| {
+                if btn(ui, "Full Backup") {
+                    if let Ok(s) = self.require_device() {
+                        self.log = features::tools::full_backup(s, &self.local_path);
+                    } else {
+                        self.log = "Connect a device first.".into();
+                    }
+                }
+                if btn(ui, "Full Restore") {
+                    if let Ok(s) = self.require_device() {
+                        self.log = features::tools::full_restore(s, &self.local_path);
+                    } else {
+                        self.log = "Connect a device first.".into();
+                    }
+                }
+                if btn(ui, "Screenshot") {
+                    if let Ok(s) = self.require_device() {
+                        self.log = features::tools::take_screenshot(s, &self.local_path);
+                    } else {
+                        self.log = "Connect a device first.".into();
+                    }
+                }
+                if btn(ui, "Screen Mirror (scrcpy)") {
+                    if let Ok(s) = self.require_device() {
+                        self.log = features::tools::start_scrcpy(s);
+                    } else {
+                        self.log = "Connect a device first.".into();
+                    }
+                }
+            });
+
+            // System
+            section(ui, "System");
+            ui.horizontal(|ui| {
+                if btn(ui, "Reboot") {
+                    if let Ok(s) = self.require_device() {
+                        self.log = features::tools::reboot(s);
+                    } else {
+                        self.log = "Connect a device first.".into();
+                    }
+                }
+                if btn(ui, "Recovery") {
+                    if let Ok(s) = self.require_device() {
+                        self.log = features::tools::reboot_recovery(s);
+                    } else {
+                        self.log = "Connect a device first.".into();
+                    }
+                }
+                if btn(ui, "Bootloader") {
+                    if let Ok(s) = self.require_device() {
+                        self.log = features::tools::reboot_bootloader(s);
+                    } else {
+                        self.log = "Connect a device first.".into();
+                    }
+                }
+                if btn(ui, "Dev Options") {
+                    if let Ok(s) = self.require_device() {
+                        self.log = features::tools::enable_developer_options(s);
+                    } else {
+                        self.log = "Connect a device first.".into();
+                    }
+                }
+            });
+            ui.horizontal(|ui| {
+                if btn(ui, "Uptime") {
+                    if let Ok(s) = self.require_device() {
+                        self.log = features::tools::get_uptime(s);
+                    } else {
+                        self.log = "Connect a device first.".into();
+                    }
+                }
+                if btn(ui, "Memory") {
+                    if let Ok(s) = self.require_device() {
+                        self.log = features::tools::get_memory_info(s);
+                    } else {
+                        self.log = "Connect a device first.".into();
+                    }
+                }
+                if btn(ui, "CPU") {
+                    if let Ok(s) = self.require_device() {
+                        self.log = features::tools::get_cpu_info(s);
+                    } else {
+                        self.log = "Connect a device first.".into();
+                    }
+                }
+                if btn(ui, "Processes") {
+                    if let Ok(s) = self.require_device() {
+                        self.log = features::tools::get_processes(s);
+                    } else {
+                        self.log = "Connect a device first.".into();
+                    }
+                }
+            });
+
+            ui.add_space(8.0);
             log_area(ui, &self.log);
         });
     }
@@ -1577,21 +1162,19 @@ Session key is valid and active.",
     fn panel_updates(&mut self, ui: &mut egui::Ui) {
         heading(ui, "Updates");
 
-        ui.horizontal_wrapped(|ui| {
+        ui.horizontal(|ui| {
             if btn_accent(ui, "Check for Updates") {
                 match self.update_manager.check_for_updates() {
                     Ok(Some(info)) => {
                         self.log = format!(
                             "New version available: {}\nCurrent: {}\nDownload: {}",
-                            info.latest_version,
-                            display_version(),
-                            info.download_url,
+                            info.latest_version, VERSION, info.download_url,
                         );
                     }
                     Ok(None) => {
                         self.log = format!(
                             "Current version: {}\nYou are running the latest version.",
-                            display_version()
+                            VERSION
                         );
                     }
                     Err(e) => {
@@ -1620,7 +1203,7 @@ Session key is valid and active.",
                     .color(theme::FG),
             );
             ui.label(
-                egui::RichText::new(format!("Version {}", display_version()))
+                egui::RichText::new(format!("Version {}", VERSION))
                     .size(11.0)
                     .color(theme::SECONDARY),
             );
@@ -1704,7 +1287,7 @@ Session key is valid and active.",
                 });
 
             ui.add_space(8.0);
-            ui.horizontal_wrapped(|ui| {
+            ui.horizontal(|ui| {
                 for &(text, link) in FIAT_DONATIONS {
                     if btn(ui, text) {
                         let _ = open::that(link);
@@ -1714,7 +1297,7 @@ Session key is valid and active.",
 
             // Links
             section(ui, "Links");
-            ui.horizontal_wrapped(|ui| {
+            ui.horizontal(|ui| {
                 for &(text, link) in COMMUNITY_LINKS {
                     if btn(ui, text) {
                         let _ = open::that(link);

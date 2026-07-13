@@ -13,20 +13,12 @@ use super::{adb_shell, fastboot, Manufacturer};
 
 /// Check current bootloader lock status via fastboot.
 pub fn check_status(serial: &str) -> String {
-    match crate::exec::run_with_serial(
-        "fastboot",
-        serial,
-        &["getvar", "unlocked"],
-        "Failed to get unlock status",
-    ) {
-        Ok(res) => {
-            if res.contains("unlocked: yes") {
-                "Unlocked".into()
-            } else {
-                "Locked".into()
-            }
-        }
-        Err(e) => e,
+    match fastboot(serial, &["getvar", "unlocked"]) {
+        Ok(out) => format!("Bootloader status:\n{}", out),
+        Err(e) => format!(
+            "Failed to check BL status: {}\nDevice may not be in fastboot mode.",
+            e
+        ),
     }
 }
 
@@ -202,25 +194,18 @@ pub fn attempt_locked_root(serial: &str) -> String {
 
 /// Exploit security vulnerability in some devices (e.g. 8 Elite Gen 5) to bypass bootloader unlock restrictions.
 /// This method only works for devices without the February security patch.
-pub fn bypass_unlock(serial: &str, payload_path: &str) -> String {
+
+/// Exploit security vulnerability in some devices (e.g. 8 Elite Gen 5) to bypass bootloader unlock restrictions.
+/// This method only works for devices without the February security patch.
+pub fn bypass_unlock(serial: &str) -> String {
     let mut log = String::new();
 
     log.push_str("Switching to bootloader...\n");
     let _ = super::adb(serial, &["reboot", "bootloader"]);
     std::thread::sleep(std::time::Duration::from_secs(5));
 
-    log.push_str(
-        "Running fastboot oem set-gpu-preemption-value 0 androidboot.selinux=permissive...\n",
-    );
-    match super::fastboot(
-        serial,
-        &[
-            "oem",
-            "set-gpu-preemption-value",
-            "0",
-            "androidboot.selinux=permissive",
-        ],
-    ) {
+    log.push_str("Running fastboot oem set-gpu-preemption-value 0 androidboot.selinux=permissive...\n");
+    match super::fastboot(serial, &["oem", "set-gpu-preemption-value", "0", "androidboot.selinux=permissive"]) {
         Ok(out) => log.push_str(&format!("Result: {}\n", out)),
         Err(e) => log.push_str(&format!("Error: {}\n", e)),
     }
@@ -229,40 +214,14 @@ pub fn bypass_unlock(serial: &str, payload_path: &str) -> String {
     let _ = super::fastboot(serial, &["continue"]);
     std::thread::sleep(std::time::Duration::from_secs(15));
 
-    log.push_str(&format!(
-        "Pushing {} to /data/local/tmp/gbl_efi_unlock.efi...\n",
-        payload_path
-    ));
-    match super::adb(
-        serial,
-        &["push", payload_path, "/data/local/tmp/gbl_efi_unlock.efi"],
-    ) {
+    log.push_str("Pushing gbl_efi_unlock.efi to /data/local/tmp/...\n");
+    match super::adb(serial, &["push", "D:\\unlock\\data\\mqsas\\gbl_efi_unlock.efi", "/data/local/tmp"]) {
         Ok(out) => log.push_str(&format!("Result: {}\n", out)),
         Err(e) => log.push_str(&format!("Error: {}\n", e)),
     }
 
     log.push_str("Calling miui.mqsas.IMQSNative...\n");
-    match super::adb_shell(
-        serial,
-        &[
-            "service",
-            "call",
-            "miui.mqsas.IMQSNative",
-            "21",
-            "i32",
-            "1",
-            "s16",
-            "dd",
-            "i32",
-            "1",
-            "s16",
-            "if=/data/local/tmp/gbl_efi_unlock.efi of=/dev/block/by-name/efisp",
-            "s16",
-            "/data/mqsas/log.txt",
-            "i32",
-            "60",
-        ],
-    ) {
+    match super::adb_shell(serial, &["service", "call", "miui.mqsas.IMQSNative", "21", "i32", "1", "s16", "dd", "i32", "1", "s16", "if=/data/local/tmp/gbl_efi_unlock.efi of=/dev/block/by-name/efisp", "s16", "/data/mqsas/log.txt", "i32", "60"]) {
         Ok(out) => log.push_str(&format!("Result: {}\n", out)),
         Err(e) => log.push_str(&format!("Error: {}\n", e)),
     }
@@ -286,68 +245,4 @@ pub fn bypass_unlock(serial: &str, payload_path: &str) -> String {
     log.push_str("Done.");
 
     log
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::exec::MOCK_RUN_IMPL;
-
-    #[test]
-    fn test_check_status_success() {
-        MOCK_RUN_IMPL.with(|mock| {
-            *mock.borrow_mut() = Some(Box::new(|program, args, error_prefix| {
-                assert_eq!(program, "fastboot");
-
-                assert_eq!(args, &["-s", "SERIAL123", "getvar", "unlocked"]);
-                assert_eq!(error_prefix, "Failed to get unlock status");
-                Ok("unlocked: yes".to_string())
-            }));
-        });
-
-        let result = check_status("SERIAL123");
-        assert_eq!(result, "Unlocked");
-
-        MOCK_RUN_IMPL.with(|mock| {
-            *mock.borrow_mut() = None;
-        });
-    }
-
-    #[test]
-    fn test_check_status_locked() {
-        MOCK_RUN_IMPL.with(|mock| {
-            *mock.borrow_mut() = Some(Box::new(|program, args, error_prefix| {
-                assert_eq!(program, "fastboot");
-                assert_eq!(args, &["-s", "SERIAL123", "getvar", "unlocked"]);
-                assert_eq!(error_prefix, "Failed to get unlock status");
-                Ok("unlocked: no".to_string())
-            }));
-        });
-
-        let result = check_status("SERIAL123");
-        assert_eq!(result, "Locked");
-
-        MOCK_RUN_IMPL.with(|mock| {
-            *mock.borrow_mut() = None;
-        });
-    }
-
-    #[test]
-    fn test_check_status_failure() {
-        MOCK_RUN_IMPL.with(|mock| {
-            *mock.borrow_mut() = Some(Box::new(|program, args, error_prefix| {
-                assert_eq!(program, "fastboot");
-                assert_eq!(args, &["-s", "SERIAL123", "getvar", "unlocked"]);
-                assert_eq!(error_prefix, "Failed to get unlock status");
-                Err("fastboot error".to_string())
-            }));
-        });
-
-        let result = check_status("SERIAL123");
-        assert_eq!(result, "fastboot error");
-
-        MOCK_RUN_IMPL.with(|mock| {
-            *mock.borrow_mut() = None;
-        });
-    }
 }

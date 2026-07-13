@@ -1,8 +1,6 @@
 /// Device detection and diagnostic utilities via ADB and Fastboot.
 use std::collections::BTreeMap;
-use std::fmt::Write;
-
-use crate::exec::{self, COMMAND_TIMEOUT};
+use std::process::Command;
 
 pub struct DeviceDiagnostics {
     device_serial: Option<String>,
@@ -19,63 +17,50 @@ impl DeviceDiagnostics {
         self.device_serial.as_deref()
     }
 
-    /// Run a command and return its stdout, with a short timeout to avoid UI hangs.
-    #[cfg(not(test))]
-    fn run_cmd(program: &str, args: &[&str]) -> Result<String, String> {
-        exec::run_with_timeout(program, args, "Diagnostics command failed", COMMAND_TIMEOUT)
-    }
-
-    #[cfg(test)]
-    fn run_cmd(program: &str, args: &[&str]) -> Result<String, String> {
-        tests::MOCK_RUN_CMD.with(|mock| {
-            if let Some(f) = &*mock.borrow() {
-                f(program, args)
-            } else {
-                exec::run_with_timeout(program, args, "Diagnostics command failed", COMMAND_TIMEOUT)
-            }
-        })
+    /// Run a command and return its stdout.
+    fn run_cmd(args: &[&str]) -> Option<String> {
+        Command::new(args[0])
+            .args(&args[1..])
+            .output()
+            .ok()
+            .filter(|o| o.status.success())
+            .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
     }
 
     /// Check whether ADB is reachable.
     pub fn is_adb_available() -> bool {
-        Self::run_cmd("adb", &["version"]).is_ok()
+        Self::run_cmd(&["adb", "version"]).is_some()
     }
 
     /// Check whether Fastboot is reachable.
     pub fn is_fastboot_available() -> bool {
-        Self::run_cmd("fastboot", &["--version"]).is_ok()
+        Self::run_cmd(&["fastboot", "--version"]).is_some()
     }
 
     /// Detect a connected device via `adb devices`.
-    pub fn detect_device(&mut self) -> Result<Option<String>, String> {
-        let output = Self::run_cmd("adb", &["devices"])?;
+    pub fn detect_device(&mut self) -> Option<String> {
+        let output = Self::run_cmd(&["adb", "devices"])?;
         for line in output.lines().skip(1) {
             let parts: Vec<&str> = line.split_whitespace().collect();
             if parts.len() >= 2 && parts[1] == "device" {
                 let serial = parts[0].to_string();
                 self.device_serial = Some(serial.clone());
-                return Ok(Some(serial));
+                return Some(serial);
             }
         }
         self.device_serial = None;
-        Ok(None)
+        None
     }
 
-    /// Retrieve basic device properties via ADB getprop, batched to avoid N+1 shell calls.
+    /// Retrieve basic device properties via ADB getprop.
     pub fn get_device_info(&self) -> BTreeMap<String, String> {
         let mut info = BTreeMap::new();
-        let serial = match self.device_serial.as_deref() {
-            Some(s) => s,
-            None => {
-                info.insert(
-                    "error".to_string(),
-                    "No device detected. Please connect and authorize USB debugging.".to_string(),
-                );
-                return info;
-            }
+        let serial = match &self.device_serial {
+            Some(s) => s.clone(),
+            None => return info,
         };
 
-        let props: &[(&str, &str)] = &[
+        let props = [
             ("manufacturer", "ro.product.manufacturer"),
             ("model", "ro.product.model"),
             ("android_version", "ro.build.version.release"),
@@ -84,337 +69,14 @@ impl DeviceDiagnostics {
             ("build_fingerprint", "ro.build.fingerprint"),
         ];
 
-        let mut script = String::new();
-        for (_, prop) in props {
-            let _ = writeln!(script, "getprop {} 2>&1; echo B_MARKER_$?;", prop);
-        }
-
-        match Self::run_cmd("adb", &["-s", serial, "shell", "sh", "-c", &script]) {
-            Ok(output) => {
-                let mut parts = output.split("B_MARKER_");
-                let mut prev = parts.next().unwrap_or("").to_string();
-                for (idx, part) in parts.enumerate() {
-                    if idx >= props.len() {
-                        break;
-                    }
-                    let (code_str, rest) = match part.find('\n') {
-                        Some(pos) => (&part[..pos], part[pos + 1..].to_string()),
-                        None => (part, String::new()),
-                    };
-                    let val = prev.trim();
-                    let key = props[idx].0;
-                    let code: i32 = code_str.trim().parse().unwrap_or(-1);
-                    if code == 0 && !val.is_empty() {
-                        info.insert(key.to_string(), val.to_string());
-                    } else if code != 0 {
-                        info.insert(format!("error_{key}"), format!("getprop failed: {}", val));
-                    }
-                    prev = rest;
+        for (key, prop) in &props {
+            if let Some(val) = Self::run_cmd(&["adb", "-s", &serial, "shell", "getprop", prop]) {
+                if !val.is_empty() {
+                    info.insert(key.to_string(), val);
                 }
             }
-            Err(e) => {
-                info.insert(
-                    "error".to_string(),
-                    format!("Unable to query properties: {}", e),
-                );
-            }
-        };
+        }
 
         info
     }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::cell::RefCell;
-
-    thread_local! {
-        pub static MOCK_RUN_CMD: RefCell<Option<Box<dyn Fn(&str, &[&str]) -> Result<String, String>>>> = RefCell::new(None);
-    }
-
-
-    struct MockGuard;
-    impl Drop for MockGuard {
-        fn drop(&mut self) {
-            MOCK_RUN_CMD.with(|mock| {
-                *mock.borrow_mut() = None;
-            });
-        }
-    }
-
-    #[test]
-    fn test_is_adb_available_true() {
-        let _guard = MockGuard;
-        MOCK_RUN_CMD.with(|mock| {
-            *mock.borrow_mut() = Some(Box::new(|program, args| {
-                if program == "adb" && args == ["version"] {
-                    Ok("Android Debug Bridge version 1.0.41".to_string())
-                } else {
-                    Err("mocked error".to_string())
-                }
-            }));
-        });
-        assert!(DeviceDiagnostics::is_adb_available());
-    }
-
-    #[test]
-    fn test_is_adb_available_false() {
-        let _guard = MockGuard;
-        MOCK_RUN_CMD.with(|mock| {
-            *mock.borrow_mut() = Some(Box::new(|program, args| {
-                if program == "adb" && args == ["version"] {
-                    Err("adb not found".to_string())
-                } else {
-                    Ok("".to_string())
-                }
-            }));
-        });
-        assert!(!DeviceDiagnostics::is_adb_available());
-    }
-
-    #[test]
-    fn test_diagnostics_new_initialization() {
-        let diagnostics = DeviceDiagnostics::new();
-        assert!(diagnostics.device_serial.is_none());
-    }
-
-
-    #[test]
-    fn test_connected_device_none() {
-        let diagnostics = DeviceDiagnostics::new();
-        assert_eq!(diagnostics.connected_device(), None);
-    }
-
-    #[test]
-    fn test_connected_device_some() {
-        let mut diagnostics = DeviceDiagnostics::new();
-        diagnostics.device_serial = Some("test_device_123".to_string());
-        assert_eq!(diagnostics.connected_device(), Some("test_device_123"));
-    }
-
-    #[test]
-    fn test_new() {
-        let diagnostics = DeviceDiagnostics::new();
-        assert_eq!(diagnostics.device_serial, None);
-        assert_eq!(diagnostics.connected_device(), None);
-    }
-
-    #[test]
-    fn test_get_device_info_no_device() {
-        let diagnostics = DeviceDiagnostics::new();
-        let info = diagnostics.get_device_info();
-        assert_eq!(
-            info.get("error").map(|s| s.as_str()),
-            Some("No device detected. Please connect and authorize USB debugging.")
-        );
-    }
-
-    #[test]
-    fn test_get_device_info_run_cmd_error() {
-        let mut diagnostics = DeviceDiagnostics::new();
-        diagnostics.device_serial = Some("test_serial".to_string());
-
-        MOCK_RUN_CMD.with(|mock| {
-            *mock.borrow_mut() = Some(Box::new(|program, _args| {
-                if program == "adb" {
-                    Err("mocked error".to_string())
-                } else {
-                    Ok("".to_string())
-                }
-            }));
-        });
-
-        let info = diagnostics.get_device_info();
-
-        MOCK_RUN_CMD.with(|mock| {
-            *mock.borrow_mut() = None;
-        });
-
-        assert!(info.contains_key("error"));
-        assert_eq!(
-            info.get("error").map(|s| s.as_str()),
-            Some("Unable to query properties: mocked error")
-        );
-    }
-
-    #[test]
-    fn test_detect_device_success() {
-        let mut diagnostics = DeviceDiagnostics::new();
-
-        MOCK_RUN_CMD.with(|mock| {
-            *mock.borrow_mut() = Some(Box::new(|program, args| {
-                if program == "adb" && args == ["devices"] {
-                    Ok("List of devices attached
-XYZ123456    device
-"
-                    .to_string())
-                } else {
-                    Ok("".to_string())
-                }
-            }));
-        });
-
-        let result = diagnostics.detect_device();
-
-        MOCK_RUN_CMD.with(|mock| {
-            *mock.borrow_mut() = None;
-        });
-
-        assert_eq!(result, Ok(Some("XYZ123456".to_string())));
-        assert_eq!(diagnostics.connected_device(), Some("XYZ123456"));
-    }
-
-    #[test]
-    fn test_detect_device_none() {
-        let mut diagnostics = DeviceDiagnostics::new();
-
-        MOCK_RUN_CMD.with(|mock| {
-            *mock.borrow_mut() = Some(Box::new(|program, args| {
-                if program == "adb" && args == ["devices"] {
-                    Ok("List of devices attached
-
-"
-                    .to_string())
-                } else {
-                    Ok("".to_string())
-                }
-            }));
-        });
-
-        let result = diagnostics.detect_device();
-
-        MOCK_RUN_CMD.with(|mock| {
-            *mock.borrow_mut() = None;
-        });
-
-        assert_eq!(result, Ok(None));
-        assert_eq!(diagnostics.connected_device(), None);
-    }
-
-    #[test]
-    fn test_detect_device_unauthorized() {
-        let mut diagnostics = DeviceDiagnostics::new();
-
-        MOCK_RUN_CMD.with(|mock| {
-            *mock.borrow_mut() = Some(Box::new(|program, args| {
-                if program == "adb" && args == ["devices"] {
-                    Ok("List of devices attached
-XYZ123456    unauthorized
-"
-                    .to_string())
-                } else {
-                    Ok("".to_string())
-                }
-            }));
-        });
-
-        let result = diagnostics.detect_device();
-
-        MOCK_RUN_CMD.with(|mock| {
-            *mock.borrow_mut() = None;
-        });
-
-        assert_eq!(result, Ok(None));
-        assert_eq!(diagnostics.connected_device(), None);
-    }
-
-    #[test]
-    fn test_detect_device_multiple() {
-        let mut diagnostics = DeviceDiagnostics::new();
-
-        MOCK_RUN_CMD.with(|mock| {
-            *mock.borrow_mut() = Some(Box::new(|program, args| {
-                if program == "adb" && args == ["devices"] {
-                    Ok("List of devices attached
-dev1    offline
-dev2    device
-"
-                    .to_string())
-                } else {
-                    Ok("".to_string())
-                }
-            }));
-        });
-
-        let result = diagnostics.detect_device();
-
-        MOCK_RUN_CMD.with(|mock| {
-            *mock.borrow_mut() = None;
-        });
-
-        assert_eq!(result, Ok(Some("dev2".to_string())));
-        assert_eq!(diagnostics.connected_device(), Some("dev2"));
-    }
-
-    #[test]
-    fn test_detect_device_error() {
-        let mut diagnostics = DeviceDiagnostics::new();
-
-        MOCK_RUN_CMD.with(|mock| {
-            *mock.borrow_mut() = Some(Box::new(|program, args| {
-                if program == "adb" && args == ["devices"] {
-                    Err("adb not found".to_string())
-                } else {
-                    Ok("".to_string())
-                }
-            }));
-        });
-
-        let result = diagnostics.detect_device();
-
-        MOCK_RUN_CMD.with(|mock| {
-            *mock.borrow_mut() = None;
-        });
-
-        assert_eq!(result, Err("adb not found".to_string()));
-        assert_eq!(diagnostics.connected_device(), None);
-    }
-
-    #[test]
-    fn test_is_fastboot_available_success() {
-        struct MockGuard;
-        impl Drop for MockGuard {
-            fn drop(&mut self) {
-                MOCK_RUN_CMD.with(|mock| *mock.borrow_mut() = None);
-            }
-        }
-        let _guard = MockGuard;
-
-        MOCK_RUN_CMD.with(|mock| {
-            *mock.borrow_mut() = Some(Box::new(|program, args| {
-                if program == "fastboot" && args == ["--version"] {
-                    Ok("fastboot version 34.0.4-10411341".to_string())
-                } else {
-                    Err("not fastboot".to_string())
-                }
-            }));
-        });
-
-        assert!(DeviceDiagnostics::is_fastboot_available());
-    }
-
-    #[test]
-    fn test_is_fastboot_available_failure() {
-        struct MockGuard;
-        impl Drop for MockGuard {
-            fn drop(&mut self) {
-                MOCK_RUN_CMD.with(|mock| *mock.borrow_mut() = None);
-            }
-        }
-        let _guard = MockGuard;
-
-        MOCK_RUN_CMD.with(|mock| {
-            *mock.borrow_mut() = Some(Box::new(|program, args| {
-                if program == "fastboot" && args == ["--version"] {
-                    Err("fastboot not found".to_string())
-                } else {
-                    Ok("".to_string())
-                }
-            }));
-        });
-
-        assert!(!DeviceDiagnostics::is_fastboot_available());
-    }
-
 }

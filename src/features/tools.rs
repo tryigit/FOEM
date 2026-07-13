@@ -1,7 +1,6 @@
 /// ADB utility tools: shell, logcat, file operations, reboot,
 /// backup/restore, APK management, bloatware removal, screenshots.
 use super::{adb, adb_shell};
-use crate::exec::{normalize_local_path, normalize_remote_path};
 
 // -- ADB Shell --
 
@@ -16,7 +15,7 @@ where
     if command.is_empty() {
         return "No command entered.".to_string();
     }
-    let args = vec!["sh", "-c", command];
+    let args: Vec<&str> = command.split_whitespace().collect();
     match adb_shell_fn(serial, &args) {
         Ok(out) => {
             if out.is_empty() {
@@ -32,20 +31,9 @@ where
 
 /// Capture logcat output (limited to recent lines).
 pub fn capture_logcat(serial: &str, lines: usize) -> String {
-    capture_logcat_internal(serial, lines, adb)
-}
-
-fn capture_logcat_internal<F>(serial: &str, lines: usize, adb_fn: F) -> String
-where
-    F: Fn(&str, &[&str]) -> Result<String, String>,
-{
     let line_count = format!("{}", lines);
-    match adb_fn(serial, &["logcat", "-d", "-t", &line_count]) {
-        Ok(out) => format!(
-            "Logcat (last {} lines):
-{}",
-            lines, out
-        ),
+    match adb(serial, &["logcat", "-d", "-t", &line_count]) {
+        Ok(out) => format!("Logcat (last {} lines):\n{}", lines, out),
         Err(e) => format!("Logcat failed: {}", e),
     }
 }
@@ -60,32 +48,22 @@ pub fn clear_logcat(serial: &str) -> String {
 
 /// Pull a file from the device to the local machine.
 pub fn pull_file(serial: &str, remote_path: &str, local_path: &str) -> String {
-    let remote = normalize_remote_path(remote_path);
-    let local = normalize_local_path(local_path);
-    if remote.is_empty() || local.is_empty() {
+    if remote_path.is_empty() || local_path.is_empty() {
         return "Both remote and local paths are required.".to_string();
     }
-    match adb(serial, &["pull", &remote, &local]) {
+    match adb(serial, &["pull", remote_path, local_path]) {
         Ok(out) => format!("Pull result:\n{}", out),
-        Err(e) => format!(
-            "Pull failed: {}. Verify the path and that the device stays connected.",
-            e
-        ),
+        Err(e) => format!("Pull failed: {}", e),
     }
 }
 /// Push a file from the local machine to the device.
 pub fn push_file(serial: &str, local_path: &str, remote_path: &str) -> String {
-    let local = normalize_local_path(local_path);
-    let remote = normalize_remote_path(remote_path);
-    if local.is_empty() || remote.is_empty() {
+    if local_path.is_empty() || remote_path.is_empty() {
         return "Both local and remote paths are required.".to_string();
     }
-    match adb(serial, &["push", &local, &remote]) {
+    match adb(serial, &["push", local_path, remote_path]) {
         Ok(out) => format!("Push result:\n{}", out),
-        Err(e) => format!(
-            "Push failed: {}. Confirm the file exists and USB debugging is authorized.",
-            e
-        ),
+        Err(e) => format!("Push failed: {}", e),
     }
 }
 /// List files in a directory on the device.
@@ -100,18 +78,10 @@ pub fn list_files(serial: &str, path: &str) -> String {
 
 /// Install an APK from the local machine.
 pub fn install_apk(serial: &str, apk_path: &str) -> String {
-    install_apk_internal(serial, apk_path, super::adb)
-}
-
-fn install_apk_internal<F>(serial: &str, apk_path: &str, adb_fn: F) -> String
-where
-    F: Fn(&str, &[&str]) -> Result<String, String>,
-{
-    let apk = normalize_local_path(apk_path);
-    if apk.is_empty() {
+    if apk_path.is_empty() {
         return "APK file path is required.".to_string();
     }
-    match adb_fn(serial, &["install", "-r", "-d", &apk]) {
+    match adb(serial, &["install", "-r", "-d", apk_path]) {
         Ok(out) => format!("Install result:\n{}", out),
         Err(e) => format!("Install failed: {}", e),
     }
@@ -148,14 +118,7 @@ where
 }
 /// List system packages.
 pub fn list_system_packages(serial: &str) -> String {
-    list_system_packages_internal(serial, crate::features::adb_shell)
-}
-
-fn list_system_packages_internal<F>(serial: &str, adb_shell_fn: F) -> String
-where
-    F: Fn(&str, &[&str]) -> Result<String, String>,
-{
-    match adb_shell_fn(serial, &["pm", "list", "packages", "-s"]) {
+    match adb_shell(serial, &["pm", "list", "packages", "-s"]) {
         Ok(out) => {
             let count = out.lines().count();
             format!("System packages ({}):\n{}", count, out)
@@ -167,16 +130,10 @@ where
 
 /// Disable a system app for the current user (no root required).
 pub fn disable_package(serial: &str, package: &str) -> String {
-    disable_package_internal(serial, package, adb_shell)
-}
-fn disable_package_internal<F>(serial: &str, package: &str, adb_shell_fn: F) -> String
-where
-    F: Fn(&str, &[&str]) -> Result<String, String>,
-{
     if package.is_empty() {
         return "Package name is required.".to_string();
     }
-    match adb_shell_fn(serial, &["pm", "uninstall", "-k", "--user", "0", package]) {
+    match adb_shell(serial, &["pm", "uninstall", "-k", "--user", "0", package]) {
         Ok(out) => format!("Disable '{}': {}", package, out),
         Err(e) => format!("Disable '{}' failed: {}", package, e),
     }
@@ -208,13 +165,15 @@ where
     F: Fn(&str, &[&str]) -> Result<String, String>,
 {
     let path = if backup_path.is_empty() {
-        "foem_backup.ab".to_string()
+        "foem_backup.ab"
     } else {
-        normalize_local_path(backup_path)
+        backup_path
     };
-    match adb_fn(serial, &["backup", "-all", "-apk", "-shared", "-f", &path]) {
+    match adb_fn(serial, &["backup", "-all", "-apk", "-shared", "-f", path]) {
         Ok(out) => format!(
-            "Backup initiated to '{}'.\nConfirm on device screen.\n{}",
+            "Backup initiated to '{}'.
+Confirm on device screen.
+{}",
             path, out
         ),
         Err(e) => format!("Backup failed: {}", e),
@@ -222,14 +181,13 @@ where
 }
 /// Full device restore from ADB backup.
 pub fn full_restore(serial: &str, backup_path: &str) -> String {
-    let path = normalize_local_path(backup_path);
-    if path.is_empty() {
+    if backup_path.is_empty() {
         return "Backup file path is required.".to_string();
     }
-    match adb(serial, &["restore", &path]) {
+    match adb(serial, &["restore", backup_path]) {
         Ok(out) => format!(
             "Restore initiated from '{}'.\nConfirm on device screen.\n{}",
-            path, out
+            backup_path, out
         ),
         Err(e) => format!("Restore failed: {}", e),
     }
@@ -240,12 +198,12 @@ pub fn full_restore(serial: &str, backup_path: &str) -> String {
 pub fn take_screenshot(serial: &str, local_path: &str) -> String {
     let device_path = "/sdcard/FOEM/screenshot.png";
     let local = if local_path.is_empty() {
-        "screenshot.png".to_string()
+        "screenshot.png"
     } else {
-        normalize_local_path(local_path)
+        local_path
     };
     match adb_shell(serial, &["screencap", "-p", device_path]) {
-        Ok(_) => match adb(serial, &["pull", device_path, &local]) {
+        Ok(_) => match adb(serial, &["pull", device_path, local]) {
             Ok(out) => format!("Screenshot saved to '{}'.\n{}", local, out),
             Err(e) => format!("Screenshot taken but pull failed: {}", e),
         },
@@ -284,14 +242,7 @@ pub fn reboot_recovery(serial: &str) -> String {
 }
 /// Reboot to bootloader/fastboot mode.
 pub fn reboot_bootloader(serial: &str) -> String {
-    reboot_bootloader_internal(serial, adb)
-}
-
-fn reboot_bootloader_internal<F>(serial: &str, adb_fn: F) -> String
-where
-    F: Fn(&str, &[&str]) -> Result<String, String>,
-{
-    match adb_fn(serial, &["reboot", "bootloader"]) {
+    match adb(serial, &["reboot", "bootloader"]) {
         Ok(_) => "Device rebooting to bootloader/fastboot.".to_string(),
         Err(e) => format!("Reboot to bootloader failed: {}", e),
     }
@@ -311,14 +262,7 @@ pub fn enable_developer_options(serial: &str) -> String {
 }
 /// Get device uptime.
 pub fn get_uptime(serial: &str) -> String {
-    get_uptime_internal(serial, adb_shell)
-}
-
-fn get_uptime_internal<F>(serial: &str, adb_shell_fn: F) -> String
-where
-    F: Fn(&str, &[&str]) -> Result<String, String>,
-{
-    match adb_shell_fn(serial, &["uptime"]) {
+    match adb_shell(serial, &["uptime"]) {
         Ok(val) => format!("Device uptime: {}", val),
         Err(e) => format!("Uptime check failed: {}", e),
     }
@@ -336,18 +280,11 @@ pub fn get_processes(serial: &str) -> String {
 }
 /// Get memory information.
 pub fn get_memory_info(serial: &str) -> String {
-    get_memory_info_internal(serial, adb_shell)
-}
-
-fn get_memory_info_internal<F>(serial: &str, adb_shell_fn: F) -> String
-where
-    F: Fn(&str, &[&str]) -> Result<String, String>,
-{
-    match adb_shell_fn(serial, &["cat", "/proc/meminfo"]) {
+    match adb_shell(serial, &["cat", "/proc/meminfo"]) {
         Ok(val) => {
             let mut output = String::from("Memory Info:\n");
             for line in val.lines().take(10) {
-                let _ = writeln!(output, "  {}", line);
+                output.push_str(&format!("  {}\n", line));
             }
             output
         }
@@ -356,21 +293,11 @@ where
 }
 /// Get CPU information.
 pub fn get_cpu_info(serial: &str) -> String {
-    get_cpu_info_internal(serial, adb_shell)
-}
-
-fn get_cpu_info_internal<F>(serial: &str, adb_shell_fn: F) -> String
-where
-    F: Fn(&str, &[&str]) -> Result<String, String>,
-{
-    match adb_shell_fn(serial, &["cat", "/proc/cpuinfo"]) {
+    match adb_shell(serial, &["cat", "/proc/cpuinfo"]) {
         Ok(val) => {
-            let mut output = String::from(
-                "CPU Info:
-",
-            );
+            let mut output = String::from("CPU Info:\n");
             for line in val.lines().take(20) {
-                let _ = writeln!(output, "  {}", line);
+                output.push_str(&format!("  {}\n", line));
             }
             output
         }
@@ -410,7 +337,7 @@ mod tests {
     fn test_execute_shell_internal_success() {
         let result = execute_shell_internal("device1", "ls -la", |serial, args| {
             assert_eq!(serial, "device1");
-            assert_eq!(args, &["sh", "-c", "ls -la"]);
+            assert_eq!(args, &["ls", "-la"]);
             Ok("file1\nfile2".to_string())
         });
         assert_eq!(result, "file1\nfile2");
@@ -419,7 +346,7 @@ mod tests {
     fn test_execute_shell_internal_success_empty_output() {
         let result = execute_shell_internal("device1", "touch test.txt", |serial, args| {
             assert_eq!(serial, "device1");
-            assert_eq!(args, &["sh", "-c", "touch test.txt"]);
+            assert_eq!(args, &["touch", "test.txt"]);
             Ok("".to_string())
         });
         assert_eq!(result, "(command returned no output)");
@@ -428,7 +355,7 @@ mod tests {
     fn test_execute_shell_internal_failure() {
         let result = execute_shell_internal("device1", "badcmd", |serial, args| {
             assert_eq!(serial, "device1");
-            assert_eq!(args, &["sh", "-c", "badcmd"]);
+            assert_eq!(args, &["badcmd"]);
             Err("command not found".to_string())
         });
         assert_eq!(result, "Error: command not found");
@@ -592,253 +519,5 @@ adb output"
             Err("device disconnected".to_string())
         });
         assert_eq!(result, "Backup failed: device disconnected");
-    }
-
-    #[test]
-    fn test_get_uptime_success() {
-        let result = get_uptime_internal("device_123", |serial, args| {
-            assert_eq!(serial, "device_123");
-            assert_eq!(args, &["uptime"]);
-            Ok("10:00:00 up 1 day, 2:00".to_string())
-        });
-        assert_eq!(result, "Device uptime: 10:00:00 up 1 day, 2:00");
-    }
-
-    #[test]
-    fn test_get_uptime_failure() {
-        let result = get_uptime_internal("device_123", |serial, args| {
-            assert_eq!(serial, "device_123");
-            assert_eq!(args, &["uptime"]);
-            Err("device offline".to_string())
-        });
-        assert_eq!(result, "Uptime check failed: device offline");
-    }
-    #[test]
-    fn test_install_apk_empty_path() {
-        let result = install_apk_internal("device_123", "", |_, _| {
-            panic!("Should not be called");
-        });
-        assert_eq!(result, "APK file path is required.");
-    }
-
-    #[test]
-    fn test_install_apk_success() {
-        let result = install_apk_internal("device_123", "app.apk", |serial, args| {
-            assert_eq!(serial, "device_123");
-            assert_eq!(args, &["install", "-r", "-d", "app.apk"]);
-            Ok("Success".to_string())
-        });
-        assert_eq!(result, "Install result:\nSuccess");
-    }
-
-    #[test]
-    fn test_install_apk_failure() {
-        let result = install_apk_internal("device_123", "app.apk", |serial, args| {
-            assert_eq!(serial, "device_123");
-            assert_eq!(args, &["install", "-r", "-d", "app.apk"]);
-            Err("error: device not found".to_string())
-        });
-        assert_eq!(result, "Install failed: error: device not found");
-    }
-
-    #[test]
-    fn test_get_cpu_info_success_short() {
-        let result = get_cpu_info_internal("device_123", |serial, args| {
-            assert_eq!(serial, "device_123");
-            assert_eq!(args, &["cat", "/proc/cpuinfo"]);
-            Ok("Processor\t: ARMv7 Processor rev 4 (v7l)\nBogoMIPS\t: 38.40".to_string())
-        });
-        assert_eq!(
-            result,
-            "CPU Info:\n  Processor\t: ARMv7 Processor rev 4 (v7l)\n  BogoMIPS\t: 38.40\n"
-        );
-    }
-
-    #[test]
-    fn test_reboot_bootloader_success() {
-        let result = reboot_bootloader_internal("device_123", |serial, args| {
-            assert_eq!(serial, "device_123");
-            assert_eq!(args, &["reboot", "bootloader"]);
-            Ok("".to_string())
-        });
-        assert_eq!(result, "Device rebooting to bootloader/fastboot.");
-    }
-
-    #[test]
-    fn test_reboot_bootloader_failure() {
-        let result = reboot_bootloader_internal("device_123", |serial, args| {
-            assert_eq!(serial, "device_123");
-            assert_eq!(args, &["reboot", "bootloader"]);
-            Err("error: device not found".to_string())
-        });
-        assert_eq!(
-            result,
-            "Reboot to bootloader failed: error: device not found"
-        );
-    }
-    #[test]
-    fn test_get_memory_info_success_short() {
-        let result = get_memory_info_internal("device_123", |serial, args| {
-            assert_eq!(serial, "device_123");
-            assert_eq!(args, &["cat", "/proc/meminfo"]);
-            Ok("MemTotal:        2048000 kB\nMemFree:          102400 kB".to_string())
-        });
-        assert_eq!(
-            result,
-            "Memory Info:\n  MemTotal:        2048000 kB\n  MemFree:          102400 kB\n"
-        );
-    }
-
-    #[test]
-    fn test_get_memory_info_success_long() {
-        let result = get_memory_info_internal("device_123", |serial, args| {
-            assert_eq!(serial, "device_123");
-            assert_eq!(args, &["cat", "/proc/meminfo"]);
-            let mut long_output = String::new();
-            for i in 0..15 {
-                long_output.push_str(&format!("Line {}\n", i));
-            }
-            Ok(long_output)
-        });
-
-        let mut expected = String::from("Memory Info:\n");
-        for i in 0..10 {
-            expected.push_str(&format!("  Line {}\n", i));
-        }
-        assert_eq!(result, expected);
-    }
-
-    #[test]
-    fn test_get_memory_info_failure() {
-        let result = get_memory_info_internal("device_123", |serial, args| {
-            assert_eq!(serial, "device_123");
-            assert_eq!(args, &["cat", "/proc/meminfo"]);
-            Err("device offline".to_string())
-        });
-        assert_eq!(result, "Memory info failed: device offline");
-    }
-
-    #[test]
-    fn test_disable_package_empty() {
-        let result = disable_package_internal("device_123", "", |_, _| {
-            panic!("Should not be called");
-        });
-        assert_eq!(result, "Package name is required.");
-    }
-
-    #[test]
-    fn test_disable_package_success() {
-        let package = "com.example.app";
-        let result = disable_package_internal("device_123", package, |serial, args| {
-            assert_eq!(serial, "device_123");
-            assert_eq!(
-                args,
-                &["pm", "uninstall", "-k", "--user", "0", "com.example.app"]
-            );
-            Ok("Success".to_string())
-        });
-        assert_eq!(result, format!("Disable '{}': Success", package));
-    }
-
-    #[test]
-    fn test_disable_package_failure() {
-        let package = "com.example.app";
-        let result = disable_package_internal("device_123", package, |serial, args| {
-            assert_eq!(serial, "device_123");
-            assert_eq!(
-                args,
-                &["pm", "uninstall", "-k", "--user", "0", "com.example.app"]
-            );
-            Err("error: not found".to_string())
-        });
-        assert_eq!(
-            result,
-            format!("Disable '{}' failed: error: not found", package)
-        );
-    }
-
-    #[test]
-    fn test_capture_logcat_success() {
-        let result = capture_logcat_internal("device1", 50, |serial, args| {
-            assert_eq!(serial, "device1");
-            assert_eq!(args, &["logcat", "-d", "-t", "50"]);
-            Ok("log line 1\nlog line 2".to_string())
-        });
-        assert_eq!(result, "Logcat (last 50 lines):\nlog line 1\nlog line 2");
-    }
-
-    #[test]
-    fn test_capture_logcat_failure() {
-        let result = capture_logcat_internal("device1", 50, |serial, args| {
-            assert_eq!(serial, "device1");
-            assert_eq!(args, &["logcat", "-d", "-t", "50"]);
-            Err("device offline".to_string())
-        });
-        assert_eq!(result, "Logcat failed: device offline");
-    }
-
-    #[test]
-    fn test_list_system_packages_success() {
-        let result = list_system_packages_internal("device_123", |serial, args| {
-            assert_eq!(serial, "device_123");
-            assert_eq!(args, &["pm", "list", "packages", "-s"]);
-            Ok("package:com.android.systemui\npackage:com.android.settings".to_string())
-        });
-        assert_eq!(
-            result,
-            "System packages (2):\npackage:com.android.systemui\npackage:com.android.settings"
-        );
-    }
-
-    #[test]
-    fn test_list_system_packages_empty() {
-        let result = list_system_packages_internal("device_123", |serial, args| {
-            assert_eq!(serial, "device_123");
-            assert_eq!(args, &["pm", "list", "packages", "-s"]);
-            Ok("".to_string())
-        });
-        assert_eq!(result, "System packages (0):\n");
-    }
-
-    #[test]
-    fn test_list_system_packages_failure() {
-        let result = list_system_packages_internal("device_123", |serial, args| {
-            assert_eq!(serial, "device_123");
-            assert_eq!(args, &["pm", "list", "packages", "-s"]);
-            Err("device offline".to_string())
-        });
-        assert_eq!(result, "List failed: device offline");
-    }
-
-    #[test]
-    fn test_execute_shell_success() {
-        crate::exec::MOCK_RUN_IMPL.with(|mock| {
-            *mock.borrow_mut() = Some(Box::new(|program, args, _error_prefix| {
-                assert_eq!(program, "adb");
-                assert_eq!(args, &["-s", "dev1", "shell", "sh", "-c", "ls"]);
-                Ok("file1".to_string())
-            }));
-        });
-
-        let result = execute_shell("dev1", "ls");
-        assert_eq!(result, "file1");
-
-        crate::exec::MOCK_RUN_IMPL.with(|mock| {
-            *mock.borrow_mut() = None;
-        });
-    }
-
-    #[test]
-    fn test_execute_shell_failure() {
-        crate::exec::MOCK_RUN_IMPL.with(|mock| {
-            *mock.borrow_mut() = Some(Box::new(|_, _, _| Err("adb error".to_string())));
-        });
-
-        let result = execute_shell("dev1", "ls");
-        assert_eq!(result, "Error: adb error");
-
-        crate::exec::MOCK_RUN_IMPL.with(|mock| {
-            *mock.borrow_mut() = None;
-        });
     }
 }
