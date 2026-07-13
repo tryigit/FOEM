@@ -294,6 +294,64 @@ mod tests {
     use crate::exec::MOCK_RUN_IMPL;
 
     #[test]
+    fn test_check_oem_unlock_setting_enabled() {
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args, error_prefix| {
+                assert_eq!(program, "adb");
+                assert_eq!(args, &["-s", "SERIAL123", "shell", "settings", "get", "global", "oem_unlock_allowed"]);
+                assert_eq!(error_prefix, "Failed to execute ADB");
+                Ok("1\n".to_string())
+            }));
+        });
+
+        let result = check_oem_unlock_setting("SERIAL123");
+        assert_eq!(result, "OEM Unlock in Developer Options: Enabled");
+
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+    }
+
+    #[test]
+    fn test_check_oem_unlock_setting_disabled() {
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args, error_prefix| {
+                assert_eq!(program, "adb");
+                assert_eq!(args, &["-s", "SERIAL123", "shell", "settings", "get", "global", "oem_unlock_allowed"]);
+                assert_eq!(error_prefix, "Failed to execute ADB");
+                Ok("0\n".to_string())
+            }));
+        });
+
+        let result = check_oem_unlock_setting("SERIAL123");
+        assert_eq!(result, "OEM Unlock in Developer Options: Disabled");
+
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+    }
+
+    #[test]
+    fn test_check_oem_unlock_setting_failure() {
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args, error_prefix| {
+                assert_eq!(program, "adb");
+                assert_eq!(args, &["-s", "SERIAL123", "shell", "settings", "get", "global", "oem_unlock_allowed"]);
+                assert_eq!(error_prefix, "Failed to execute ADB");
+                Err("adb error".to_string())
+            }));
+        });
+
+        let result = check_oem_unlock_setting("SERIAL123");
+        assert_eq!(result, "Failed to check OEM unlock setting: adb error");
+
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+    }
+
+
+    #[test]
     fn test_check_status_success() {
         MOCK_RUN_IMPL.with(|mock| {
             *mock.borrow_mut() = Some(Box::new(|program, args, error_prefix| {
