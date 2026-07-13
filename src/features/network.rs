@@ -1,3 +1,4 @@
+use std::fmt::Write;
 /// Network, security bypass, and lock removal operations.
 ///
 /// FRP (Factory Reset Protection) bypass
@@ -246,7 +247,7 @@ pub fn check_carrier_lock(serial: &str) -> String {
     ];
     let mut script = String::new();
     for (_, prop) in &props {
-        script.push_str(&format!("getprop {}; echo B_MARKER; ", prop));
+        let _ = write!(script, "getprop {}; echo B_MARKER; ", prop);
     }
 
     let mut output = String::from("Carrier/SIM Status:\n");
