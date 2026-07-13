@@ -10,10 +10,14 @@ mod update_manager;
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub fn display_version() -> String {
-    if VERSION.starts_with('0') {
-        format!("{} Beta", VERSION)
+    display_version_internal(VERSION)
+}
+
+fn display_version_internal(version: &str) -> String {
+    if version.starts_with('0') {
+        format!("{} Beta", version)
     } else {
-        VERSION.to_string()
+        version.to_string()
     }
 }
 
@@ -49,4 +53,22 @@ fn main() -> eframe::Result {
         options,
         Box::new(|cc| Ok(Box::new(app::FOEMApp::new(cc)))),
     )
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_display_version_beta() {
+        assert_eq!(display_version_internal("0.1.0"), "0.1.0 Beta");
+        assert_eq!(display_version_internal("0.9.9"), "0.9.9 Beta");
+    }
+
+    #[test]
+    fn test_display_version_stable() {
+        assert_eq!(display_version_internal("1.0.0"), "1.0.0");
+        assert_eq!(display_version_internal("2.5.1"), "2.5.1");
+    }
 }
