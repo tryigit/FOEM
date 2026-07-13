@@ -1,3 +1,4 @@
+use std::fmt::Write;
 use std::time::Instant;
 
 fn mock_adb_shell_slow(_serial: &str, args: &[&str]) -> Result<String, String> {
@@ -58,7 +59,7 @@ pub fn check_carrier_lock_fast(serial: &str) -> String {
     // that echoes all properties separated by a marker
     let mut script = String::new();
     for (_, prop) in &props {
-        script.push_str(&format!("getprop {}; echo B_MARKER; ", prop));
+        let _ = write!(script, "getprop {}; echo B_MARKER; ", prop);
     }
 
     let mut output = String::from("Carrier/SIM Status:\n");
