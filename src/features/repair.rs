@@ -892,7 +892,7 @@ pub fn check_baseband(serial: &str) -> String {
 
     let mut script = String::new();
     for (_, prop) in &props {
-        script.push_str(&format!("getprop {}; echo B_MARKER; ", prop));
+        let _ = write!(script, "getprop {}; echo B_MARKER; ", prop);
     }
 
     let mut output = String::from("Baseband/Modem Info:\n");

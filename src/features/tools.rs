@@ -1,6 +1,7 @@
 use std::fmt::Write;
 /// ADB utility tools: shell, logcat, file operations, reboot,
 /// backup/restore, APK management, bloatware removal, screenshots.
+use std::fmt::Write;
 use super::{adb, adb_shell};
 use std::fmt::Write;
 use crate::exec::{normalize_local_path, normalize_remote_path};
