@@ -83,10 +83,10 @@ pub struct ChatMessage {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct TelemetrySnapshot {
-    pub active_panel: String,
-    pub recent_actions: Vec<String>,
-    pub device_summary: String,
+pub struct TelemetrySnapshot<'a> {
+    pub active_panel: &'a str,
+    pub recent_actions: Vec<&'a str>,
+    pub device_summary: std::borrow::Cow<'a, str>,
 }
 
 #[derive(Default, Debug, Clone)]
@@ -100,7 +100,7 @@ pub struct AiAssistantState {
 }
 
 impl AiAssistantState {
-    pub fn system_prompt(&self, telemetry: &TelemetrySnapshot) -> String {
+    pub fn system_prompt(&self, telemetry: &TelemetrySnapshot<'_>) -> String {
         let mut prompt = String::from(
             "You are FOEM's built-in phone repair copilot. Provide concise, safe steps.\n\
              Use JSON tool outputs only when you intend to navigate UI: {\"action\":\"navigate_ui\",\"target\":\"PanelName\"}.\n\
@@ -282,7 +282,7 @@ fn auth_header(settings: &AiSettings) -> Option<(String, String)> {
 pub fn send_chat(
     state: &mut AiAssistantState,
     settings: &AiSettings,
-    telemetry: TelemetrySnapshot,
+    telemetry: TelemetrySnapshot<'_>,
 ) -> Result<String, String> {
     let sys = state.system_prompt(&telemetry);
     let mut messages = Vec::new();

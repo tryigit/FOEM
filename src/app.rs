@@ -6,6 +6,7 @@ use eframe::egui;
 
 use crate::diagnostics::DeviceDiagnostics;
 use crate::display_version;
+use std::borrow::Cow;
 use crate::features::ai_assistant::{
     self, AiAssistantState, AiSettings, Provider, TelemetrySnapshot,
 };
@@ -1418,12 +1419,12 @@ impl FOEMApp {
                     self.log = "Please enter a prompt first.".into();
                 } else {
                     let telemetry = TelemetrySnapshot {
-                        active_panel: self.panel_name().to_string(),
-                        recent_actions: vec![self.log.clone()],
+                        active_panel: self.panel_name(),
+                        recent_actions: vec![self.log.as_str()],
                         device_summary: self
                             .serial()
-                            .map(|s| format!("Connected device: {}", s))
-                            .unwrap_or_else(|| "No device connected".to_string()),
+                            .map(|s| Cow::Owned(format!("Connected device: {}", s)))
+                            .unwrap_or_else(|| Cow::Borrowed("No device connected")),
                     };
                     let user_input = self.ai_state.input.clone();
                     self.ai_state.push_user_message(user_input);
