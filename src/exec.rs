@@ -273,4 +273,19 @@ mod tests {
         assert_eq!(normalize_remote_path(""), "");
         assert_eq!(normalize_remote_path("/"), "");
     }
+
+    #[test]
+    fn test_normalize_local_path() {
+        // Empty path
+        assert_eq!(normalize_local_path(""), "");
+
+        // Tilde expansion
+        let tilde_path = "~/some_non_existent_file.txt";
+        let expected = shellexpand::tilde(tilde_path).into_owned();
+        assert_eq!(normalize_local_path(tilde_path), expected);
+
+        // Non-existent path without tilde
+        let non_existent = "a\\b/c";
+        assert_eq!(normalize_local_path(non_existent), shellexpand::tilde(non_existent).into_owned());
+    }
 }
