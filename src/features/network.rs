@@ -420,6 +420,78 @@ mod tests {
     use super::*;
     use crate::exec::MOCK_RUN_IMPL;
 
+
+    struct MockGuard;
+    impl Drop for MockGuard {
+        fn drop(&mut self) {
+            MOCK_RUN_IMPL.with(|mock| {
+                *mock.borrow_mut() = None;
+            });
+        }
+    }
+
+    #[test]
+    fn test_check_mdm_status_detected() {
+        let _guard = MockGuard;
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program: &str, args: &[&str], _error_prefix: &str| {
+                if program == "adb" && args.len() > 3 && args[2] == "shell" {
+                    if args.contains(&"dumpsys") && args.contains(&"device_policy") {
+                        return Ok("Device Owner: Something".to_string());
+                    }
+                    if args.contains(&"pm") && args.contains(&"list") {
+                        return Ok("package:com.samsung.android.knox".to_string());
+                    }
+                }
+                Ok("".to_string())
+            }));
+        });
+
+        let output = check_mdm_status("dummy_serial");
+        assert!(output.contains("MDM/Device Owner DETECTED:"));
+        assert!(output.contains("Samsung Knox packages detected."));
+    }
+
+    #[test]
+    fn test_check_mdm_status_not_found() {
+        let _guard = MockGuard;
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program: &str, args: &[&str], _error_prefix: &str| {
+                if program == "adb" && args.len() > 3 && args[2] == "shell" {
+                    if args.contains(&"dumpsys") && args.contains(&"device_policy") {
+                        return Ok("No owner".to_string());
+                    }
+                    if args.contains(&"pm") && args.contains(&"list") {
+                        return Ok("".to_string());
+                    }
+                }
+                Ok("".to_string())
+            }));
+        });
+
+        let output = check_mdm_status("dummy_serial");
+        assert!(output.contains("No MDM or Device Owner profiles found."));
+        assert!(!output.contains("Samsung Knox packages detected."));
+    }
+
+    #[test]
+    fn test_check_mdm_status_error() {
+        let _guard = MockGuard;
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program: &str, args: &[&str], _error_prefix: &str| {
+                if program == "adb" && args.len() > 3 && args[2] == "shell" {
+                    if args.contains(&"dumpsys") {
+                        return Err("error dumpsys".to_string());
+                    }
+                }
+                Ok("".to_string())
+            }));
+        });
+
+        let output = check_mdm_status("dummy_serial");
+        assert!(output.contains("Could not check MDM status:"));
+    }
+
     #[test]
     fn test_bypass_frp_adb_bypass() {
         MOCK_RUN_IMPL.with(|mock| {
