@@ -156,6 +156,32 @@ mod tests {
         assert!(!e.is_empty(), "Error message should not be empty");
     }
 
+
+    #[test]
+    fn test_fastboot() {
+        struct MockGuard;
+        impl Drop for MockGuard {
+            fn drop(&mut self) {
+                crate::exec::MOCK_RUN_IMPL.with(|mock| {
+                    *mock.borrow_mut() = None;
+                });
+            }
+        }
+        let _guard = MockGuard;
+
+        crate::exec::MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args, error_prefix| {
+                assert_eq!(program, "fastboot");
+                assert_eq!(args, &["-s", "mock_serial", "getvar", "all"]);
+                assert_eq!(error_prefix, "Failed to execute Fastboot");
+                Ok("mock_fastboot_success".to_string())
+            }));
+        });
+
+        let result = fastboot("mock_serial", &["getvar", "all"]);
+        assert_eq!(result, Ok("mock_fastboot_success".to_string()));
+    }
+
     #[test]
     fn test_manufacturer_platform_hint() {
         assert_eq!(Manufacturer::Samsung.platform_hint(), "Exynos / Qualcomm");
