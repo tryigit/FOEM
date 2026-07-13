@@ -273,4 +273,22 @@ mod tests {
         assert_eq!(normalize_remote_path(""), "");
         assert_eq!(normalize_remote_path("/"), "");
     }
+
+    #[test]
+    fn test_run_with_timeout_success() {
+        // Sleep for 0.1 seconds, which is less than the timeout
+        let result = run_with_timeout("sleep", &["0.1"], "test_error", Duration::from_secs(1));
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "");
+    }
+
+    #[test]
+    fn test_run_with_timeout_failure() {
+        // Sleep for 1 second, which is more than the timeout of 100ms
+        let result = run_with_timeout("sleep", &["1"], "test_error", Duration::from_millis(100));
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.contains("timed out after 0s"));
+    }
+
 }
