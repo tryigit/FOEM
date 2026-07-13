@@ -347,7 +347,7 @@ where
         Ok(val) => {
             let mut output = String::from("Memory Info:\n");
             for line in val.lines().take(10) {
-                let _ = writeln!(output, "  {}", line);
+                output.push_str(&format!("  {}\n", line));
             }
             output
         }
@@ -370,7 +370,7 @@ where
 ",
             );
             for line in val.lines().take(20) {
-                let _ = writeln!(output, "  {}", line);
+                output.push_str(&format!("  {}\n", line));
             }
             output
         }

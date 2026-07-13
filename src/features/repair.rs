@@ -1049,6 +1049,99 @@ mod tests {
     use super::{build_imei_write_commands, parse_imei_input};
     use crate::features::Manufacturer;
 
+
+    #[test]
+    fn check_gms_all_installed() {
+        crate::exec::MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args, _| {
+                if program == "adb" {
+                    let cmd = args.join(" ");
+                    if cmd.contains("sh -c") && cmd.contains("pm list packages") {
+                        let mut res = String::new();
+                        res.push_str("package:com.google.android.gms\nB_MARKER");
+                        res.push_str("package:com.google.android.gsf\nB_MARKER");
+                        res.push_str("package:com.android.vending\nB_MARKER");
+                        res.push_str("package:com.google.android.apps.setup\nB_MARKER");
+                        res.push_str("package:com.google.android.setupwizard\nB_MARKER");
+                        res.push_str("package:com.google.android.apps.restore");
+                        return Ok(res);
+                    }
+                }
+                Ok("".to_string())
+            }));
+        });
+
+        let output = super::check_gms("serial123");
+        assert!(output.contains("com.google.android.gms -- installed"));
+        assert!(output.contains("com.google.android.gsf -- installed"));
+        assert!(output.contains("com.android.vending -- installed"));
+        assert!(output.contains("com.google.android.apps.setup -- installed"));
+        assert!(output.contains("com.google.android.setupwizard -- installed"));
+        assert!(output.contains("com.google.android.apps.restore -- installed"));
+
+        crate::exec::MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+    }
+
+    #[test]
+    fn check_gms_partial_missing() {
+        crate::exec::MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args, _| {
+                if program == "adb" {
+                    let cmd = args.join(" ");
+                    if cmd.contains("sh -c") && cmd.contains("pm list packages") {
+                        let mut res = String::new();
+                        res.push_str("package:com.google.android.gms\nB_MARKER");
+                        res.push_str("\nB_MARKER"); // gsf missing
+                        res.push_str("package:com.android.vending\nB_MARKER");
+                        res.push_str("\nB_MARKER"); // setup missing
+                        res.push_str("package:com.google.android.setupwizard\nB_MARKER");
+                        res.push_str("\n"); // restore missing
+                        return Ok(res);
+                    }
+                }
+                Ok("".to_string())
+            }));
+        });
+
+        let output = super::check_gms("serial123");
+        assert!(output.contains("com.google.android.gms -- installed"));
+        assert!(output.contains("com.google.android.gsf -- MISSING"));
+        assert!(output.contains("com.android.vending -- installed"));
+        assert!(output.contains("com.google.android.apps.setup -- MISSING"));
+        assert!(output.contains("com.google.android.setupwizard -- installed"));
+        assert!(output.contains("com.google.android.apps.restore -- MISSING"));
+
+        crate::exec::MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+    }
+
+    #[test]
+    fn check_gms_adb_error() {
+        crate::exec::MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, _args, _| {
+                if program == "adb" {
+                    return Err("device offline".to_string());
+                }
+                Ok("".to_string())
+            }));
+        });
+
+        let output = super::check_gms("serial123");
+        assert!(output.contains("com.google.android.gms -- MISSING"));
+        assert!(output.contains("com.google.android.gsf -- MISSING"));
+        assert!(output.contains("com.android.vending -- MISSING"));
+        assert!(output.contains("com.google.android.apps.setup -- MISSING"));
+        assert!(output.contains("com.google.android.setupwizard -- MISSING"));
+        assert!(output.contains("com.google.android.apps.restore -- MISSING"));
+
+        crate::exec::MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+    }
+
     #[test]
     fn parse_single_imei() -> Result<(), Box<dyn std::error::Error>> {
         let parsed = parse_imei_input("123456789012345")?;
