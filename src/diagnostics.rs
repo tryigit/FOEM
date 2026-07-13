@@ -50,11 +50,10 @@ impl DeviceDiagnostics {
     pub fn detect_device(&mut self) -> Result<Option<String>, String> {
         let output = Self::run_cmd("adb", &["devices"])?;
         for line in output.lines().skip(1) {
-            let parts: Vec<&str> = line.split_whitespace().collect();
-            if parts.len() >= 2 && parts[1] == "device" {
-                let serial = parts[0].to_string();
-                self.device_serial = Some(serial.clone());
-                return Ok(Some(serial));
+            let mut parts = line.split_whitespace();
+            if let (Some(serial), Some("device")) = (parts.next(), parts.next()) {
+                self.device_serial = Some(serial.to_string());
+                return Ok(self.device_serial.clone());
             }
         }
         self.device_serial = None;
