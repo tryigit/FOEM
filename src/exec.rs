@@ -266,11 +266,31 @@ mod tests {
 
     #[test]
     fn test_normalize_remote_path() {
-        assert_eq!(normalize_remote_path("a\\b\\c"), "a/b/c");
-        assert_eq!(normalize_remote_path("a/b\\c"), "a/b/c");
+        // Happy path tests
+        assert_eq!(normalize_remote_path(r"a\b\c"), "a/b/c");
+        assert_eq!(normalize_remote_path(r"a/b\c"), "a/b/c");
         assert_eq!(normalize_remote_path("a/b/"), "a/b");
         assert_eq!(normalize_remote_path("a/b"), "a/b");
+
+        // Empty strings and roots
         assert_eq!(normalize_remote_path(""), "");
         assert_eq!(normalize_remote_path("/"), "");
+        assert_eq!(normalize_remote_path(r"\"), "");
+        assert_eq!(normalize_remote_path("///"), ""); // trim_end_matches trims ALL trailing instances
+
+        // Repeated slashes and mixed formats
+        assert_eq!(normalize_remote_path(r"a\\b//c"), "a//b//c");
+        assert_eq!(normalize_remote_path("/absolute/path/"), "/absolute/path");
+        assert_eq!(normalize_remote_path(r"C:\Windows\Path"), "C:/Windows/Path");
+
+        // Only trimming the end
+        assert_eq!(normalize_remote_path("//a/b/c//"), "//a/b/c");
+
+        // Edge cases
+        assert_eq!(normalize_remote_path(" "), " ");
+        assert_eq!(normalize_remote_path(" / "), " / ");
+        assert_eq!(normalize_remote_path(" /"), " ");
+        assert_eq!(normalize_remote_path("/ "), "/ ");
     }
+
 }
