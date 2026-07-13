@@ -20,20 +20,17 @@ impl DeviceDiagnostics {
     }
 
     /// Run a command and return its stdout, with a short timeout to avoid UI hangs.
-    #[cfg(not(test))]
     fn run_cmd(program: &str, args: &[&str]) -> Result<String, String> {
-        exec::run_with_timeout(program, args, "Diagnostics command failed", COMMAND_TIMEOUT)
-    }
-
-    #[cfg(test)]
-    fn run_cmd(program: &str, args: &[&str]) -> Result<String, String> {
-        tests::MOCK_RUN_CMD.with(|mock| {
-            if let Some(f) = &*mock.borrow() {
-                f(program, args)
-            } else {
-                exec::run_with_timeout(program, args, "Diagnostics command failed", COMMAND_TIMEOUT)
+        #[cfg(test)]
+        {
+            let mocked = tests::MOCK_RUN_CMD.with(|mock| {
+                mock.borrow().as_ref().map(|f| f(program, args))
+            });
+            if let Some(res) = mocked {
+                return res;
             }
-        })
+        }
+        exec::run_with_timeout(program, args, "Diagnostics command failed", COMMAND_TIMEOUT)
     }
 
     /// Check whether ADB is reachable.
