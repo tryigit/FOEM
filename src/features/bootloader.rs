@@ -293,6 +293,52 @@ mod tests {
     use super::*;
     use crate::exec::MOCK_RUN_IMPL;
 
+
+    #[test]
+    fn test_manufacturer_notes_samsung() {
+        let notes = manufacturer_notes(&Manufacturer::Samsung);
+        assert!(notes.contains("Samsung Notes:"));
+        assert!(notes.contains("Knox counter"));
+    }
+
+    #[test]
+    fn test_manufacturer_notes_xiaomi() {
+        let notes = manufacturer_notes(&Manufacturer::Xiaomi);
+        assert!(notes.contains("Xiaomi Notes:"));
+        assert!(notes.contains("Mi Unlock Tool"));
+    }
+
+    #[test]
+    fn test_manufacturer_notes_huawei_honor() {
+        let notes_huawei = manufacturer_notes(&Manufacturer::Huawei);
+        assert!(notes_huawei.contains("Huawei/Honor Notes:"));
+        assert!(notes_huawei.contains("HiSilicon (Kirin)"));
+
+        let notes_honor = manufacturer_notes(&Manufacturer::Honor);
+        assert_eq!(notes_huawei, notes_honor);
+    }
+
+    #[test]
+    fn test_manufacturer_notes_google() {
+        let notes = manufacturer_notes(&Manufacturer::Google);
+        assert!(notes.contains("Google Pixel Notes:"));
+        assert!(notes.contains("fastboot flashing unlock"));
+    }
+
+    #[test]
+    fn test_manufacturer_notes_oneplus() {
+        let notes = manufacturer_notes(&Manufacturer::OnePlus);
+        assert!(notes.contains("OnePlus Notes:"));
+        assert!(notes.contains("factory reset on unlock"));
+    }
+
+    #[test]
+    fn test_manufacturer_notes_general() {
+        let notes = manufacturer_notes(&Manufacturer::Motorola);
+        assert!(notes.contains("General Notes:"));
+        assert!(notes.contains("manufacturer website for unlock policies"));
+    }
+
     #[test]
     fn test_check_status_success() {
         MOCK_RUN_IMPL.with(|mock| {
