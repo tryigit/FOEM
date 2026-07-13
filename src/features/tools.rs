@@ -1,6 +1,7 @@
 /// ADB utility tools: shell, logcat, file operations, reboot,
 /// backup/restore, APK management, bloatware removal, screenshots.
 use super::{adb, adb_shell};
+use std::fmt::Write;
 use crate::exec::{normalize_local_path, normalize_remote_path};
 
 // -- ADB Shell --
@@ -16,8 +17,11 @@ where
     if command.is_empty() {
         return "No command entered.".to_string();
     }
-    let args = vec!["sh", "-c", command];
-    match adb_shell_fn(serial, &args) {
+    let parsed_args = shlex::split(command).unwrap_or_else(|| vec![command.to_string()]);
+
+    let args_str: Vec<&str> = parsed_args.iter().map(|s| s.as_str()).collect();
+
+    match adb_shell_fn(serial, &args_str) {
         Ok(out) => {
             if out.is_empty() {
                 "(command returned no output)".to_string()
@@ -410,7 +414,7 @@ mod tests {
     fn test_execute_shell_internal_success() {
         let result = execute_shell_internal("device1", "ls -la", |serial, args| {
             assert_eq!(serial, "device1");
-            assert_eq!(args, &["sh", "-c", "ls -la"]);
+            assert_eq!(args, &["ls", "-la"]);
             Ok("file1\nfile2".to_string())
         });
         assert_eq!(result, "file1\nfile2");
@@ -419,7 +423,7 @@ mod tests {
     fn test_execute_shell_internal_success_empty_output() {
         let result = execute_shell_internal("device1", "touch test.txt", |serial, args| {
             assert_eq!(serial, "device1");
-            assert_eq!(args, &["sh", "-c", "touch test.txt"]);
+            assert_eq!(args, &["touch", "test.txt"]);
             Ok("".to_string())
         });
         assert_eq!(result, "(command returned no output)");
@@ -428,7 +432,7 @@ mod tests {
     fn test_execute_shell_internal_failure() {
         let result = execute_shell_internal("device1", "badcmd", |serial, args| {
             assert_eq!(serial, "device1");
-            assert_eq!(args, &["sh", "-c", "badcmd"]);
+            assert_eq!(args, &["badcmd"]);
             Err("command not found".to_string())
         });
         assert_eq!(result, "Error: command not found");
@@ -815,7 +819,7 @@ adb output"
         crate::exec::MOCK_RUN_IMPL.with(|mock| {
             *mock.borrow_mut() = Some(Box::new(|program, args, _error_prefix| {
                 assert_eq!(program, "adb");
-                assert_eq!(args, &["-s", "dev1", "shell", "sh", "-c", "ls"]);
+                assert_eq!(args, &["-s", "dev1", "shell", "ls"]);
                 Ok("file1".to_string())
             }));
         });
