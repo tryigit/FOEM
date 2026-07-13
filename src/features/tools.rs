@@ -4,6 +4,7 @@ use std::fmt::Write;
 use super::{adb, adb_shell};
 use std::fmt::Write;
 use crate::exec::{normalize_local_path, normalize_remote_path};
+use std::fmt::Write;
 
 // -- ADB Shell --
 
@@ -815,6 +816,29 @@ adb output"
             Err("device offline".to_string())
         });
         assert_eq!(result, "List failed: device offline");
+    }
+
+    #[test]
+    fn test_get_memory_info() {
+        let result = get_memory_info_internal("dev_mem", |serial, args| {
+            assert_eq!(serial, "dev_mem");
+            assert_eq!(args, &["cat", "/proc/meminfo"]);
+            Ok("MemTotal:        2048000 kB\nMemFree:          102400 kB".to_string())
+        });
+        assert_eq!(
+            result,
+            "Memory Info:\n  MemTotal:        2048000 kB\n  MemFree:          102400 kB\n"
+        );
+    }
+
+    #[test]
+    fn test_get_memory_info_err() {
+        let result = get_memory_info_internal("dev_mem_err", |serial, args| {
+            assert_eq!(serial, "dev_mem_err");
+            assert_eq!(args, &["cat", "/proc/meminfo"]);
+            Err("adb error".to_string())
+        });
+        assert_eq!(result, "Memory info failed: adb error");
     }
 
     #[test]
