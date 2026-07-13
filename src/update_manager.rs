@@ -112,9 +112,9 @@ pub mod tests {
         });
 
         let manager = UpdateManager::new();
-        let result = manager.check_for_updates().unwrap();
+        let result = manager.check_for_updates().expect("check_for_updates should return Ok");
         assert!(result.is_some());
-        let info = result.unwrap();
+        let info = result.expect("result should contain update info");
         assert_eq!(info.latest_version, "9.9.9");
         assert_eq!(
             info.download_url,
@@ -140,7 +140,7 @@ pub mod tests {
         });
 
         let manager = UpdateManager::new();
-        let result = manager.check_for_updates().unwrap();
+        let result = manager.check_for_updates().expect("check_for_updates should return Ok");
         assert!(result.is_none());
 
         MOCK_HTTP_RESPONSE.with(|mock| {
