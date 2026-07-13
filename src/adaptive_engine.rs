@@ -281,8 +281,33 @@ fn builtin_recipes() -> Vec<ExploitRecipe> {
     ]
 }
 
+
+#[cfg(not(test))]
+fn get_available_ports() -> Result<Vec<serialport::SerialPortInfo>, serialport::Error> {
+    serialport::available_ports()
+}
+
+#[cfg(test)]
+thread_local! {
+    pub static MOCK_AVAILABLE_PORTS: std::cell::RefCell<Option<Result<Vec<serialport::SerialPortInfo>, String>>> = std::cell::RefCell::new(None);
+}
+
+#[cfg(test)]
+fn get_available_ports() -> Result<Vec<serialport::SerialPortInfo>, serialport::Error> {
+    MOCK_AVAILABLE_PORTS.with(|m| {
+        if let Some(res) = m.borrow().as_ref() {
+            match res {
+                Ok(ports) => Ok(ports.clone()),
+                Err(e) => Err(serialport::Error::new(serialport::ErrorKind::Unknown, e.clone())),
+            }
+        } else {
+            serialport::available_ports()
+        }
+    })
+}
+
 pub fn autodetect_diag_port() -> Option<String> {
-    if let Ok(ports) = serialport::available_ports() {
+    if let Ok(ports) = get_available_ports() {
         for p in ports {
             if matches!(p.port_type, serialport::SerialPortType::UsbPort(_)) {
                 return Some(p.port_name);
@@ -296,6 +321,61 @@ pub fn autodetect_diag_port() -> Option<String> {
 mod tests {
     use super::*;
     use std::error::Error;
+
+
+    struct PortsMockGuard;
+    impl Drop for PortsMockGuard {
+        fn drop(&mut self) {
+            MOCK_AVAILABLE_PORTS.with(|m| *m.borrow_mut() = None);
+        }
+    }
+
+    #[test]
+    fn test_autodetect_diag_port_none_when_error() {
+        MOCK_AVAILABLE_PORTS.with(|m| *m.borrow_mut() = Some(Err("mock error".into())));
+        let _guard = PortsMockGuard;
+        let port = autodetect_diag_port();
+        assert_eq!(port, None);
+    }
+
+    #[test]
+    fn test_autodetect_diag_port_none_when_no_ports() {
+        MOCK_AVAILABLE_PORTS.with(|m| *m.borrow_mut() = Some(Ok(vec![])));
+        let _guard = PortsMockGuard;
+        let port = autodetect_diag_port();
+        assert_eq!(port, None);
+    }
+
+    #[test]
+    fn test_autodetect_diag_port_none_when_no_usb_ports() {
+        let port_info = serialport::SerialPortInfo {
+            port_name: "COM1".into(),
+            port_type: serialport::SerialPortType::Unknown,
+        };
+        MOCK_AVAILABLE_PORTS.with(|m| *m.borrow_mut() = Some(Ok(vec![port_info])));
+        let _guard = PortsMockGuard;
+        let port = autodetect_diag_port();
+        assert_eq!(port, None);
+    }
+
+    #[test]
+    fn test_autodetect_diag_port_some_when_usb_port_found() {
+        let usb_info = serialport::UsbPortInfo {
+            vid: 0x1234,
+            pid: 0x5678,
+            serial_number: None,
+            manufacturer: None,
+            product: None,
+        };
+        let port_info = serialport::SerialPortInfo {
+            port_name: "COM1".into(),
+            port_type: serialport::SerialPortType::UsbPort(usb_info),
+        };
+        MOCK_AVAILABLE_PORTS.with(|m| *m.borrow_mut() = Some(Ok(vec![port_info])));
+        let _guard = PortsMockGuard;
+        let port = autodetect_diag_port();
+        assert_eq!(port, Some("COM1".into()));
+    }
 
     struct KbPathMockGuard;
 
