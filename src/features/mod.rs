@@ -172,4 +172,58 @@ mod tests {
             );
         }
     }
+
+    struct MockGuard;
+    impl Drop for MockGuard {
+        fn drop(&mut self) {
+            crate::exec::MOCK_RUN_IMPL.with(|mock| {
+                *mock.borrow_mut() = None;
+            });
+        }
+    }
+
+    #[test]
+    fn test_adb() {
+        let _guard = MockGuard;
+        crate::exec::MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args, error_prefix| {
+                assert_eq!(program, "adb");
+                assert_eq!(args, &["-s", "serial_adb", "help"]);
+                assert_eq!(error_prefix, "Failed to execute ADB");
+                Ok("mock_adb_out".to_string())
+            }));
+        });
+        let res = adb("serial_adb", &["help"]);
+        assert_eq!(res, Ok("mock_adb_out".to_string()));
+    }
+
+    #[test]
+    fn test_fastboot() {
+        let _guard = MockGuard;
+        crate::exec::MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args, error_prefix| {
+                assert_eq!(program, "fastboot");
+                assert_eq!(args, &["-s", "serial_fb", "devices"]);
+                assert_eq!(error_prefix, "Failed to execute Fastboot");
+                Ok("mock_fb_out".to_string())
+            }));
+        });
+        let res = fastboot("serial_fb", &["devices"]);
+        assert_eq!(res, Ok("mock_fb_out".to_string()));
+    }
+
+    #[test]
+    fn test_adb_shell() {
+        let _guard = MockGuard;
+        crate::exec::MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args, error_prefix| {
+                assert_eq!(program, "adb");
+                assert_eq!(args, &["-s", "serial_shell", "shell", "ls"]);
+                assert_eq!(error_prefix, "Failed to execute ADB");
+                Ok("mock_shell_out".to_string())
+            }));
+        });
+        let res = adb_shell("serial_shell", &["ls"]);
+        assert_eq!(res, Ok("mock_shell_out".to_string()));
+    }
 }
