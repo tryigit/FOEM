@@ -9,6 +9,31 @@ use std::fmt::Write;
 use std::io::{Read, Write as IoWrite};
 use std::time::Duration;
 
+#[cfg(not(test))]
+fn available_ports_mockable() -> Result<Vec<serialport::SerialPortInfo>, serialport::Error> {
+    serialport::available_ports()
+}
+
+#[cfg(test)]
+thread_local! {
+    pub static MOCK_AVAILABLE_PORTS: std::cell::RefCell<Option<Result<Vec<serialport::SerialPortInfo>, serialport::Error>>> = std::cell::RefCell::new(None);
+}
+
+#[cfg(test)]
+fn available_ports_mockable() -> Result<Vec<serialport::SerialPortInfo>, serialport::Error> {
+    MOCK_AVAILABLE_PORTS.with(|mock| {
+        if let Some(res) = mock.borrow().as_ref() {
+            match res {
+                Ok(ports) => Ok(ports.clone()),
+                Err(e) => Err(serialport::Error { kind: e.kind.clone(), description: e.description.clone() }),
+            }
+        } else {
+            serialport::available_ports()
+        }
+    })
+}
+
+
 // -- IMEI Management --
 
 /// Execute a batch of adb shell commands in one `sh -c` to avoid N+1 overhead.
@@ -94,7 +119,7 @@ pub fn read_imei(serial: &str) -> String {
     }
     // Report available diagnostic serial ports for AT command access
     output.push_str("\nDiagnostic Serial Ports:\n");
-    match serialport::available_ports() {
+    match available_ports_mockable() {
         Ok(ports) => {
             let usb_ports: Vec<_> = ports
                 .iter()
@@ -403,7 +428,7 @@ fn parse_at_value(response: &str, command_echo: &str) -> String {
 
 /// List available serial/diagnostic ports on the system.
 pub fn list_diag_ports() -> String {
-    match serialport::available_ports() {
+    match available_ports_mockable() {
         Ok(ports) if ports.is_empty() => "No serial/diagnostic ports detected.\n\
              Ensure the device is connected and in diagnostic (Diag) mode.\n\
              Qualcomm devices: Look for Qualcomm HS-USB Diagnostics 900E.\n\
@@ -965,6 +990,22 @@ pub fn enable_diag_port(serial: &str, manufacturer: &Manufacturer) -> String {
 mod tests {
     #[test]
     fn read_imei_success() {
+        super::MOCK_AVAILABLE_PORTS.with(|mock| {
+            *mock.borrow_mut() = Some(Ok(vec![
+                serialport::SerialPortInfo {
+                    port_name: "/dev/ttyUSB0".to_string(),
+                    port_type: serialport::SerialPortType::UsbPort(serialport::UsbPortInfo {
+                        vid: 0x1234,
+                        pid: 0x5678,
+                        serial_number: None,
+                        manufacturer: Some("Test Manufacturer".to_string()),
+                        product: Some("Test Product".to_string()),
+
+                    }),
+                }
+            ]));
+        });
+
         crate::exec::MOCK_RUN_IMPL.with(|mock| {
             *mock.borrow_mut() = Some(Box::new(|program, args, _| {
                 if program == "adb" {
@@ -986,8 +1027,36 @@ mod tests {
         let output = super::read_imei("serial123");
         assert!(output.contains("123456789012345"));
         assert!(output.contains("Dialer IMEI check launched"));
+        assert!(output.contains("/dev/ttyUSB0 (Test Product)"));
 
         crate::exec::MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+        super::MOCK_AVAILABLE_PORTS.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+    }
+
+    #[test]
+    fn read_imei_port_enum_failure() {
+        super::MOCK_AVAILABLE_PORTS.with(|mock| {
+            *mock.borrow_mut() = Some(Err(serialport::Error {
+                kind: serialport::ErrorKind::Io(std::io::ErrorKind::NotFound),
+                description: "Test error".to_string(),
+            }));
+        });
+
+        crate::exec::MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|_, _, _| Ok("".to_string())));
+        });
+
+        let output = super::read_imei("serial123");
+        assert!(output.contains("Port enumeration unavailable:"));
+
+        crate::exec::MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+        super::MOCK_AVAILABLE_PORTS.with(|mock| {
             *mock.borrow_mut() = None;
         });
     }
