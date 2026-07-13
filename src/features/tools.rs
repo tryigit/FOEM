@@ -350,6 +350,7 @@ where
 {
     match adb_shell_fn(serial, &["cat", "/proc/meminfo"]) {
         Ok(val) => {
+            use std::fmt::Write;
             let mut output = String::from("Memory Info:\n");
             for line in val.lines().take(10) {
                 output.push_str(&format!("  {}\n", line));
@@ -370,6 +371,7 @@ where
 {
     match adb_shell_fn(serial, &["cat", "/proc/cpuinfo"]) {
         Ok(val) => {
+            use std::fmt::Write;
             let mut output = String::from(
                 "CPU Info:
 ",

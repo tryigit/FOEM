@@ -172,4 +172,30 @@ mod tests {
             );
         }
     }
+
+    struct MockRunGuard;
+    impl Drop for MockRunGuard {
+        fn drop(&mut self) {
+            crate::exec::MOCK_RUN_IMPL.with(|mock| {
+                *mock.borrow_mut() = None;
+            });
+        }
+    }
+
+    #[test]
+    fn test_adb_shell_prepends_shell() {
+        let _guard = MockRunGuard;
+        crate::exec::MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args, error_prefix| {
+                assert_eq!(program, "adb");
+                assert_eq!(args, &["-s", "TEST_SERIAL", "shell", "ls", "-l"]);
+                assert_eq!(error_prefix, "Failed to execute ADB");
+                Ok("mocked output".to_string())
+            }));
+        });
+
+        let result = adb_shell("TEST_SERIAL", &["ls", "-l"]);
+        assert_eq!(result, Ok("mocked output".to_string()));
+    }
+
 }
