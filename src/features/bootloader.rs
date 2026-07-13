@@ -350,4 +350,64 @@ mod tests {
             *mock.borrow_mut() = None;
         });
     }
+
+    #[test]
+    fn test_get_device_vars_batch_success() {
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args, _error_prefix| {
+                assert_eq!(program, "fastboot");
+                if args == &["-s", "SERIAL123", "getvar", "all"] {
+                    Ok("(bootloader) unlocked: yes
+(bootloader) secure: no
+(bootloader) variant: SM-G998B
+(bootloader) serialno: ABC123
+(bootloader) product: p3s".to_string())
+                } else {
+                    Err("unexpected command".to_string())
+                }
+            }));
+        });
+
+        let result = get_device_vars("SERIAL123");
+        assert!(result.contains("Fastboot device variables:"));
+        assert!(result.contains("unlocked: yes"));
+        assert!(result.contains("secure: no"));
+        assert!(result.contains("variant: SM-G998B"));
+        assert!(result.contains("serialno: ABC123"));
+        assert!(result.contains("product: p3s"));
+
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+    }
+
+    #[test]
+    fn test_get_device_vars_fallback() {
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args, _error_prefix| {
+                assert_eq!(program, "fastboot");
+                if args == &["-s", "SERIAL123", "getvar", "all"] {
+                    Err("command failed".to_string())
+                } else if args == &["-s", "SERIAL123", "getvar", "unlocked"] {
+                    Ok("yes".to_string())
+                } else if args == &["-s", "SERIAL123", "getvar", "secure"] {
+                    Ok("yes".to_string())
+                } else {
+                    Err("not found".to_string())
+                }
+            }));
+        });
+
+        let result = get_device_vars("SERIAL123");
+        assert!(result.contains("Fastboot device variables:"));
+        assert!(result.contains("unlocked: yes"));
+        assert!(result.contains("secure: yes"));
+        assert!(result.contains("variant: (unavailable)"));
+        assert!(result.contains("serialno: (unavailable)"));
+        assert!(result.contains("product: (unavailable)"));
+
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+    }
 }
