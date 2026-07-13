@@ -1,3 +1,4 @@
+use std::fmt::Write;
 /// ADB utility tools: shell, logcat, file operations, reboot,
 /// backup/restore, APK management, bloatware removal, screenshots.
 use super::{adb, adb_shell};
@@ -652,6 +653,36 @@ adb output"
             result,
             "CPU Info:\n  Processor\t: ARMv7 Processor rev 4 (v7l)\n  BogoMIPS\t: 38.40\n"
         );
+    }
+
+
+    #[test]
+    fn test_get_cpu_info_success_long() {
+        let result = get_cpu_info_internal("device_123", |serial, args| {
+            assert_eq!(serial, "device_123");
+            assert_eq!(args, &["cat", "/proc/cpuinfo"]);
+            let mut long_output = String::new();
+            for i in 0..25 {
+                long_output.push_str(&format!("Line {}\n", i));
+            }
+            Ok(long_output)
+        });
+
+        let mut expected = String::from("CPU Info:\n");
+        for i in 0..20 {
+            expected.push_str(&format!("  Line {}\n", i));
+        }
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_get_cpu_info_failure() {
+        let result = get_cpu_info_internal("device_123", |serial, args| {
+            assert_eq!(serial, "device_123");
+            assert_eq!(args, &["cat", "/proc/cpuinfo"]);
+            Err("device offline".to_string())
+        });
+        assert_eq!(result, "CPU info failed: device offline");
     }
 
     #[test]
