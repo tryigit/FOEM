@@ -41,16 +41,27 @@ pub struct ExploitRecipe {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LearnedStep {
+    pub recipe_name: String,
+    pub step_index: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KnowledgeBase {
-    pub learned: HashMap<String, ExploitStep>,
+    pub learned: HashMap<String, LearnedStep>,
 }
 
 impl KnowledgeBase {
     pub fn load() -> Self {
         let path = kb_path();
-        if let Ok(text) = fs::read_to_string(&path) {
-            if let Ok(kb) = serde_json::from_str::<KnowledgeBase>(&text) {
-                return kb;
+        if let Ok(file) = fs::File::open(&path) {
+            use std::io::Read;
+            let mut reader = file.take(1024 * 1024); // 1 MB limit
+            let mut text = String::new();
+            if reader.read_to_string(&mut text).is_ok() {
+                if let Ok(kb) = serde_json::from_str::<KnowledgeBase>(&text) {
+                    return kb;
+                }
             }
         }
         KnowledgeBase {
@@ -66,12 +77,15 @@ impl KnowledgeBase {
         let _ = fs::write(path, serde_json::to_string_pretty(self).unwrap_or_default());
     }
 
-    pub fn recall(&self, fingerprint: &str) -> Option<ExploitStep> {
+    pub fn recall(&self, fingerprint: &str) -> Option<LearnedStep> {
         self.learned.get(fingerprint).cloned()
     }
 
-    pub fn learn(&mut self, fingerprint: &str, step: ExploitStep) {
-        self.learned.insert(fingerprint.to_string(), step);
+    pub fn learn(&mut self, fingerprint: &str, recipe_name: &str, step_index: usize) {
+        self.learned.insert(fingerprint.to_string(), LearnedStep {
+            recipe_name: recipe_name.to_string(),
+            step_index,
+        });
         self.save();
     }
 }
@@ -112,16 +126,21 @@ pub fn execute_goal(
     diag_port_hint: Option<&str>,
 ) -> String {
     let mut kb = KnowledgeBase::load();
-    if let Some(step) = kb.recall(fingerprint) {
-        if let Ok(out) = execute_step(serial, &step, diag_port_hint) {
-            return format!("Used learned method for {}:\n{}", fingerprint, out);
+    let recipes = builtin_recipes();
+
+    if let Some(learned) = kb.recall(fingerprint) {
+        if let Some(recipe) = recipes.iter().find(|r| r.name == learned.recipe_name) {
+            if let Some(step) = recipe.steps.get(learned.step_index) {
+                if let Ok(out) = execute_step(serial, step, diag_port_hint) {
+                    return format!("Used learned method for {}:\n{}", fingerprint, out);
+                }
+            }
         }
     }
 
-    let recipes = builtin_recipes();
     let mut last_error = String::new();
     for recipe in recipes.iter().filter(|r| r.goal == goal) {
-        for step in &recipe.steps {
+        for (step_index, step) in recipe.steps.iter().enumerate() {
             match execute_step(serial, step, diag_port_hint) {
                 Ok(out) => {
                     if step.failure_markers.iter().any(|m| out.contains(m)) {
@@ -133,7 +152,7 @@ pub fn execute_goal(
                     if step.success_markers.iter().any(|m| out.contains(m))
                         || step.success_markers.is_empty()
                     {
-                        kb.learn(fingerprint, step.clone());
+                        kb.learn(fingerprint, &recipe.name, step_index);
                         return format!(
                             "{} succeeded via {}:\n{}",
                             goal_string(&goal),
@@ -317,22 +336,15 @@ mod tests {
             learned: HashMap::new(),
         };
 
-        let step = ExploitStep {
-            kind: StepKind::AdbShell,
-            payload: "echo test".to_string(),
-            success_markers: vec!["test".to_string()],
-            failure_markers: vec![],
-            retries: 1,
-            timeout_ms: None,
-        };
-        kb.learn("test_fingerprint", step.clone());
+        kb.learn("test_fingerprint", "Test Recipe", 0);
 
         assert!(db_path.exists());
 
         let loaded_kb = KnowledgeBase::load();
         assert_eq!(loaded_kb.learned.len(), 1);
         let loaded_step = loaded_kb.recall("test_fingerprint").ok_or("missing step")?;
-        assert_eq!(loaded_step.payload, "echo test");
+        assert_eq!(loaded_step.recipe_name, "Test Recipe");
+        assert_eq!(loaded_step.step_index, 0);
 
         Ok(())
     }
