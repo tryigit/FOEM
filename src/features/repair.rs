@@ -273,14 +273,9 @@ pub fn write_imei(_serial: &str, imei: &str, manufacturer: &Manufacturer) -> Str
 fn parse_imei_input(input: &str) -> Result<Vec<String>, String> {
     let imeis: Vec<String> = input
         .split(|c: char| c == ',' || c == ';' || c.is_whitespace())
-        .filter_map(|piece| {
-            let trimmed = piece.trim();
-            if trimmed.is_empty() {
-                None
-            } else {
-                Some(trimmed.to_string())
-            }
-        })
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(String::from)
         .collect();
     if imeis.is_empty() {
         return Err("Invalid IMEI. Enter one or two IMEI values.".to_string());
