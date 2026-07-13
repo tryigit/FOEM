@@ -494,6 +494,88 @@ mod tests {
     }
 
     #[test]
+    fn test_check_frp_status_success_and_truncation() {
+        struct MockGuard;
+        impl Drop for MockGuard {
+            fn drop(&mut self) {
+                MOCK_RUN_IMPL.with(|mock| *mock.borrow_mut() = None);
+            }
+        }
+        let _guard = MockGuard;
+
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args, _error_prefix| {
+                if program == "adb" && args.len() > 3 && args[2] == "shell" {
+                    let long_string = "A".repeat(130);
+                    return Ok(format!("Row: 0 name=user_setup_complete, value=1\nB_MARKER_0\npackage:com.google.android.setupwizard\nB_MARKER_0\n{}\nB_MARKER_0\n", long_string));
+                }
+                Ok("".to_string())
+            }));
+        });
+
+        let output = check_frp_status("dummy_serial");
+        assert!(output.contains("FRP Status:"));
+        assert!(output.contains("FRP active: Row: 0 name=user_setup_complete, value=1"));
+        assert!(output.contains("Setup wizard: package:com.google.android.setupwizard"));
+        let expected_long = "A".repeat(120);
+        assert!(output.contains(&format!("Google account: {}", expected_long)));
+        assert!(!output.contains(&"A".repeat(121)));
+    }
+
+    #[test]
+    fn test_check_frp_status_error() {
+        struct MockGuard;
+        impl Drop for MockGuard {
+            fn drop(&mut self) {
+                MOCK_RUN_IMPL.with(|mock| *mock.borrow_mut() = None);
+            }
+        }
+        let _guard = MockGuard;
+
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args, _error_prefix| {
+                if program == "adb" && args.len() > 3 && args[2] == "shell" {
+                    return Ok("Permission denied\nB_MARKER_1\nSuccess 2\nB_MARKER_0\nSuccess 3\nB_MARKER_0\n".to_string());
+                }
+                Ok("".to_string())
+            }));
+        });
+
+        let output = check_frp_status("dummy_serial");
+        assert!(output.contains("FRP Status:"));
+        assert!(output.contains("FRP active: error (Permission denied)"));
+        assert!(output.contains("Setup wizard: Success 2"));
+        assert!(output.contains("Google account: Success 3"));
+    }
+
+    #[test]
+    fn test_check_frp_status_adb_error() {
+        struct MockGuard;
+        impl Drop for MockGuard {
+            fn drop(&mut self) {
+                MOCK_RUN_IMPL.with(|mock| *mock.borrow_mut() = None);
+            }
+        }
+        let _guard = MockGuard;
+
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args, _error_prefix| {
+                if program == "adb" && args.len() > 3 && args[2] == "shell" {
+                    return Err("adb connection failed".to_string());
+                }
+                Ok("".to_string())
+            }));
+        });
+
+        let output = check_frp_status("dummy_serial");
+        assert!(output.contains("FRP Status:"));
+        assert!(output.contains("FRP active: error (adb connection failed)"));
+        assert!(output.contains("Setup wizard: error (adb connection failed)"));
+        assert!(output.contains("Google account: error (adb connection failed)"));
+    }
+
+
+    #[test]
     fn test_bypass_frp_adb_bypass() {
         MOCK_RUN_IMPL.with(|mock| {
             *mock.borrow_mut() = Some(Box::new(|program, args, _error_prefix| {
