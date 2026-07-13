@@ -3,8 +3,6 @@ use serde::Deserialize;
 
 use crate::VERSION;
 
-const GITHUB_API_URL: &str = "https://api.github.com/repos/tryigit/FOEM/releases/latest";
-const RELEASES_URL: &str = "https://github.com/tryigit/FOEM/releases";
 
 #[derive(Debug, PartialEq)]
 pub struct UpdateInfo {
@@ -18,15 +16,23 @@ struct GithubRelease {
     html_url: Option<String>,
 }
 
-pub struct UpdateManager;
+pub struct UpdateManager {
+    api_url: String,
+    releases_url: String,
+}
 
 impl UpdateManager {
     pub fn new() -> Self {
-        Self
+        Self {
+            api_url: std::env::var("FOEM_UPDATE_API_URL")
+                .unwrap_or_else(|_| "https://api.github.com/repos/tryigit/FOEM/releases/latest".to_string()),
+            releases_url: std::env::var("FOEM_UPDATE_RELEASES_URL")
+                .unwrap_or_else(|_| "https://github.com/tryigit/FOEM/releases".to_string()),
+        }
     }
 
     fn fetch_release_string(&self) -> Result<String, String> {
-        let response = ureq::get(GITHUB_API_URL)
+        let response = ureq::get(&self.api_url)
             .set("Accept", "application/vnd.github.v3+json")
             .set("User-Agent", "FOEM-UpdateChecker")
             .call()
@@ -68,7 +74,7 @@ impl UpdateManager {
             .map_err(|e| format!("Failed to parse response: {}", e))?;
 
         let latest = release.tag_name.trim_start_matches('v').to_string();
-        let download_url = release.html_url.unwrap_or_else(|| RELEASES_URL.to_string());
+        let download_url = release.html_url.unwrap_or_else(|| self.releases_url.clone());
 
         if latest != VERSION {
             Ok(Some(UpdateInfo {
