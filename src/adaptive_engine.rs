@@ -336,4 +336,20 @@ mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn test_fingerprint() {
+        assert_eq!(
+            fingerprint("  Pixel 6  ", "  12  ", "  android  "),
+            "Pixel 6|12|android"
+        );
+        assert_eq!(
+            fingerprint("Galaxy S21", "11", "android"),
+            "Galaxy S21|11|android"
+        );
+        assert_eq!(
+            fingerprint("  ", "  ", "  "),
+            "||"
+        );
+    }
 }
