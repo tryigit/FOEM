@@ -204,7 +204,7 @@ Check the device screen for the MTB/Modem Test interface.
 
 /// Backup IMEI data (EFS-based) to device storage.
 pub fn backup_imei(serial: &str) -> String {
-    let backup_path = "/sdcard/FOEM/imei_backup";
+    let backup_path = "/data/local/tmp/FOEM/imei_backup";
     let _ = adb_shell(serial, &["mkdir", "-p", backup_path]);
     let partitions = ["efs", "modemst1", "modemst2", "fsg", "fsc"];
     let mut output = String::from("IMEI/EFS Backup:\n");
@@ -705,7 +705,7 @@ pub fn install_gms_package(serial: &str, apk_path: &str) -> String {
 
 /// Backup EFS partition.
 pub fn backup_efs(serial: &str) -> String {
-    let backup_dir = "/sdcard/FOEM/efs_backup";
+    let backup_dir = "/data/local/tmp/FOEM/efs_backup";
     let _ = adb_shell(serial, &["mkdir", "-p", backup_dir]);
     match adb_shell(serial, &["ls", "/efs/"]) {
         Ok(listing) => {
@@ -729,7 +729,7 @@ pub fn backup_efs(serial: &str) -> String {
 
 /// Restore EFS partition from backup.
 pub fn restore_efs(serial: &str) -> String {
-    let backup_path = "/sdcard/FOEM/efs_backup/efs.tar.gz";
+    let backup_path = "/data/local/tmp/FOEM/efs_backup/efs.tar.gz";
     match adb_shell(serial, &["ls", backup_path]) {
         Ok(_) => {
             let _ = adb_shell(serial, &["tar", "-xzf", backup_path, "-C", "/"]);
