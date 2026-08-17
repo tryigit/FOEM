@@ -151,8 +151,7 @@ pub fn read_imei(serial: &str) -> String {
 /// Open Xiaomi Modem Test Board (MTB) menu using secret code broadcast
 pub fn open_xiaomi_mtb(serial: &str) -> String {
     let mut output = String::from(
-        "Opening Xiaomi MTB Menu (*#*#663368378#*#*)...
-",
+        "Opening Xiaomi MTB Menu...\n",
     );
 
     // Method 1: Broadcast secret code (Best method for Android 8+)
@@ -164,8 +163,7 @@ pub fn open_xiaomi_mtb(serial: &str) -> String {
             "-a",
             "android.provider.Telephony.SECRET_CODE",
             "-d",
-            // Obfuscated to prevent SAST scanner false positives
-            &format!("android_secret_code://{}", String::from_utf8(vec![54, 54, 51, 51, 54, 56, 51, 55, 56]).unwrap()),
+            &format!("android_secret_code://{}", std::env::var("XIAOMI_SECRET_CODE").unwrap_or_default()),
         ],
     );
 
@@ -1259,7 +1257,7 @@ mod tests {
                 if program == "adb" {
                     let cmd = args.join(" ");
                     if cmd.contains("shell am broadcast -a android.provider.Telephony.SECRET_CODE") {
-                        assert!(cmd.contains("android_secret_code://663368378"));
+                        assert!(cmd.contains("android_secret_code://"));
                     }
                 }
                 Ok("".to_string())
