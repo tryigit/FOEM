@@ -1273,4 +1273,57 @@ mod tests {
             *mock.borrow_mut() = None;
         });
     }
+
+    #[test]
+    fn test_restore_efs_success() {
+        crate::exec::MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args, _| {
+                if program == "adb" {
+                    let cmd = args.join(" ");
+                    if cmd.contains("shell ls /sdcard/FOEM/efs_backup/efs.tar.gz") {
+                        return Ok("/sdcard/FOEM/efs_backup/efs.tar.gz".to_string());
+                    }
+                    if cmd.contains("shell tar -xzf /sdcard/FOEM/efs_backup/efs.tar.gz -C /") {
+                        return Ok("".to_string());
+                    }
+                }
+                Ok("".to_string())
+            }));
+        });
+
+        let output = super::restore_efs("serial123");
+        assert_eq!(
+            output,
+            "EFS restore attempted from /sdcard/FOEM/efs_backup/efs.tar.gz.\nReboot required."
+        );
+
+        crate::exec::MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+    }
+
+    #[test]
+    fn test_restore_efs_not_found() {
+        crate::exec::MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args, _| {
+                if program == "adb" {
+                    let cmd = args.join(" ");
+                    if cmd.contains("shell ls /sdcard/FOEM/efs_backup/efs.tar.gz") {
+                        return Err("No such file or directory".to_string());
+                    }
+                }
+                Ok("".to_string())
+            }));
+        });
+
+        let output = super::restore_efs("serial123");
+        assert_eq!(
+            output,
+            "No EFS backup found. Run backup first."
+        );
+
+        crate::exec::MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+    }
 }
