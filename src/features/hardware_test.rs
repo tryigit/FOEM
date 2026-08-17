@@ -52,9 +52,11 @@ pub fn run_all(serial: &str) -> String {
         "getprop gsm.defaultpdpcontext.active 2>/dev/null",
     ];
 
-    let mut script = String::new();
+    let capacity: usize = commands.iter().map(|c| c.len() + 24).sum();
+    let mut script = String::with_capacity(capacity);
     for cmd in &commands {
-        let _ = writeln!(script, "{}; echo B_MARKER_FOEM_$?", cmd);
+        script.push_str(cmd);
+        script.push_str("; echo B_MARKER_FOEM_$?\n");
     }
 
     match adb_shell(serial, &["sh", "-c", &script]) {

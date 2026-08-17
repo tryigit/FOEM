@@ -1,11 +1,7 @@
-use std::fmt::Write;
 /// ADB utility tools: shell, logcat, file operations, reboot,
 /// backup/restore, APK management, bloatware removal, screenshots.
-use std::fmt::Write;
 use super::{adb, adb_shell};
-use std::fmt::Write;
 use crate::exec::{normalize_local_path, normalize_remote_path};
-use std::fmt::Write;
 
 // -- ADB Shell --
 
@@ -352,7 +348,6 @@ where
 {
     match adb_shell_fn(serial, &["cat", "/proc/meminfo"]) {
         Ok(val) => {
-            use std::fmt::Write;
             let mut output = String::from("Memory Info:\n");
             for line in val.lines().take(10) {
                 output.push_str(&format!("  {}\n", line));
@@ -373,7 +368,6 @@ where
 {
     match adb_shell_fn(serial, &["cat", "/proc/cpuinfo"]) {
         Ok(val) => {
-            use std::fmt::Write;
             let mut output = String::from(
                 "CPU Info:
 ",
