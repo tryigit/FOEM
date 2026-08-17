@@ -25,14 +25,16 @@ fn available_ports_mockable() -> Result<Vec<serialport::SerialPortInfo>, serialp
         if let Some(res) = mock.borrow().as_ref() {
             match res {
                 Ok(ports) => Ok(ports.clone()),
-                Err(e) => Err(serialport::Error { kind: e.kind.clone(), description: e.description.clone() }),
+                Err(e) => Err(serialport::Error {
+                    kind: e.kind.clone(),
+                    description: e.description.clone(),
+                }),
             }
         } else {
             serialport::available_ports()
         }
     })
 }
-
 
 // -- IMEI Management --
 
@@ -165,7 +167,10 @@ pub fn open_xiaomi_mtb(serial: &str) -> String {
             "android.provider.Telephony.SECRET_CODE",
             "-d",
             // Obfuscated to prevent SAST scanner false positives
-            &format!("android_secret_code://{}", String::from_utf8(vec![54, 54, 51, 51, 54, 56, 51, 55, 56]).unwrap()),
+            &format!(
+                "android_secret_code://{}",
+                String::from_utf8(vec![54, 54, 51, 51, 54, 56, 51, 55, 56]).unwrap()
+            ),
         ],
     );
 
@@ -986,19 +991,16 @@ mod tests {
     #[test]
     fn read_imei_success() {
         super::MOCK_AVAILABLE_PORTS.with(|mock| {
-            *mock.borrow_mut() = Some(Ok(vec![
-                serialport::SerialPortInfo {
-                    port_name: "/dev/ttyUSB0".to_string(),
-                    port_type: serialport::SerialPortType::UsbPort(serialport::UsbPortInfo {
-                        vid: 0x1234,
-                        pid: 0x5678,
-                        serial_number: None,
-                        manufacturer: Some("Test Manufacturer".to_string()),
-                        product: Some("Test Product".to_string()),
-
-                    }),
-                }
-            ]));
+            *mock.borrow_mut() = Some(Ok(vec![serialport::SerialPortInfo {
+                port_name: "/dev/ttyUSB0".to_string(),
+                port_type: serialport::SerialPortType::UsbPort(serialport::UsbPortInfo {
+                    vid: 0x1234,
+                    pid: 0x5678,
+                    serial_number: None,
+                    manufacturer: Some("Test Manufacturer".to_string()),
+                    product: Some("Test Product".to_string()),
+                }),
+            }]));
         });
 
         crate::exec::MOCK_RUN_IMPL.with(|mock| {
@@ -1113,7 +1115,6 @@ mod tests {
 
     use super::{build_imei_write_commands, parse_imei_input};
     use crate::features::Manufacturer;
-
 
     #[test]
     fn check_gms_all_installed() {
@@ -1251,14 +1252,14 @@ mod tests {
         assert!(commands[1].contains("AT+EGMR=1,10"));
     }
 
-
     #[test]
     fn test_open_xiaomi_mtb() {
         crate::exec::MOCK_RUN_IMPL.with(|mock| {
             *mock.borrow_mut() = Some(Box::new(|program, args, _| {
                 if program == "adb" {
                     let cmd = args.join(" ");
-                    if cmd.contains("shell am broadcast -a android.provider.Telephony.SECRET_CODE") {
+                    if cmd.contains("shell am broadcast -a android.provider.Telephony.SECRET_CODE")
+                    {
                         assert!(cmd.contains("android_secret_code://663368378"));
                     }
                 }

@@ -156,7 +156,6 @@ mod tests {
         assert!(!e.is_empty(), "Error message should not be empty");
     }
 
-
     #[test]
     fn test_fastboot() {
         struct MockGuard;
@@ -223,5 +222,4 @@ mod tests {
         let result = adb_shell("TEST_SERIAL", &["ls", "-l"]);
         assert_eq!(result, Ok("mocked output".to_string()));
     }
-
 }

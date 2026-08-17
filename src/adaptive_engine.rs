@@ -82,10 +82,13 @@ impl KnowledgeBase {
     }
 
     pub fn learn(&mut self, fingerprint: &str, recipe_name: &str, step_index: usize) {
-        self.learned.insert(fingerprint.to_string(), LearnedStep {
-            recipe_name: recipe_name.to_string(),
-            step_index,
-        });
+        self.learned.insert(
+            fingerprint.to_string(),
+            LearnedStep {
+                recipe_name: recipe_name.to_string(),
+                step_index,
+            },
+        );
         self.save();
     }
 }
@@ -300,7 +303,6 @@ fn builtin_recipes() -> Vec<ExploitRecipe> {
     ]
 }
 
-
 #[cfg(not(test))]
 fn get_available_ports() -> Result<Vec<serialport::SerialPortInfo>, serialport::Error> {
     serialport::available_ports()
@@ -317,7 +319,10 @@ fn get_available_ports() -> Result<Vec<serialport::SerialPortInfo>, serialport::
         if let Some(res) = m.borrow().as_ref() {
             match res {
                 Ok(ports) => Ok(ports.clone()),
-                Err(e) => Err(serialport::Error::new(serialport::ErrorKind::Unknown, e.clone())),
+                Err(e) => Err(serialport::Error::new(
+                    serialport::ErrorKind::Unknown,
+                    e.clone(),
+                )),
             }
         } else {
             serialport::available_ports()
@@ -340,7 +345,6 @@ pub fn autodetect_diag_port() -> Option<String> {
 mod tests {
     use super::*;
     use std::error::Error;
-
 
     struct PortsMockGuard;
     impl Drop for PortsMockGuard {
@@ -439,9 +443,6 @@ mod tests {
             fingerprint("Galaxy S21", "11", "android"),
             "Galaxy S21|11|android"
         );
-        assert_eq!(
-            fingerprint("  ", "  ", "  "),
-            "||"
-        );
+        assert_eq!(fingerprint("  ", "  ", "  "), "||");
     }
 }

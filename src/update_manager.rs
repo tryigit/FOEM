@@ -3,7 +3,6 @@ use serde::Deserialize;
 
 use crate::VERSION;
 
-
 #[derive(Debug, PartialEq)]
 pub struct UpdateInfo {
     pub latest_version: String,
@@ -24,8 +23,9 @@ pub struct UpdateManager {
 impl UpdateManager {
     pub fn new() -> Self {
         Self {
-            api_url: std::env::var("FOEM_UPDATE_API_URL")
-                .unwrap_or_else(|_| "https://api.github.com/repos/tryigit/FOEM/releases/latest".to_string()),
+            api_url: std::env::var("FOEM_UPDATE_API_URL").unwrap_or_else(|_| {
+                "https://api.github.com/repos/tryigit/FOEM/releases/latest".to_string()
+            }),
             releases_url: std::env::var("FOEM_UPDATE_RELEASES_URL")
                 .unwrap_or_else(|_| "https://github.com/tryigit/FOEM/releases".to_string()),
         }
@@ -74,7 +74,9 @@ impl UpdateManager {
             .map_err(|e| format!("Failed to parse response: {}", e))?;
 
         let latest = release.tag_name.trim_start_matches('v').to_string();
-        let download_url = release.html_url.unwrap_or_else(|| self.releases_url.clone());
+        let download_url = release
+            .html_url
+            .unwrap_or_else(|| self.releases_url.clone());
 
         if latest != VERSION {
             Ok(Some(UpdateInfo {
@@ -112,7 +114,9 @@ pub mod tests {
         });
 
         let manager = UpdateManager::new();
-        let result = manager.check_for_updates().expect("check_for_updates should return Ok");
+        let result = manager
+            .check_for_updates()
+            .expect("check_for_updates should return Ok");
         assert!(result.is_some());
         let info = result.expect("result should contain update info");
         assert_eq!(info.latest_version, "9.9.9");
@@ -140,7 +144,9 @@ pub mod tests {
         });
 
         let manager = UpdateManager::new();
-        let result = manager.check_for_updates().expect("check_for_updates should return Ok");
+        let result = manager
+            .check_for_updates()
+            .expect("check_for_updates should return Ok");
         assert!(result.is_none());
 
         MOCK_HTTP_RESPONSE.with(|mock| {

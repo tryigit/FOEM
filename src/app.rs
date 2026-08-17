@@ -6,7 +6,6 @@ use eframe::egui;
 
 use crate::diagnostics::DeviceDiagnostics;
 use crate::display_version;
-use std::borrow::Cow;
 use crate::features::ai_assistant::{
     self, AiAssistantState, AiSettings, Provider, TelemetrySnapshot,
 };
@@ -14,6 +13,7 @@ use crate::features::{self, Manufacturer};
 use crate::license_text::{COMMUNITY_LINKS, CRYPTO_DONATIONS, FIAT_DONATIONS, LICENSE_TEXT};
 use crate::theme;
 use crate::update_manager::UpdateManager;
+use std::borrow::Cow;
 
 #[derive(Default, PartialEq, Clone, Copy)]
 enum Panel {

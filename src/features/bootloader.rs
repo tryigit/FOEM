@@ -293,7 +293,6 @@ mod tests {
     use super::*;
     use crate::exec::MOCK_RUN_IMPL;
 
-
     #[test]
     fn test_manufacturer_notes_samsung() {
         let notes = manufacturer_notes(&Manufacturer::Samsung);
@@ -344,7 +343,18 @@ mod tests {
         MOCK_RUN_IMPL.with(|mock| {
             *mock.borrow_mut() = Some(Box::new(|program, args, error_prefix| {
                 assert_eq!(program, "adb");
-                assert_eq!(args, &["-s", "SERIAL123", "shell", "settings", "get", "global", "oem_unlock_allowed"]);
+                assert_eq!(
+                    args,
+                    &[
+                        "-s",
+                        "SERIAL123",
+                        "shell",
+                        "settings",
+                        "get",
+                        "global",
+                        "oem_unlock_allowed"
+                    ]
+                );
                 assert_eq!(error_prefix, "Failed to execute ADB");
                 Ok("1\n".to_string())
             }));
@@ -363,7 +373,18 @@ mod tests {
         MOCK_RUN_IMPL.with(|mock| {
             *mock.borrow_mut() = Some(Box::new(|program, args, error_prefix| {
                 assert_eq!(program, "adb");
-                assert_eq!(args, &["-s", "SERIAL123", "shell", "settings", "get", "global", "oem_unlock_allowed"]);
+                assert_eq!(
+                    args,
+                    &[
+                        "-s",
+                        "SERIAL123",
+                        "shell",
+                        "settings",
+                        "get",
+                        "global",
+                        "oem_unlock_allowed"
+                    ]
+                );
                 assert_eq!(error_prefix, "Failed to execute ADB");
                 Ok("0\n".to_string())
             }));
@@ -382,7 +403,18 @@ mod tests {
         MOCK_RUN_IMPL.with(|mock| {
             *mock.borrow_mut() = Some(Box::new(|program, args, error_prefix| {
                 assert_eq!(program, "adb");
-                assert_eq!(args, &["-s", "SERIAL123", "shell", "settings", "get", "global", "oem_unlock_allowed"]);
+                assert_eq!(
+                    args,
+                    &[
+                        "-s",
+                        "SERIAL123",
+                        "shell",
+                        "settings",
+                        "get",
+                        "global",
+                        "oem_unlock_allowed"
+                    ]
+                );
                 assert_eq!(error_prefix, "Failed to execute ADB");
                 Err("adb error".to_string())
             }));
@@ -395,7 +427,6 @@ mod tests {
             *mock.borrow_mut() = None;
         });
     }
-
 
     #[test]
     fn test_check_status_success() {
@@ -465,7 +496,8 @@ mod tests {
 (bootloader) secure: no
 (bootloader) variant: SM-G998B
 (bootloader) serialno: ABC123
-(bootloader) product: p3s".to_string())
+(bootloader) product: p3s"
+                        .to_string())
                 } else {
                     Err("unexpected command".to_string())
                 }

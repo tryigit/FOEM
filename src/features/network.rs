@@ -1,4 +1,3 @@
-use std::fmt::Write;
 /// Network, security bypass, and lock removal operations.
 ///
 /// FRP (Factory Reset Protection) bypass
@@ -7,6 +6,7 @@ use std::fmt::Write;
 /// Knox enrollment bypass (Samsung)
 /// Google account removal
 use super::adb_shell;
+use std::fmt::Write;
 
 // -- FRP (Factory Reset Protection) Bypass --
 /// Execute multiple ADB shell commands in a single batched process to prevent N+1 overhead.
@@ -421,7 +421,6 @@ mod tests {
     use super::*;
     use crate::exec::MOCK_RUN_IMPL;
 
-
     struct MockGuard;
     impl Drop for MockGuard {
         fn drop(&mut self) {
@@ -435,17 +434,19 @@ mod tests {
     fn test_check_mdm_status_detected() {
         let _guard = MockGuard;
         MOCK_RUN_IMPL.with(|mock| {
-            *mock.borrow_mut() = Some(Box::new(|program: &str, args: &[&str], _error_prefix: &str| {
-                if program == "adb" && args.len() > 3 && args[2] == "shell" {
-                    if args.contains(&"dumpsys") && args.contains(&"device_policy") {
-                        return Ok("Device Owner: Something".to_string());
+            *mock.borrow_mut() = Some(Box::new(
+                |program: &str, args: &[&str], _error_prefix: &str| {
+                    if program == "adb" && args.len() > 3 && args[2] == "shell" {
+                        if args.contains(&"dumpsys") && args.contains(&"device_policy") {
+                            return Ok("Device Owner: Something".to_string());
+                        }
+                        if args.contains(&"pm") && args.contains(&"list") {
+                            return Ok("package:com.samsung.android.knox".to_string());
+                        }
                     }
-                    if args.contains(&"pm") && args.contains(&"list") {
-                        return Ok("package:com.samsung.android.knox".to_string());
-                    }
-                }
-                Ok("".to_string())
-            }));
+                    Ok("".to_string())
+                },
+            ));
         });
 
         let output = check_mdm_status("dummy_serial");
@@ -457,17 +458,19 @@ mod tests {
     fn test_check_mdm_status_not_found() {
         let _guard = MockGuard;
         MOCK_RUN_IMPL.with(|mock| {
-            *mock.borrow_mut() = Some(Box::new(|program: &str, args: &[&str], _error_prefix: &str| {
-                if program == "adb" && args.len() > 3 && args[2] == "shell" {
-                    if args.contains(&"dumpsys") && args.contains(&"device_policy") {
-                        return Ok("No owner".to_string());
+            *mock.borrow_mut() = Some(Box::new(
+                |program: &str, args: &[&str], _error_prefix: &str| {
+                    if program == "adb" && args.len() > 3 && args[2] == "shell" {
+                        if args.contains(&"dumpsys") && args.contains(&"device_policy") {
+                            return Ok("No owner".to_string());
+                        }
+                        if args.contains(&"pm") && args.contains(&"list") {
+                            return Ok("".to_string());
+                        }
                     }
-                    if args.contains(&"pm") && args.contains(&"list") {
-                        return Ok("".to_string());
-                    }
-                }
-                Ok("".to_string())
-            }));
+                    Ok("".to_string())
+                },
+            ));
         });
 
         let output = check_mdm_status("dummy_serial");
@@ -479,14 +482,16 @@ mod tests {
     fn test_check_mdm_status_error() {
         let _guard = MockGuard;
         MOCK_RUN_IMPL.with(|mock| {
-            *mock.borrow_mut() = Some(Box::new(|program: &str, args: &[&str], _error_prefix: &str| {
-                if program == "adb" && args.len() > 3 && args[2] == "shell" {
-                    if args.contains(&"dumpsys") {
-                        return Err("error dumpsys".to_string());
+            *mock.borrow_mut() = Some(Box::new(
+                |program: &str, args: &[&str], _error_prefix: &str| {
+                    if program == "adb" && args.len() > 3 && args[2] == "shell" {
+                        if args.contains(&"dumpsys") {
+                            return Err("error dumpsys".to_string());
+                        }
                     }
-                }
-                Ok("".to_string())
-            }));
+                    Ok("".to_string())
+                },
+            ));
         });
 
         let output = check_mdm_status("dummy_serial");
@@ -573,7 +578,6 @@ mod tests {
         assert!(output.contains("Setup wizard: error (adb connection failed)"));
         assert!(output.contains("Google account: error (adb connection failed)"));
     }
-
 
     #[test]
     fn test_bypass_frp_adb_bypass() {

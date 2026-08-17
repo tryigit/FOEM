@@ -1,6 +1,5 @@
 /// Device detection and diagnostic utilities via ADB and Fastboot.
 use std::collections::BTreeMap;
-use std::fmt::Write;
 
 use crate::exec::{self, COMMAND_TIMEOUT};
 
@@ -23,9 +22,8 @@ impl DeviceDiagnostics {
     fn run_cmd(program: &str, args: &[&str]) -> Result<String, String> {
         #[cfg(test)]
         {
-            let mocked = tests::MOCK_RUN_CMD.with(|mock| {
-                mock.borrow().as_ref().map(|f| f(program, args))
-            });
+            let mocked =
+                tests::MOCK_RUN_CMD.with(|mock| mock.borrow().as_ref().map(|f| f(program, args)));
             if let Some(res) = mocked {
                 return res;
             }
@@ -80,9 +78,11 @@ impl DeviceDiagnostics {
             ("build_fingerprint", "ro.build.fingerprint"),
         ];
 
-        let mut script = String::new();
+        let mut script = String::with_capacity(512);
         for (_, prop) in props {
-            let _ = writeln!(script, "getprop {} 2>&1; echo B_MARKER_$?;", prop);
+            script.push_str("getprop ");
+            script.push_str(prop);
+            script.push_str(" 2>&1; echo B_MARKER_$?\n");
         }
 
         match Self::run_cmd("adb", &["-s", serial, "shell", "sh", "-c", &script]) {
@@ -129,7 +129,6 @@ mod tests {
         pub static MOCK_RUN_CMD: RefCell<Option<Box<dyn Fn(&str, &[&str]) -> Result<String, String>>>> = RefCell::new(None);
     }
 
-
     struct MockGuard;
     impl Drop for MockGuard {
         fn drop(&mut self) {
@@ -174,7 +173,6 @@ mod tests {
         let diagnostics = DeviceDiagnostics::new();
         assert!(diagnostics.device_serial.is_none());
     }
-
 
     #[test]
     fn test_connected_device_none() {
@@ -412,5 +410,4 @@ dev2    device
 
         assert!(!DeviceDiagnostics::is_fastboot_available());
     }
-
 }

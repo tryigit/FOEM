@@ -1,13 +1,6 @@
-use std::fmt::Write;
-/// ADB utility tools: shell, logcat, file operations, reboot,
-/// backup/restore, APK management, bloatware removal, screenshots.
-use std::fmt::Write;
 use super::{adb, adb_shell};
-use std::fmt::Write;
 use crate::exec::{normalize_local_path, normalize_remote_path};
 use std::fmt::Write;
-
-// -- ADB Shell --
 
 /// Execute an arbitrary ADB shell command.
 pub fn execute_shell(serial: &str, command: &str) -> String {
@@ -662,7 +655,6 @@ adb output"
             "CPU Info:\n  Processor\t: ARMv7 Processor rev 4 (v7l)\n  BogoMIPS\t: 38.40\n"
         );
     }
-
 
     #[test]
     fn test_get_cpu_info_success_long() {

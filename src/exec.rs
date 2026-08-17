@@ -292,5 +292,4 @@ mod tests {
         assert_eq!(normalize_remote_path(" /"), " ");
         assert_eq!(normalize_remote_path("/ "), "/ ");
     }
-
 }
