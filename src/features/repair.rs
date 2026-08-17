@@ -746,7 +746,7 @@ pub fn restore_efs(serial: &str) -> String {
 
 /// Backup NV data partitions (modemst1, modemst2, fsg).
 pub fn backup_nv_data(serial: &str) -> String {
-    let backup_dir = "/sdcard/FOEM/nv_backup";
+    let backup_dir = "/data/local/tmp/FOEM/nv_backup";
     let _ = adb_shell(serial, &["mkdir", "-p", backup_dir]);
     let partitions = ["modemst1", "modemst2", "fsg", "fsc"];
     let mut output = String::from("NV Data Backup:\n");
@@ -787,7 +787,7 @@ pub fn backup_nv_data(serial: &str) -> String {
 
 /// Restore NV data partitions from backup.
 pub fn restore_nv_data(serial: &str) -> String {
-    let backup_dir = "/sdcard/FOEM/nv_backup";
+    let backup_dir = "/data/local/tmp/FOEM/nv_backup";
     let partitions = ["modemst1", "modemst2", "fsg", "fsc"];
     let mut output = String::from("NV Data Restore:\n");
 
