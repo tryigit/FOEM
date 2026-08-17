@@ -318,7 +318,146 @@ pub fn install_kernelsu(serial: &str, path: &str) -> String {
 #[cfg(test)]
 mod tests {
     use crate::exec::MOCK_RUN_IMPL;
-    use crate::features::flash::erase_partition;
+    use crate::features::flash::{erase_partition, reboot_to};
+
+    #[test]
+    fn test_reboot_to_system_success() {
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args, _error_prefix| {
+                assert_eq!(program, "adb");
+                assert_eq!(args, &["-s", "12345", "reboot"]);
+                Ok("".to_string())
+            }));
+        });
+
+        let result = reboot_to("12345", "system");
+        assert_eq!(result, "Reboot to 'system': OK");
+
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+    }
+
+    #[test]
+    fn test_reboot_to_recovery_success() {
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args, _error_prefix| {
+                assert_eq!(program, "adb");
+                assert_eq!(args, &["-s", "12345", "reboot", "recovery"]);
+                Ok("".to_string())
+            }));
+        });
+
+        let result = reboot_to("12345", "recovery");
+        assert_eq!(result, "Reboot to 'recovery': OK");
+
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+    }
+
+    #[test]
+    fn test_reboot_to_bootloader_success() {
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args, _error_prefix| {
+                assert_eq!(program, "adb");
+                assert_eq!(args, &["-s", "12345", "reboot", "bootloader"]);
+                Ok("".to_string())
+            }));
+        });
+
+        let result = reboot_to("12345", "bootloader");
+        assert_eq!(result, "Reboot to 'bootloader': OK");
+
+        let result = reboot_to("12345", "fastboot");
+        assert_eq!(result, "Reboot to 'fastboot': OK");
+
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+    }
+
+    #[test]
+    fn test_reboot_to_edl_success() {
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args, _error_prefix| {
+                assert_eq!(program, "adb");
+                assert_eq!(args, &["-s", "12345", "reboot", "edl"]);
+                Ok("".to_string())
+            }));
+        });
+
+        let result = reboot_to("12345", "edl");
+        assert_eq!(result, "Reboot to 'edl': OK");
+
+        let result = reboot_to("12345", "emergency");
+        assert_eq!(result, "Reboot to 'emergency': OK");
+
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+    }
+
+    #[test]
+    fn test_reboot_to_download_success() {
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args, _error_prefix| {
+                assert_eq!(program, "adb");
+                // adb_shell appends "shell" before the command
+                assert_eq!(args, &["-s", "12345", "shell", "reboot", "download"]);
+                Ok("rebooting...".to_string())
+            }));
+        });
+
+        let result = reboot_to("12345", "download");
+        assert_eq!(result, "Reboot to 'download': rebooting...");
+
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+    }
+
+    #[test]
+    fn test_reboot_to_sideload_success() {
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args, _error_prefix| {
+                assert_eq!(program, "adb");
+                assert_eq!(args, &["-s", "12345", "reboot", "sideload"]);
+                Ok("".to_string())
+            }));
+        });
+
+        let result = reboot_to("12345", "sideload");
+        assert_eq!(result, "Reboot to 'sideload': OK");
+
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+    }
+
+    #[test]
+    fn test_reboot_to_unknown_mode() {
+        let result = reboot_to("12345", "unknown_mode");
+        assert_eq!(result, "Reboot to 'unknown_mode' failed: Unknown reboot mode: unknown_mode");
+    }
+
+    #[test]
+    fn test_reboot_to_adb_failure() {
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = Some(Box::new(|program, args, _error_prefix| {
+                assert_eq!(program, "adb");
+                assert_eq!(args, &["-s", "12345", "reboot"]);
+                Err("device not found".to_string())
+            }));
+        });
+
+        let result = reboot_to("12345", "system");
+        assert_eq!(result, "Reboot to 'system' failed: device not found");
+
+        MOCK_RUN_IMPL.with(|mock| {
+            *mock.borrow_mut() = None;
+        });
+    }
 
     #[test]
     fn test_erase_partition_success() {
